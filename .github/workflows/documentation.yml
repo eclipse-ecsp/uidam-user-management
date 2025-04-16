@@ -1,0 +1,21 @@
+name: Documentation
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [opened, synchronize]
+
+jobs:
+  call-documentation-reusable-workflow:
+    uses: eclipse-ecsp/vehicle-profile/.github/workflows/documentation-reusable.yml@main
+    with:
+      gh-actor: ${{ github.actor }}
+
+    secrets: inherit
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
+
+      

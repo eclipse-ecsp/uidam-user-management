@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="scope-insert" author="Akshay Mathur">
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="SelfManage"/>
+            <column name="DESCRIPTION" value="Grants permissions to manage user owned data"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="ViewUsers"/>
+            <column name="DESCRIPTION" value="Grants permission to view users"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="ManageUsers"/>
+            <column name="DESCRIPTION" value="Grants permission to manage users"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="ManageUserRolesAndPermissions"/>
+            <column name="DESCRIPTION" value="Grants permission to manage roles and permissions"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="RevokeToken"/>
+            <column name="DESCRIPTION" value="Grants revoke token permissions"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="ManageAccounts"/>
+            <column name="DESCRIPTION" value="Grants permission to create accounts"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="ViewAccounts"/>
+            <column name="DESCRIPTION" value="Grants permission to view accounts"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="UIDAMSystem"/>
+            <column name="DESCRIPTION" value="Grants admin permission"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="IgniteSystem"/>
+            <column name="DESCRIPTION" value="Grants admin permission"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="scope">
+            <column name="SCOPE_NAME" value="OAuth2ClientMgmt"/>
+            <column name="DESCRIPTION" value="Grants permission to manage clients"/>
+            <column name="IS_ADMINISTRATIVE" value="true"/>
+            <column name="IS_PREDEFINED" value="true"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+    </changeSet>
+    
+    <changeSet id="role-insert" author="Akshay Mathur">
+        <insert tableName="role">
+
+            <column name="ROLE_NAME" value="VEHICLE_OWNER"/>
+            <column name="DESCRIPTION" value="vehicle owner description"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+            <column name="IS_DELETED" value="false"/>
+        </insert>
+        <insert tableName="role">
+
+            <column name="ROLE_NAME" value="BUSINESS_ADMIN"/>
+            <column name="DESCRIPTION" value="business admin description"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+            <column name="IS_DELETED" value="false"/>
+        </insert>
+        <insert tableName="role">
+
+            <column name="ROLE_NAME" value="TENANT_ADMIN"/>
+            <column name="DESCRIPTION" value="Tenant Admin for account management"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+            <column name="IS_DELETED" value="false"/>
+        </insert>
+    </changeSet>
+    
+    <changeSet id="role-scope-mapping-insert" author="Akshay Mathur">
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'VEHICLE_OWNER')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'SelfManage')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'SelfManage')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'ViewUsers')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'ManageUsers')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID"
+                    valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'ManageUserRolesAndPermissions')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'RevokeToken')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'UIDAMSystem')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'IgniteSystem')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'TENANT_ADMIN')"/>
+            <column name="SCOPE_ID"
+                    valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'ManageAccounts')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="role_scope_mapping">
+            <column name="ROLE_ID" valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'TENANT_ADMIN')"/>
+            <column name="SCOPE_ID" valueComputed="(SELECT id FROM ${schema}.scope WHERE scope_name = 'ViewAccounts')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+    </changeSet>
+
+
+    <changeSet id="client-insert" author="Akshay Mathur">
+        <insert tableName="client_details">
+            <column name="CLIENT_ID" value="test-portal"/>
+            <column name="TENANT_ID" value="default_tenant"/>
+            <column name="CLIENT_NAME" value="test-portal"/>
+            <column name="CLIENT_SECRET"
+                    value="${initial.data.client.secret}"/>
+            <column name="AUTHORIZED_GRANT_TYPES" value="client_credentials,authorization_code"/>
+            <column name="REDIRECT_URI" value="https://oauth.pstmn.io/v1/callback"/>
+            <column name="SCOPES"
+                    value="UIDAMSystem,SelfManage,OAuth2ClientMgmt,ViewUsers,ManageUsers,ManageUserRolesAndPermissions"/>
+            <column name="CLIENT_AUTHENTICATION_METHODS" value="client_secret_basic,client_secret_post"/>
+            <column name="ACCESS_TOKEN_VALIDITY" value="3600"/>
+            <column name="REFRESH_TOKEN_VALIDITY" value="86400"/>
+            <column name="AUTHORIZATION_CODE_VALIDITY" value="300"/>
+            <column name="CLIENT_SECRET_EXPIRES_AT" value="null"/>
+            <column name="REQUIRE_AUTHORIZATION_CONSENT" value="false"/>
+            <column name="ADDITIONAL_INFORMATION" value='{"test": "test1"}'/>
+            <column name="STATUS" value="approved"/>
+            <column name="APPROVED_BY" value="admin"/>
+            <column name="APPROVED_DATE" value="${now}"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+        </insert>
+        <insert tableName="client_details">
+            <column name="CLIENT_ID" value="device-mgmt"/>
+            <column name="TENANT_ID" value="default_tenant"/>
+            <column name="CLIENT_NAME" value="device-mgmt"/>
+            <column name="CLIENT_SECRET"
+                    value="${initial.data.client.secret}"/>
+            <column name="AUTHORIZED_GRANT_TYPES" value="client_credentials,authorization_code"/>
+            <column name="REDIRECT_URI" value="https://oauth.pstmn.io/v1/callback"/>
+            <column name="SCOPES" value="UIDAMSystem,SelfManage,OAuth2ClientMgmt"/>
+            <column name="CLIENT_AUTHENTICATION_METHODS" value="client_secret_basic,client_secret_post"/>
+            <column name="ACCESS_TOKEN_VALIDITY" value="3600"/>
+            <column name="REFRESH_TOKEN_VALIDITY" value="86400"/>
+            <column name="AUTHORIZATION_CODE_VALIDITY" value="300"/>
+            <column name="CLIENT_SECRET_EXPIRES_AT" value="null"/>
+            <column name="REQUIRE_AUTHORIZATION_CONSENT" value="false"/>
+            <column name="ADDITIONAL_INFORMATION" value='{"test": "test1"}'/>
+            <column name="STATUS" value="approved"/>
+            <column name="APPROVED_BY" value="admin"/>
+            <column name="APPROVED_DATE" value="${now}"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+        </insert>
+        <insert tableName="client_details">
+            <column name="CLIENT_ID" value="token-mgmt"/>
+            <column name="TENANT_ID" value="default_tenant"/>
+            <column name="CLIENT_NAME" value="token-mgmt"/>
+            <column name="CLIENT_SECRET"
+                    value="${initial.data.client.secret}"/>
+            <column name="AUTHORIZED_GRANT_TYPES" value="client_credentials"/>
+            <column name="REDIRECT_URI" value="https://oauth.pstmn.io/v1/callback"/>
+            <column name="SCOPES" value="RevokeToken"/>
+            <column name="CLIENT_AUTHENTICATION_METHODS" value="client_secret_basic,client_secret_post"/>
+            <column name="ACCESS_TOKEN_VALIDITY" value="3600"/>
+            <column name="REFRESH_TOKEN_VALIDITY" value="86400"/>
+            <column name="AUTHORIZATION_CODE_VALIDITY" value="300"/>
+            <column name="CLIENT_SECRET_EXPIRES_AT" value="null"/>
+            <column name="REQUIRE_AUTHORIZATION_CONSENT" value="false"/>
+            <column name="ADDITIONAL_INFORMATION" value='{"test": "test1"}'/>
+            <column name="STATUS" value="approved"/>
+            <column name="APPROVED_BY" value="admin"/>
+            <column name="APPROVED_DATE" value="${now}"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+        </insert>
+        <insert tableName="client_details">
+            <column name="CLIENT_ID" value="federated-user-client"/>
+            <column name="TENANT_ID" value="default_tenant"/>
+            <column name="CLIENT_NAME" value="federated-user-client"/>
+            <column name="CLIENT_SECRET"
+                    value="${initial.data.client.secret}"/>
+            <column name="AUTHORIZED_GRANT_TYPES" value="client_credentials"/>
+            <column name="REDIRECT_URI" value="https://oauth.pstmn.io/v1/callback"/>
+            <column name="SCOPES"
+                    value="ManageUsers"/>
+            <column name="CLIENT_AUTHENTICATION_METHODS" value="client_secret_basic,client_secret_post"/>
+            <column name="ACCESS_TOKEN_VALIDITY" value="3600"/>
+            <column name="REFRESH_TOKEN_VALIDITY" value="86400"/>
+            <column name="AUTHORIZATION_CODE_VALIDITY" value="300"/>
+            <column name="CLIENT_SECRET_EXPIRES_AT" value="null"/>
+            <column name="REQUIRE_AUTHORIZATION_CONSENT" value="false"/>
+            <column name="ADDITIONAL_INFORMATION" value='{"test": "test1"}'/>
+            <column name="STATUS" value="approved"/>
+            <column name="APPROVED_BY" value="admin"/>
+            <column name="APPROVED_DATE" value="${now}"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="account-insert" author="Venkatakumar puvvada">
+        <insert tableName="account">
+            <column name="ACCOUNT_NAME" value="userdefaultaccount"/>
+            <column name="DEFAULT_ROLES" value="null"/>
+            <column name="PARENT_ID" value="null"/>
+            <column name="STATUS" value="ACTIVE"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="account">
+            <column name="ACCOUNT_NAME" value="clientdefaultaccount"/>
+            <column name="DEFAULT_ROLES" value="null"/>
+            <column name="PARENT_ID" value="null"/>
+            <column name="STATUS" value="ACTIVE"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="user-insert" author="Akshay Mathur">
+        <insert tableName="user">
+            <column name="USER_NAME" value="admin"/>
+            <column name="TENANT_ID" value="null"/>
+            <column name="FIRST_NAME" value="Admin"/>
+            <column name="LAST_NAME" value="null"/>
+            <column name="USER_PASSWORD" value="${initial.data.user.pwd}"/>
+            <column name="PASSWORD_SALT" value="${initial.data.user.salt}"/>
+            <column name="PWD_REQUIRE_CHANGE" value="null"/>
+            <column name="IDENTITY_PROVIDER_NAME" value="null"/>
+            <column name="IS_EXTERNAL_USER" value="false"/>
+            <column name="EMAIL" value="admin@domain.com"/>
+            <column name="ENABLED" value="f"/>
+            <column name="ACCOUNT_NO_LOCKED" value="false"/>
+            <column name="ACCOUNT_NO_EXPIRED" value="false"/>
+            <column name="PWD_CHANGEDTIME" value="${now}"/>
+            <column name="PHONE_NO" value="null"/>
+            <column name="LOCALE" value="null"/>
+            <column name="DEVICE_IDS" value="null"/>
+            <column name="NOTIFICATION_CONSENT" value="null"/>
+            <column name="STATUS" value="ACTIVE"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="null"/>
+            <column name="BIRTH_DATE" value="null"/>
+            <column name="GENDER" value="MALE"/>
+        </insert>
+        <insert tableName="user">
+            <column name="USER_NAME" value="TenantAdmin"/>
+            <column name="TENANT_ID" value="null"/>
+            <column name="FIRST_NAME" value="TenantAdmin"/>
+            <column name="LAST_NAME" value="null"/>
+            <column name="USER_PASSWORD" value="${initial.data.user.pwd}"/>
+            <column name="PASSWORD_SALT" value="${initial.data.user.salt}"/>
+            <column name="PWD_REQUIRE_CHANGE" value="null"/>
+            <column name="IDENTITY_PROVIDER_NAME" value="null"/>
+            <column name="IS_EXTERNAL_USER" value="false"/><!-- In DB script its as f-->
+            <column name="EMAIL" value="tenantadmin@domain.com"/>
+            <column name="ENABLED" value="f"/>
+            <column name="ACCOUNT_NO_LOCKED" value="false"/><!-- In DB script its as f-->
+            <column name="ACCOUNT_NO_EXPIRED" value="false"/><!-- In DB script its as f-->
+            <column name="PWD_CHANGEDTIME" value="${now}"/>
+            <column name="PHONE_NO" value="null"/>
+            <column name="LOCALE" value="null"/>
+            <column name="DEVICE_IDS" value="null"/>
+            <column name="NOTIFICATION_CONSENT" value="null"/>
+            <column name="STATUS" value="ACTIVE"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="null"/>
+            <column name="BIRTH_DATE" value="null"/>
+            <column name="GENDER" value="MALE"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="user-address-insert" author="Akshay Mathur">
+        <insert tableName="user_address">
+            <column name="COUNTRY" value="TH"/>
+            <column name="CITY" value="New"/>
+            <column name="STATE" value="null"/>
+            <column name="ADDRESS1" value="null"/>
+            <column name="ADDRESS2" value="null"/>
+            <column name="TIME_ZONE" value="null"/>
+            <column name="USER_ID" valueComputed="(SELECT id FROM ${schema}.user WHERE USER_NAME = 'admin')"/>
+            <column name="POSTAL_CODE" value="null"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="user_address">
+            <column name="COUNTRY" value="TH"/>
+            <column name="CITY" value="New"/>
+            <column name="STATE" value="null"/>
+            <column name="ADDRESS1" value="null"/>
+            <column name="ADDRESS2" value="null"/>
+            <column name="TIME_ZONE" value="null"/>
+            <column name="USER_ID"
+                    valueComputed="(SELECT id FROM ${schema}.user WHERE USER_NAME = 'TenantAdmin')"/>
+            <column name="POSTAL_CODE" value="null"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="user-role-mapping-insert" author="Akshay Mathur">
+        <insert tableName="user_account_role_mapping">
+            <column name="USER_ID" valueComputed="(SELECT id FROM ${schema}.user WHERE USER_NAME = 'admin')"/>
+            <column name="ACCOUNT_ID"
+                    valueComputed="(SELECT id FROM ${schema}.account WHERE ACCOUNT_NAME = 'userdefaultaccount')"/>
+            <column name="ROLE_ID"
+                    valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'BUSINESS_ADMIN')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+        <insert tableName="user_account_role_mapping">
+            <column name="USER_ID"
+                    valueComputed="(SELECT id FROM ${schema}.user WHERE USER_NAME = 'TenantAdmin')"/>
+            <column name="ACCOUNT_ID"
+                    valueComputed="(SELECT id FROM ${schema}.account WHERE ACCOUNT_NAME = 'clientdefaultaccount')"/>
+            <column name="ROLE_ID"
+                    valueComputed="(SELECT id FROM ${schema}.role WHERE role_name = 'TENANT_ADMIN')"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="null"/>
+            <column name="UPDATE_DATE" value="null"/>
+        </insert>
+    </changeSet>
+
+
+	<!-- Insert for Length policy -->
+	<changeSet id="insert_password_policies" author="Venkatakumar Puvvada">
+		<insert tableName="password_policies">
+			<column name="NAME" value="Length" />
+			<column name="KEY" value="size" />
+			<column name="DESCRIPTION"
+				value="Password must meet minimum and maximum length requirements." />
+			<column name="VALIDATION_RULES">
+		        <![CDATA[{"minLength": 8, "maxLength": 20}]]>
+		    </column>
+			<column name="PRIORITY" value="1" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>
+		<insert tableName="password_policies">
+			<column name="NAME" value="Special Characters" />
+			<column name="KEY" value="specialChars" />
+			<column name="DESCRIPTION"
+				value="Password must contain at least a minimum number of special characters and exclude certain characters." />
+			<column name="VALIDATION_RULES">
+                <![CDATA[
+                {
+                    "minSpecialChars": 1, 
+                    "excludedSpecialChars": "[]{}", 
+                    "allowedSpecialChars": "!@#$%^&*()_-+=<>?"
+                }
+                ]]>
+            </column>
+			<column name="PRIORITY" value="2" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>
+		<insert tableName="password_policies">
+			<column name="NAME" value="Complexity" />
+			<column name="KEY" value="complexity" />
+			<column name="DESCRIPTION"
+				value="Password must include a combination of uppercase, lowercase, numbers, and special characters." />
+			<column name="VALIDATION_RULES">
+		        <![CDATA[{"minUppercase": 1, "minLowercase": 1, "minDigits": 1}]]>
+		    </column>
+			<column name="PRIORITY" value="3" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>
+		<insert tableName="password_policies">
+			<column name="NAME" value="Expiration" />
+			<column name="KEY" value="expiration" />
+			<column name="DESCRIPTION"
+				value="Password expiration and history management." />
+			<column name="VALIDATION_RULES">
+		        <![CDATA[{"passwordExpiryDays": 90, "passwordHistoryCount": 5}]]>
+		    </column>
+			<column name="PRIORITY" value="4" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>
+		<insert tableName="password_policies">
+			<column name="NAME" value="Username Sequence Exclusion" />
+			<column name="KEY" value="usernameSequenceExclusion" />
+			<column name="DESCRIPTION"
+				value="Password must not contain any sequence from the user's username." />
+			<column name="VALIDATION_RULES">
+		        <![CDATA[{"noOfCharsSeqinUserField": 3}]]>
+		    </column>
+			<column name="PRIORITY" value="5" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>
+	</changeSet>
+</databaseChangeLog>

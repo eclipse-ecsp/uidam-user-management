@@ -1,0 +1,38 @@
+[
+  {
+    "notificationId": "TEST_NOTIFICATION_1",
+    "enabled": true,
+    "email": {
+      "enabled": true,
+      "templates": [
+        {
+          "locale": "en_US",
+          "default": "true",
+          "subject": "Hello!, {{username}}",
+          "body": "Body with placeholders, {{username}}"
+        },
+        {
+          "locale": "en_IN",
+          "subject": "Namaste!, {{username}}",
+          "body": "Body with placeholders, {{username}}"
+        }
+      ]
+    },
+    "sms": {
+      "enabled": true,
+      "templates": [
+        {
+          "locale": "en_US",
+          "default": "true",
+          "body": "Hello! {{username}}",
+          "senderId": "NOTICE"
+        },
+        {
+          "locale": "en_IN",
+          "body": "Namaste! ${{username}}",
+          "senderId": "NOTICE"
+        }
+      ]
+    }
+  }
+]
