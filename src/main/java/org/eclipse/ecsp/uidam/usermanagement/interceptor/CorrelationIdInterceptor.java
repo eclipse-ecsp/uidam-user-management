@@ -37,7 +37,6 @@ public class CorrelationIdInterceptor implements AsyncHandlerInterceptor {
      * @param response current HTTP response
      * @param handler chosen handler to execute, for type and/or instance evaluation
      * @return true if correlation id present.
-     * @throws Exception throw exception if correlation id is not present.
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -57,7 +56,6 @@ public class CorrelationIdInterceptor implements AsyncHandlerInterceptor {
      *                execution, for type and/or instance examination
      * @param ex any exception thrown on handler execution, if any; this does not
      *           include exceptions that have been handled through an exception resolver
-     * @throws Exception throws exception.
      */
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)

@@ -286,7 +286,7 @@ public class UsersServiceImpl implements UsersService {
     private RolesService rolesService;
     @Autowired
     private RolesRepository rolesRepository;
-    @Setter(onMethod_ = { @Autowired })
+    @Autowired
     ClientRegistration clientRegistrationService;
     private CloudProfilesRepository cloudProfilesRepository;
     private EmailVerificationRepository emailVerificationRepository;

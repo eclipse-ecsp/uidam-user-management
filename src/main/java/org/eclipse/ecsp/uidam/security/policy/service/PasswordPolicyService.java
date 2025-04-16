@@ -188,7 +188,6 @@ public class PasswordPolicyService {
      * Applies a JSON Patch operation to update a password policy.
      *
      * @param patch The JSON Patch containing update operations.
-     * @param key The key of the policy to update.
      * @param loginUserId The ID of the user performing the update.
      * @return The updated password policy.
      */
