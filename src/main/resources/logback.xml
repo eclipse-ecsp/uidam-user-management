@@ -1,0 +1,169 @@
+<!--
+  ~ Copyright (c) 2023 - 2024 Harman International
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  ~
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~
+  -->
+
+<configuration scan="true" scanPeriod="60 seconds">
+    <springProperty scope="context" name="GRAYLOG_ENABLED" source="APP_GRAYLOG_ENABLED"/>
+    <springProperty scope="context" name="GRAYLOG_HOST" source="APP_GRAYLOG_HOST"/>
+    <springProperty scope="context" name="GRAYLOG_PORT" source="APP_GRAYLOG_PORT"/>
+    <springProperty scope="context" name="NEVER_BLOCK_FOR_GRAYLOG" source="APP_NEVER_BLOCK_FOR_GRAYLOG"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="APP_LOG_LEVEL"/>
+    <springProperty scope="context" name="IGNITE_LOG_LEVEL" source="APP_IGNITE_LOG_LEVEL"/>
+    <springProperty scope="context" name="SVC_LOG_LEVEL" source="APP_SVC_LOG_LEVEL"/>
+    <springProperty scope="context" name="STORAGE_LOG_LEVEL" source="APP_STORAGE_LOG_LEVEL"/>
+    <springProperty scope="context" name="SPRING_LOG_LEVEL" source="APP_SPRING_LOG_LEVEL"/>
+    <springProperty scope="context" name="LOG_FOLDER" source="APP_LOG_FOLDER"/>
+    <springProperty scope="context" name="REGISTRY_COMMON_LOG_LEVEL" source="APP_REGISTRY_COMMON_LOG_LEVEL"/>
+
+    <conversionRule conversionWord="crlf"
+                    converterClass="org.owasp.security.logging.mask.CRLFConverter"/>
+    <property name="PATTERN_PROPERTY" value="(Bearer ([a-zA-Z0-9_=]+)\.([a-zA-Z0-9_=]+)\.([a-zA-Z0-9_\-\+\/=]*))|(client_secret=\[(.*?)\])|(?:password=\\[(.*?)])|(?:&amp;password=(.*?)&amp;)|(?:password=(.*?)[\s,\]\)])|\&quot;password\&quot;:\&quot;(.*?)\&quot;|(?:email[s]?=\\[(.*?)])|(?:&amp;email[s]?=(.*?)&amp;)|(?:email[s]?=(.*?)[\s,\]\)])|\&quot;email[s]?\&quot;:\&quot;(.*?)\&quot;"/>
+    <property name="MASK" value="****" />
+
+    <springProperty scope="context" name="GRAYLOG_ENABLED"
+                    source="graylog.enabled"/>
+
+    <appender name="GELF"
+              class="de.siegmar.logbackgelf.GelfTcpAppender">
+        <graylogHost>${GRAYLOG_HOST}</graylogHost>
+        <graylogPort>${GRAYLOG_PORT}</graylogPort>
+        <connectTimeout>15000</connectTimeout>
+        <reconnectInterval>300</reconnectInterval>
+        <maxRetries>10</maxRetries>
+        <retryDelay>300</retryDelay>
+        <poolSize>2</poolSize>
+        <poolMaxWaitTime>5000</poolMaxWaitTime>
+        <encoder class="de.siegmar.logbackgelf.GelfEncoder">
+            <includeRawMessage>false</includeRawMessage>
+            <includeMarker>true</includeMarker>
+            <includeMdcData>true</includeMdcData>
+            <includeCallerData>false</includeCallerData>
+            <includeRootCauseData>false</includeRootCauseData>
+            <includeLevelName>false</includeLevelName>
+            <fullPatternLayout
+                    class="ch.qos.logback.classic.PatternLayout">
+                <pattern>NA</pattern>
+            </fullPatternLayout>
+            <shortPatternLayout
+                    class="org.eclipse.ecsp.uidam.usermanagement.config.MaskingPatternLayout">
+                <patternsProperty>${PATTERN_PROPERTY}</patternsProperty>
+                <mask>${MASK}</mask>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
+            </shortPatternLayout>
+            <staticField>app:uidam-user-management</staticField>
+            <staticField>ms:uidam-user-management</staticField>
+            <staticField>msCtype:${msCtype}</staticField>
+            <staticField>node_name:${NODE_NAME}</staticField>
+            <staticField>cName:${HOSTNAME}</staticField>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC-GELF"
+              class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>100000</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>${NEVER_BLOCK_FOR_GRAYLOG:-TRUE}</neverBlock>
+        <appender-ref ref="GELF"/>
+    </appender>
+
+    <appender name="STDOUT"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <encoder
+                class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout
+                    class="org.eclipse.ecsp.uidam.usermanagement.config.MaskingPatternLayout">
+                <patternsProperty>${PATTERN_PROPERTY}</patternsProperty>
+                <mask>${MASK}</mask>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC-STDOUT"
+              class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1000000</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="STDOUT"/>
+    </appender>
+
+    <appender name="FILE"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FOLDER}/uidam-user-management.log</file>
+        <append>true</append>
+        <rollingPolicy
+                class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FOLDER}/uidam-user-management.%d{yyyy-MM-dd}.log
+            </fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder
+                class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout
+                    class="org.eclipse.ecsp.uidam.usermanagement.config.MaskingPatternLayout">
+                <patternsProperty>${PATTERN_PROPERTY}</patternsProperty>
+                <mask>${MASK}</mask>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL:-INFO}">
+       <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </root>
+
+    <logger name="org.eclipse.ecsp" level="${IGNITE_LOG_LEVEL:-ERROR}"
+            additivity="false">
+        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </logger>
+    <logger name="org.eclipse.ecsp.uidam"
+            level="${SVC_LOG_LEVEL:-INFO}" additivity="false">
+        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </logger>
+    <logger name="org.eclipse.ecsp.ignite.sql"
+            level="${STORAGE_LOG_LEVEL:-ERROR}" additivity="false">
+        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </logger>
+    <logger name="org.springframework"
+            level="${SPRING_LOG_LEVEL:-ERROR}" additivity="false">
+        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </logger>
+    <logger name="com.harman.ignite.register" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
+        <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
+    </logger>
+    <logger name="org.eclipse.ecsp.security" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
+        <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
+    </logger>
+    <logger name="com.harman.ignite.config" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
+        <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
+    </logger>
+</configuration>

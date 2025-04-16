@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!-- String definitions -->
+    <property name="STRING_TINY" value="VARCHAR(64)" dbms="postgresql"/>
+    <property name="STRING_SMALL" value="VARCHAR(256)" dbms="postgresql"/>
+    <property name="STRING_MEDIUM" value="VARCHAR(512)" dbms="postgresql"/>
+    <property name="STRING_BIG" value="VARCHAR(1024)" dbms="postgresql"/>
+    <property name="STRING_VERY_BIG" value="VARCHAR(2048)" dbms="postgresql"/>
+    <property name="STRING_HUGE" value="VARCHAR(4192)" dbms="postgresql"/>
+    <property name="STRING_VERY_HUGE" value="VARCHAR(10000)" dbms="postgresql"/>
+    <property name="BOOLEAN" value="boolean" dbms="postgresql"/>
+    <property name="CLOB" value="text" dbms="postgresql"/>
+    <property name="BLOB" value="oid" dbms="postgresql"/>
+    <property name="BINARY_RAW" value="BYTEA" dbms="postgresql"/>
+    <property name="UUID_TYPE" value="uuid" dbms="postgresql"/>
+
+    <!-- Numeric definitions -->
+    <property name="BIG_INTEGER" value="NUMERIC(38)" dbms="postgresql"/>
+    <property name="INTEGER" value="NUMBER(10,0)" dbms="postgresql"/>
+    <property name="INTEGER_ARRAY" value="integer[]" dbms="postgresql"/>
+    <property name="BIG_INTEGER_ARRAY" value="numeric[]" dbms="postgresql"/>
+
+    <!-- Date Time -->
+    <property name="DATE_TIME" value="TIMESTAMP" dbms="postgresql"/>
+    <property name="DATE_TIME_TZ" value="TIMESTAMPTZ" dbms="postgresql"/>
+
+    <!-- Functions -->
+    <property name="SYSTEM_DATETIME" value="CURRENT_TIMESTAMP" dbms="postgresql"/>
+    <property name="UUID_FUNCTION" value="get_uuid()" dbms="postgresql"/>
+
+    <property name="now" value="now()" dbms="postgresql"/>
+
+</databaseChangeLog>

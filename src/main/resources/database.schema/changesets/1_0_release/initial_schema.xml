@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="install-uuid-user" author="Akshay Mathur">
+        <sql>
+            CREATE
+            EXTENSION IF NOT EXISTS "uuid-ossp";
+        </sql>
+    </changeSet>
+    <changeSet id="create-uuid-v4-function" author="Aakanksha Tejwani">
+        <sql>
+            CREATE OR REPLACE FUNCTION ${schema}.uuid_generate_v4()
+            RETURNS uuid
+            LANGUAGE c
+            PARALLEL SAFE STRICT
+            AS '$libdir/uuid-ossp', $function$uuid_generate_v4$function$
+            ;
+        </sql>
+    </changeSet>
+    <changeSet id="create-uuid-function" author="Aakanksha Tejwani">
+        <createProcedure>
+            <![CDATA[
+            CREATE
+            OR REPLACE FUNCTION
+            ${schema}
+            .
+            get_uuid
+            (
+            )
+            RETURNS
+            numeric
+            LANGUAGE
+            'plpgsql'
+            COST
+            100
+            VOLATILE
+            PARALLEL
+            UNSAFE
+            AS
+            $BODY$
+            DECLARE
+            MAX_NUMERIC_VALUE NUMERIC(38) := 99999999999999999999999999999999999999;
+        ASCII_OF_0
+            int := 48;
+        ASCII_OF_9
+            int := 57;
+        ASCII_OF_A
+            int := 97;
+        source
+            VARCHAR(64);
+        dest
+            NUMERIC(38) := 0;
+        ch
+            int;
+        char_value
+            int;
+            BEGIN
+        source
+            := ${schema}.uuid_generate_v4();
+        source
+            := replace(source, '-', '');
+            for indx in 1..char_length(source) LOOP
+            ch := ascii(substr(source, indx, 1));
+            if
+            (ch >= ASCII_OF_0 AND ch <= ASCII_OF_9) then
+                char_value := ch - ASCII_OF_0;
+            else
+                char_value := ch - ASCII_OF_A + 10;
+            end if;
+            if
+            indx = 1 then
+                dest := char_value;
+            else
+                dest := dest * 10 + char_value;
+            end if;
+            while
+            dest > MAX_NUMERIC_VALUE LOOP
+                dest := floor(dest / 10);
+            end loop;
+            end loop;
+            return dest;
+            END;
+            $BODY$;
+            ]]>
+        </createProcedure>
+    </changeSet>
+
+
+    <changeSet id="scope" author="Akshay Mathur">
+        <createTable tableName="scope">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="SCOPE_NAME" type="${STRING_SMALL}">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="DESCRIPTION" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="IS_ADMINISTRATIVE" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="IS_PREDEFINED" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_SCOPE"
+                       tableName="scope"/>
+    </changeSet>
+
+    <changeSet id="role" author="Akshay Mathur">
+        <createTable tableName="role">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ROLE_NAME" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="DESCRIPTION" type="${STRING_MEDIUM}"/>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+            <column name="IS_DELETED" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey columnNames="ID"
+                       constraintName="PK_ROLE"
+                       tableName="role"/>
+        <createIndex indexName="ROLE_ROLE_NAME_IND" tableName="role">
+            <column name="ROLE_NAME"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="role-scope-mapping" author="Akshay Mathur">
+        <createTable tableName="role_scope_mapping">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ROLE_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_ROLE"
+                             referencedTableName="role"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="SCOPE_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_SCOPE"
+                             referencedTableName="scope"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_ROLE_SCOPE_MAPPING"
+                       tableName="role_scope_mapping"/>
+        <createIndex indexName="ROLE_SCOPE_MAPPING_ROLE_IND" tableName="role_scope_mapping">
+            <column name="ROLE_ID"/>
+        </createIndex>
+        <createIndex indexName="ROLE_SCOPE_MAPPING_SCOPE_IND" tableName="role_scope_mapping">
+            <column name="SCOPE_ID"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="client-details" author="Akshay Mathur">
+        <createTable tableName="client_details">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CLIENT_ID" type="${STRING_SMALL}">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="TENANT_ID" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CLIENT_NAME" type="${STRING_SMALL}"/>
+            <column name="CLIENT_SECRET" type="${STRING_SMALL}"/>
+            <column name="AUTHORIZED_GRANT_TYPES" type="${STRING_SMALL}"/>
+            <column name="REDIRECT_URI" type="${STRING_MEDIUM}"/>
+            <column name="SCOPES" type="${STRING_VERY_BIG}"/>
+            <column name="CLIENT_AUTHENTICATION_METHODS" type="${STRING_SMALL}"/>
+            <column name="ACCESS_TOKEN_VALIDITY" type="${INTEGER}"/>
+            <column name="REFRESH_TOKEN_VALIDITY" type="${INTEGER}"/>
+            <column name="AUTHORIZATION_CODE_VALIDITY" type="${INTEGER}"/>
+            <column name="CLIENT_SECRET_EXPIRES_AT" type="${DATE_TIME_TZ}"/>
+            <column name="REQUIRE_AUTHORIZATION_CONSENT" type="BOOLEAN"/>
+            <column name="ADDITIONAL_INFORMATION" type="JSONB"/>
+            <column name="STATUS" type="${STRING_TINY}"/>
+            <column name="APPROVED_BY" type="${STRING_SMALL}"/>
+            <column name="APPROVED_DATE" type="${DATE_TIME_TZ}"/>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_CLIENT_DETAILS"
+                       tableName="client_details"/>
+    </changeSet>
+
+
+    <changeSet id="user" author="Akshay Mathur">
+        <createTable tableName="user">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_NAME" type="${STRING_SMALL}">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="TENANT_ID" type="${BIG_INTEGER}"/>
+            <column name="FIRST_NAME" type="${STRING_SMALL}"/>
+            <column name="LAST_NAME" type="${STRING_SMALL}"/>
+            <column name="USER_PASSWORD" type="${STRING_SMALL}"/>
+            <column name="PASSWORD_SALT" type="${STRING_SMALL}"/>
+            <column name="PWD_REQUIRE_CHANGE" type="BOOLEAN" defaultValue="FALSE"/>
+            <column name="IDENTITY_PROVIDER_NAME" type="${STRING_SMALL}"/>
+            <column name="IS_EXTERNAL_USER" type="BOOLEAN" defaultValue="FALSE"/>
+            <column name="EMAIL" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ENABLED" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ACCOUNT_NO_LOCKED" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ACCOUNT_NO_EXPIRED" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="PWD_CHANGEDTIME" type="${DATE_TIME}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="PHONE_NO" type="${STRING_TINY}"/>
+            <column name="LOCALE" type="${STRING_TINY}"/>
+            <column name="DEVICE_IDS" type="JSONB"/>
+            <column name="NOTIFICATION_CONSENT" type="BOOLEAN"/>
+            <column name="STATUS" type="${STRING_TINY}"/>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+            <column name="BIRTH_DATE" type="DATE"/>
+            <column name="GENDER" type="${STRING_TINY}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER" tableName="user"/>
+    </changeSet>
+
+    <changeSet id="user-address" author="Lukasz Malek">
+        <createTable tableName="user_address">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="COUNTRY" type="${STRING_SMALL}"/>
+            <column name="CITY" type="${STRING_SMALL}"/>
+            <column name="STATE" type="${STRING_SMALL}"/>
+            <column name="ADDRESS1" type="${STRING_SMALL}"/>
+            <column name="ADDRESS2" type="${STRING_SMALL}"/>
+            <column name="TIME_ZONE" type="${STRING_TINY}"/>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="POSTAL_CODE" type="${STRING_TINY}"/>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID"
+                       constraintName="PK_USER_ADDRESS"
+                       tableName="user_address"/>
+        <createIndex indexName="USER_ADDRESS_USER_IND" tableName="user_address">
+            <column name="USER_ID"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="account" author="Venkatakumar puvvada">
+        <createTable tableName="account">
+            <column name="ID" type="${BIG_INTEGER}"
+                    defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ACCOUNT_NAME" type="${STRING_SMALL}">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="DEFAULT_ROLES" type="${BIG_INTEGER_ARRAY}"/>
+            <column name="PARENT_ID" type="${BIG_INTEGER}"/>
+            <column name="STATUS" type="${STRING_TINY}"/>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}"
+                    defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_ACCOUNT"
+                       tableName="account"/>
+        <createIndex indexName="ACCOUNT_ACCOUNT_NAME_IND" tableName="account">
+            <column name="ACCOUNT_NAME"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="user-account-role-mapping" author="Akshay Mathur">
+        <createTable tableName="user_account_role_mapping">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="ACCOUNT_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_ACCOUNT_ID"
+                             referencedTableName="account"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="ROLE_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID"
+                       constraintName="PK_USER_ACCOUNT_ROLE_MAPPING"
+                       tableName="user_account_role_mapping"/>
+        <addForeignKeyConstraint baseTableName="user_account_role_mapping" baseColumnNames="ROLE_ID"
+                                 constraintName="FK_ROLE_ID"
+                                 referencedTableName="role"
+                                 referencedColumnNames="ID"
+                                 onDelete="CASCADE"
+        />
+            <addUniqueConstraint tableName="user_account_role_mapping" columnNames="user_id,account_id,role_id" constraintName="user_account_role_mapping_unique"/>
+        <createIndex indexName="USER_ACCOUNT_ROLE_MAPPING_USER_IND" tableName="user_account_role_mapping">
+            <column name="USER_ID"/>
+        </createIndex>
+        <createIndex indexName="USER_ACCOUNT_ROLE_MAPPING_ACCOUNT_IND" tableName="user_account_role_mapping">
+            <column name="ACCOUNT_ID"/>
+        </createIndex>
+        <createIndex indexName="USER_ACCOUNT_ROLE_MAPPING_ROLE_IND" tableName="user_account_role_mapping">
+            <column name="ROLE_ID"/>
+        </createIndex>
+    </changeSet>
+
+
+    <changeSet id="cloud-profile" author="Akshay Mathur">
+        <createTable tableName="cloud_profile">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="CLOUD_PROFILE_NAME" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CLOUD_PROFILE_DATA" type="JSONB">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CLOUD_PROFILE_BUSINESS_KEY" type="${STRING_SMALL}">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="STATUS" type="${STRING_SMALL}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_CLOUD_PROFILE"
+                       tableName="cloud_profile"/>
+        <createIndex indexName="CLOUD_PROFILE_USER_IND" tableName="cloud_profile">
+            <column name="USER_ID"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="user-attributes" author="Akshay Mathur">
+        <createTable tableName="user_attributes">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="NAME" type="${STRING_SMALL}">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="MANDATORY" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="DYNAMIC_ATTRIBUTE" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="IS_UNIQUE" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="READ_ONLY" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="SEARCHABLE" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="TYPES" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="REGEX" type="${STRING_SMALL}"/>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATED_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATED_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER_ATTRIBUTES"
+                       tableName="user_attributes"/>
+    </changeSet>
+
+    <changeSet id="user-attribute-values" author="Akshay Mathur">
+        <createTable tableName="user_attribute_values">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="ATTRIBUTE_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ATTRIBUTES"
+                             referencedTableName="user_attributes"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="VALUE" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER_ATTRIBUTE_VALUES"
+                       tableName="user_attribute_values"/>
+        <addUniqueConstraint tableName="user_attribute_values" columnNames="USER_ID,ATTRIBUTE_ID" constraintName="user_attribute_mapping_unique"/>
+        <createIndex indexName="USER_ATTRIBUTE_VALUES_USER_IND" tableName="user_attribute_values">
+            <column name="USER_ID"/>
+        </createIndex>
+        <createIndex indexName="USER_ATTRIBUTE_VALUES_ATTRIBUTE_IND" tableName="user_attribute_values">
+            <column name="ATTRIBUTE_ID"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="user-recovery-secret-details" author="Akshay Mathur">
+        <createTable tableName="user_recovery_secret_details">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="RECOVERY_SECRET" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="RECOVERY_SECRET_STATUS" type="${STRING_TINY}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="SECRET_GENERATED_AT" type="${DATE_TIME}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER_RECOVERY_SECRET_DETAILS"
+                       tableName="user_recovery_secret_details"/>
+        <createIndex indexName="USER_RECOVERY_USER_IND" tableName="user_recovery_secret_details">
+            <column name="USER_ID"/>
+        </createIndex>
+        <createIndex indexName="USER_RECOVERY_REC_STATUS_IND" tableName="user_recovery_secret_details">
+            <column name="RECOVERY_SECRET_STATUS"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="user-verification" author="Akshay Mathur">
+        <createTable tableName="user_verification">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"
+                             unique="true"/>
+            </column>
+            <column name="TOKEN" type="${STRING_MEDIUM}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="IS_VERIFIED" type="BOOLEAN" defaultValue="FALSE"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER_VERIFICATION"
+                       tableName="user_verification"/>
+    </changeSet>
+
+    <changeSet id="user-event-details" author="Akshay Mathur">
+        <createTable tableName="user_event_details">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="EVENT_TYPE" type="${STRING_TINY}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="EVENT_STATUS" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="EVENT_MESSAGE" type="${STRING_MEDIUM}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="EVENT_GENERATED_AT" type="${DATE_TIME}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER_EVENT_DETAILS"
+                       tableName="user_event_details"/>
+        <createIndex indexName="USER_EVENT_USER_ID_IND" tableName="user_event_details">
+            <column name="USER_ID"/>
+        </createIndex>
+    </changeSet>
+    
+    <changeSet id="create_password_policies" author="Venkatakumar Puvvada">
+		<createTable tableName="password_policies">
+			<column name="ID" type="${BIG_INTEGER}"
+				defaultValueComputed="${UUID_FUNCTION}">
+				<constraints nullable="false" primaryKey="true" />
+			</column>
+			<column name="NAME" type="${STRING_SMALL}">
+				<constraints nullable="false" />
+			</column>
+			<column name="KEY" type="${STRING_SMALL}">
+				<constraints nullable="false" />
+			</column>
+			<column name="DESCRIPTION" type="${STRING_MEDIUM}">
+				<constraints nullable="false" />
+			</column>
+			<column name="VALIDATION_RULES" type="${CLOB}">
+				<constraints nullable="false" />
+			</column>
+			<column name="PRIORITY" type="${INTEGER}">
+				<constraints nullable="false" />
+			</column>
+			<column name="REQUIRED" type="${BOOLEAN}">
+				<constraints nullable="false" />
+			</column>
+			<column name="CREATED_BY" type="${STRING_SMALL}" />
+			<column name="CREATE_DATE" type="${DATE_TIME_TZ}"
+				defaultValueComputed="${SYSTEM_DATETIME}" />
+			<column name="UPDATED_BY" type="${STRING_SMALL}" />
+			<column name="UPDATE_DATE" type="${DATE_TIME_TZ}" />
+		</createTable>
+	</changeSet>
+</databaseChangeLog>
