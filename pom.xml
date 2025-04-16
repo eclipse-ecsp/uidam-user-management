@@ -39,6 +39,14 @@
             <url>http://www.apache.org/licenses/LICENSE-2.0</url>
         </license>
     </licenses>
+    
+    <developers>
+        <developer>
+            <id>RajendranHarman</id>
+            <name>Rajendran P</name>
+            <email>Rajendran.P@harman.com</email>
+        </developer>
+    </developers>
 
     <issueManagement>
         <system>GitHub</system>
