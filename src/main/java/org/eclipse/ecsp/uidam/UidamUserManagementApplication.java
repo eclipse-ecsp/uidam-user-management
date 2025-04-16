@@ -28,7 +28,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 /**
  * UidamUserManagementApplication main microservice class.
  */
-@SpringBootApplication(scanBasePackages = {"org.eclipse.ecsp", "com.harman"})
+@SpringBootApplication(scanBasePackages = {"org.eclipse.ecsp"})
 @EnableConfigurationProperties({ApplicationProperties.class})
 @EnableJpaAuditing
 public class UidamUserManagementApplication extends BaseApplication {

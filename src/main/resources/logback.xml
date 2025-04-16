@@ -157,13 +157,13 @@
             <else><appender-ref ref="ASYNC-STDOUT" /></else>
         </if>
     </logger>
-    <logger name="com.harman.ignite.register" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
+    <logger name="org.eclipse.ecsp.register" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
         <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
     </logger>
     <logger name="org.eclipse.ecsp.security" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
         <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
     </logger>
-    <logger name="com.harman.ignite.config" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
+    <logger name="org.eclipse.ecsp.config" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
         <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
     </logger>
 </configuration>
