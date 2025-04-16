@@ -277,12 +277,12 @@ public class UsersServiceImpl implements UsersService {
     private UserEventRepository userEventRepository;
     private UserRecoverySecretRepository userRecoverySecretRepository;
     private UserManagementDao userManagementDao;
-    @Setter(onMethod_ = { @Autowired })
+    @Autowired
     private AuthorizationServerClient authorizationServerClient;
-    @Setter(onMethod_ = { @PersistenceContext })
+    @PersistenceContext
     private EntityManager entityManager;
     private EmailNotificationService emailNotificationService;
-    @Setter(onMethod_ = { @Autowired })
+    @Autowired
     private RolesService rolesService;
     @Autowired
     private RolesRepository rolesRepository;
