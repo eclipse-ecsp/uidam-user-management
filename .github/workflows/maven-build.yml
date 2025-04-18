@@ -27,11 +27,3 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
-
-  docker_push_uidam-user-management:
-    needs: sonar_analysis
-    if: github.ref == 'refs/heads/main'
-    uses: eclipse-ecsp/.github/.github/workflows/workflow-docker-push.yml@main
-    secrets: inherit
-    with:
-      maven_args: 'clean package --file pom.xml'
