@@ -1,7 +1,9 @@
 [<img src="./images/logo.png" width="300" height="150"/>](./images/logo.png)
 
-[![Build Status](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/maven_ci_reusable.yml/badge.svg)](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/maven_ci_reusable.yml)
-[![License Compliance](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/license-compliance.yml/badge.svg)](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/license-compliance.yml)
+[![Maven Build & Sonar Analysis](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/maven-build.yml/badge.svg)](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/maven-build.yml)
+[![License Compliance](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/licence-compliance.yaml/badge.svg)](https://github.com/eclipse-ecsp/uidam-user-management/actions/workflows/licence-compliance.yaml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=eclipse-ecsp_uidam-user-management&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=eclipse-ecsp_uidam-user-management)
+[![Latest Release](https://img.shields.io/github/v/release/eclipse-ecsp/uidam-user-management?sort=semver)](https://github.com/eclipse-ecsp/uidam-user-management/releases)
 
 # UIDAM-User-Management
 This is UIDAM-User-Management microservice to handle scope, role, user and client CRUD operations for user profile, clients registrations, roles, scopes, etc.
