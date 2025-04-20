@@ -189,7 +189,7 @@ public class UsersControllerV2 {
         SortOrder sortOrder,
         @RequestParam(name = IGNORE_CASE, required = false)
         @Parameter(description = IGNORE_CASE_DESCRIPTION, schema = @Schema(allowableValues = {"true", "false"}))
-        boolean ignoreCase,
+        Boolean ignoreCase,
         @RequestParam(name = SEARCH_TYPE, required = false)
         @Parameter(description = SEARCH_TYPE_DESCRIPTION, schema = @Schema(allowableValues = {"PREFIX", "SUFFIX",
             "CONTAINS"})) SearchType searchType,
@@ -200,7 +200,7 @@ public class UsersControllerV2 {
         LOGGER.info("Get users request received, request: {}", userGetFilter);
         return new ResponseEntity<>(usersService
             .getUsers(userGetFilter, pageNumber, pageSize, sortBy == null ? null : sortBy.getField(),
-                sortOrder.sortOrderLowerCase(), ignoreCase, searchType)
+                sortOrder.sortOrderLowerCase(), ignoreCase == null ? false : ignoreCase.booleanValue(), searchType)
             .stream().map(UserResponseV2.class::cast).toList(), HttpStatus.OK);
     }
 

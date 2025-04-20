@@ -24,7 +24,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import org.eclipse.ecsp.security.Security;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.enums.ClientRegistrationResponseCode;
@@ -74,11 +73,11 @@ public class ClientRegistrationController {
     @SecurityRequirement(name = "JwtAuthValidator", scopes = { "OAuth2ClientMgmt" })
     public ResponseEntity<BaseResponse> createClient(@RequestBody RegisteredClientDetails registeredClientDetails) {
         logger.info("#Creating client request client name: {}", registeredClientDetails.getClientName());
-        Optional<RegisteredClientDetails> clientDetails = clientRegistrationService
+        RegisteredClientDetails clientDetails = clientRegistrationService
                 .addRegisteredClient(registeredClientDetails);
 
         return buildResponse(ClientRegistrationResponseCode.SP_CREATED.getCode(),
-                ClientRegistrationResponseMessage.SP_REGISTRATION_SUCCESS_201_MSG.getMessage(), clientDetails.get(),
+                ClientRegistrationResponseMessage.SP_REGISTRATION_SUCCESS_201_MSG.getMessage(), clientDetails,
                 HttpStatus.CREATED);
 
     }

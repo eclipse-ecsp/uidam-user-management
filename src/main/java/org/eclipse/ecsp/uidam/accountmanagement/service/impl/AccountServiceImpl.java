@@ -375,7 +375,7 @@ public class AccountServiceImpl implements AccountService {
             Set<String> accountNamesSet = new HashSet<>();
             accountFilterDto.getAccountNames().forEach(accountName -> {
                 if (accountName.matches(ACCOUNT_REGEX)) {
-                    accountNamesSet.add(accountName.replaceAll("_", "\\\\_"));
+                    accountNamesSet.add(accountName.replace("_", "\\_"));
                 }
             });
             accountFilterDto.setAccountNames(accountNamesSet);

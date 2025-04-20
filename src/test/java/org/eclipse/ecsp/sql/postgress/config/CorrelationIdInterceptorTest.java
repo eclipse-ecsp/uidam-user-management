@@ -94,16 +94,25 @@ class CorrelationIdInterceptorTest {
     @Configuration
     static class SomeDeclaringClass {
         public void someMethod() {
+            /*
+             * Placeholder to test Correlation intercepter.
+             */
         }
     }
 
     static class SomeDeclaringClassRequiredFalse {
         public void someMethod() {
+            /*
+             * Placeholder to test Correlation intercepter.
+             */
         }
     }
 
     static class SomeDeclaringClassNoCorrelationId {
         public void someMethod() {
+            /*
+             * Placeholder to test Correlation intercepter.
+             */
         }
     }
 }

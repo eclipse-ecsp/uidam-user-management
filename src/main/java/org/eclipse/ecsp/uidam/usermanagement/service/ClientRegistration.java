@@ -26,7 +26,7 @@ import java.util.Optional;
  */
 public interface ClientRegistration {
 
-    Optional<RegisteredClientDetails> addRegisteredClient(RegisteredClientDetails request);
+    RegisteredClientDetails addRegisteredClient(RegisteredClientDetails request);
 
     Optional<RegisteredClientDetails> getRegisteredClient(String clientId, String status);
 

@@ -72,7 +72,7 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
      **/
     @Override
     @Transactional
-    public Optional<RegisteredClientDetails> addRegisteredClient(RegisteredClientDetails request) {
+    public RegisteredClientDetails addRegisteredClient(RegisteredClientDetails request) {
         // validate request
         ValidationUtils.validateClientRegistrationRequest(request);
         logger.debug("checking if client already exist in system!");
@@ -84,7 +84,7 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
         clientRepository.save(client);
         logger.info("client registered successfully with clientId {}!", request.getClientId());
 
-        return Optional.of(toServiceProvider(client));
+        return toServiceProvider(client);
     }
 
     /**

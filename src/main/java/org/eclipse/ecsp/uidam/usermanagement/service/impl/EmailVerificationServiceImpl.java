@@ -199,7 +199,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     public Boolean resendEmailVerification(UserResponseBase userResponse) {
         if (BooleanUtils.isFalse(applicationProperties.getIsEmailVerificationEnabled())) {
             LOGGER.info("Email verification is disabled, skip sending email verification..");
-            return null;
+            return Boolean.FALSE;
         }
 
         List<String> emailPatternList = applicationProperties.getEmailRegexPatternExclude();
