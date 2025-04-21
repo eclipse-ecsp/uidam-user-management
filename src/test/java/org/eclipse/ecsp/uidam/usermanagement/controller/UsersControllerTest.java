@@ -842,7 +842,8 @@ public class UsersControllerTest {
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
 
-        when(usersService.editExternalUser(any(BigInteger.class), any(JsonPatch.class), any(BigInteger.class)))
+        when(usersService.editUser(any(BigInteger.class), any(JsonPatch.class), any(BigInteger.class),
+                any(Boolean.class), any(String.class)))
             .thenReturn(userResponse);
         this.mockMvc.perform(patch(VERSION_V1 + USER_RESOURCE_PATH + PATH_EXTERNAL_USER + SLASH + USER_ID_VALUE)
                 .contentType("application/json-patch+json").content(asJsonString(jsonPatch))

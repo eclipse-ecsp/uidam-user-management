@@ -2530,7 +2530,7 @@ class UsersServiceTest {
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
 
         assertThrows(ResourceNotFoundException.class,
-            () -> usersService.editExternalUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE));
+            () -> usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1"));
     }
 
     @Test
@@ -2552,7 +2552,7 @@ class UsersServiceTest {
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
         try {
-            usersService.editExternalUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE);
+            usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1");
         } catch (ApplicationRuntimeException exception) {
             assertEquals(BAD_REQUEST, exception.getHttpStatus());
             assertEquals(INVALID_EXTERNAL_USER, exception.getKey());
@@ -2606,7 +2606,7 @@ class UsersServiceTest {
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
         try {
-            usersService.editExternalUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE);
+            usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1");
         } catch (ApplicationRuntimeException exception) {
             assertEquals(BAD_REQUEST, exception.getHttpStatus());
             assertEquals(INVALID_INPUT_ROLE, exception.getKey());
@@ -2669,7 +2669,7 @@ class UsersServiceTest {
 
         when(userRepository.save(Mockito.any())).thenReturn(userEntity);
         try {
-            usersService.editExternalUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE);
+            usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1");
         } catch (ApplicationRuntimeException exception) {
             assertEquals(BAD_REQUEST, exception.getHttpStatus());
             assertEquals(ACTION_FORBIDDEN, exception.getKey());
@@ -2734,8 +2734,8 @@ class UsersServiceTest {
             + "{\"op\":\"replace\",\"path\":\"/address1\",\"value\":\"HELLWORLD2\"}]";
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
-        UserResponseV1 userResponse = (UserResponseV1) usersService.editExternalUser(USER_ID_VALUE, jsonPatch,
-            USER_ID_VALUE);
+        UserResponseV1 userResponse = (UserResponseV1) usersService.editUser(USER_ID_VALUE, jsonPatch,
+            USER_ID_VALUE, true, "v1");
         assertEquals(updatedUserEntity.getFirstName(), userResponse.getFirstName());
         assertEquals(updatedUserEntity.getUserAddresses().get(0).getAddress1(), userResponse.getAddress1());
     }
@@ -2815,8 +2815,8 @@ class UsersServiceTest {
             + "{\"op\":\"replace\",\"path\":\"/additionalattribute\",\"value\":\"Attribute\"}]";
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
-        UserResponseV1 userResponse = (UserResponseV1) usersService.editExternalUser(USER_ID_VALUE, jsonPatch,
-            USER_ID_VALUE);
+        UserResponseV1 userResponse = (UserResponseV1) usersService.editUser(USER_ID_VALUE, jsonPatch,
+            USER_ID_VALUE, true, "v1");
         assertEquals(updatedUserEntity.getFirstName(), userResponse.getFirstName());
     }
 
@@ -2877,7 +2877,7 @@ class UsersServiceTest {
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
         try {
-            usersService.editExternalUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE);
+            usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1");
         } catch (ApplicationRuntimeException exception) {
             assertEquals(BAD_REQUEST, exception.getHttpStatus());
             assertEquals(ACTION_FORBIDDEN, exception.getKey());
@@ -2942,8 +2942,8 @@ class UsersServiceTest {
             + "{\"op\":\"replace\",\"path\":\"/address1\",\"value\":\"HELLWORLD2\"}]";
         JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
         JsonPatch jsonPatch = JsonPatch.fromJson(node);
-        UserResponseV1 userResponse = (UserResponseV1) usersService.editExternalUser(USER_ID_VALUE, jsonPatch,
-            USER_ID_VALUE);
+        UserResponseV1 userResponse = (UserResponseV1) usersService.editUser(USER_ID_VALUE, jsonPatch,
+            USER_ID_VALUE, true, "v1");
         assertEquals(updatedUserEntity.getFirstName(), userResponse.getFirstName());
         assertEquals(updatedUserEntity.getUserAddresses().get(0).getAddress1(), userResponse.getAddress1());
     }

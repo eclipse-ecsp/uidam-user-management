@@ -95,8 +95,5 @@ public interface UsersService {
     UserResponseBase addFederatedUser(FederatedUserDto federatedUserDto, BigInteger userId)
             throws ResourceNotFoundException;
 
-    UserResponseBase editExternalUser(BigInteger id, JsonPatch jsonPatch, BigInteger userId)
-            throws ResourceNotFoundException, UserAccountRoleMappingException;
-
     PasswordPolicyResponse getPasswordPolicy();
 }

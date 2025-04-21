@@ -874,8 +874,8 @@ public class UsersController {
             )) JsonPatch jsonPatch
     ) throws ResourceNotFoundException, UserAccountRoleMappingException {
         LOGGER.info("update external user request received for user id: {}", id);
-        return new ResponseEntity<>((UserResponseV1) usersService.editExternalUser(id, jsonPatch,
-                StringUtils.isNotEmpty(userId) ? new BigInteger(userId) : null), HttpStatus.OK);
+        return new ResponseEntity<>((UserResponseV1) usersService.editUser(id, jsonPatch,
+                StringUtils.isNotEmpty(userId) ? new BigInteger(userId) : null, true, "v1"), HttpStatus.OK);
     }
 
     /**

@@ -306,7 +306,7 @@ public class UsersServiceImpl implements UsersService {
     private Map<BigInteger, String> accountIdToNameMapping = new HashMap<>();
     private Map<BigInteger, String> roleIdToNameMapping = new HashMap<>();
     private Map<String, BigInteger> roleNameToIdMapping = new HashMap<>();
-
+    
     /**
      * Method to create user profile in user management.
      *
@@ -2556,24 +2556,6 @@ public class UsersServiceImpl implements UsersService {
         }
         //returning user Attribute entities for further use
         return  userAttributeEntities;
-    }
-
-    /**
-     * Method to update external user details in db.
-     *
-     * @param userId         userId of the user.
-     * @param jsonPatch      jsonPatch containing details to be updated for a user.
-     * @param loggedInUserId userId of the user trying to update the details.
-     * @return UserResponseV1 with updated user details.
-     * @throws ResourceNotFoundException throw exception if user not found.
-     * @throws UserAccountRoleMappingException When account role mapping has some problem
-     */
-    @Transactional
-    @Modifying
-    @Override
-    public UserResponseBase editExternalUser(BigInteger userId, JsonPatch jsonPatch, BigInteger loggedInUserId)
-        throws ResourceNotFoundException, UserAccountRoleMappingException {
-        return editUser(userId, jsonPatch, loggedInUserId, true, VERSION_1);
     }
 
     private UserEntity getUserEntity(BigInteger userId) throws ResourceNotFoundException {
