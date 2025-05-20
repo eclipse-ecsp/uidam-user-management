@@ -187,18 +187,18 @@ Note: Replace the placeholders with actual values. The above shared curls are fo
 
 * [SQL DAO](https://github.com/eclipse-ecsp/sql-dao) - SQL DAO to manage database transactions
 * [Spring Boot](https://spring.io/projects/spring-boot/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [PostgreSQL](https://www.postgresql.org/) - Database
-* [Spring Framework](https://spring.io/projects/spring-framework) - Dependency Injection
-* [Junit](https://junit.org/junit5/) - Testing Framework
-* [Mockito](https://site.mockito.org/) - Mocking Framework
+* [Maven](https://maven.apache.org/) - Build tool used for dependency management
+* [PostgreSQL](https://www.postgresql.org/) - Relational database
+* [Spring Framework](https://spring.io/projects/spring-framework) - Web framework used for building the application.
+* [Junit](https://junit.org/junit5/) - Unit testing framework.
+* [Mockito](https://site.mockito.org/) - Mocking framework for testing.
 * [Java 17](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html) - Java version
-* [Liquibase](https://www.liquibase.org/) - Database version control
-* [Lombok](https://projectlombok.org/) - Java library to reduce boilerplate code
+* [Liquibase](https://www.liquibase.org/) - Manages database schema changes.
+* [Lombok](https://projectlombok.org/) - Auto-generates Java boilerplate code (e.g., getters, setters, builders).
 * [Thymeleaf](https://www.thymeleaf.org/) - Template Engine
 * [SnakeYAML](https://bitbucket.org/snakeyaml/snakeyaml) - YAML parser
-* [Logback](http://logback.qos.ch/) - Logging Framework
-* [SLF4J](http://www.slf4j.org/) - Logging API
+* [Logback](http://logback.qos.ch/) -Concrete logging implementation used with SLF4J.
+* [SLF4J](http://www.slf4j.org/) -  Logging facade providing abstraction for various logging frameworks.
 
 ## How to contribute
 
