@@ -128,7 +128,7 @@
         <skipSource>false</skipSource>
         <skipGpgSign>true</skipGpgSign>
         <nexus-staging-maven-plugin.version>1.6.13</nexus-staging-maven-plugin.version>
-        <skipNexusStaging>true</skipNexusStaging>
+        <skipMavenPublishing>true</skipMavenPublishing>
 
     </properties>
     <dependencyManagement>
@@ -143,17 +143,6 @@
         </dependencies>
     </dependencyManagement>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-																					  
-        </repository>
-    </distributionManagement>
     <pluginRepositories>
         <pluginRepository>
             <id>dash-licenses-releases</id>
@@ -597,16 +586,17 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>${nexus-staging-maven-plugin.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <serverId>ossrh</serverId>
-                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                    <skipStaging>${skipNexusStaging}</skipStaging>
-                    <autoReleaseAfterClose>${autoReleaseAfterClose}</autoReleaseAfterClose>
-                </configuration>
+                <groupId>org.sonatype.central</groupId>
+          	<artifactId>central-publishing-maven-plugin</artifactId>
+          	<version>0.7.0</version>
+          	<extensions>true</extensions>
+          	<configuration>
+            		<publishingServerId>central</publishingServerId>
+			<autoPublish>true</autoPublish>
+             		<waitUntil>published</waitUntil>
+			<centralSnapshotsUrl>https://central.sonatype.com/repository/maven-snapshots/</centralSnapshotsUrl>
+			<skipPublishing>${skipMavenPublishing}</skipPublishing>
+          	</configuration>
             </plugin>
 
         </plugins>
@@ -625,8 +615,7 @@
                 <skipGpgSign>true</skipGpgSign>
                 <skipJavadocs>false</skipJavadocs>
                 <skipSource>false</skipSource>
-                <skipNexusStaging>true</skipNexusStaging>
-                <autoReleaseAfterClose>false</autoReleaseAfterClose>
+                <skipMavenPublishing>true</skipMavenPublishing>
             </properties>
         </profile>
         <profile>
@@ -639,8 +628,7 @@
                 <skipGpgSign>true</skipGpgSign>
                 <skipJavadocs>true</skipJavadocs>
                 <skipSource>true</skipSource>
-                <skipNexusStaging>true</skipNexusStaging>
-                <autoReleaseAfterClose>false</autoReleaseAfterClose>
+                <skipMavenPublishing>true</skipMavenPublishing>
             </properties>
         </profile>
         <profile>
@@ -651,8 +639,7 @@
                 <skipGpgSign>false</skipGpgSign>
                 <skipJavadocs>false</skipJavadocs>
                 <skipSource>false</skipSource>
-                <skipNexusStaging>false</skipNexusStaging>
-                <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                <skipMavenPublishing>false</skipMavenPublishing>
             </properties>
         </profile>
     </profiles>
