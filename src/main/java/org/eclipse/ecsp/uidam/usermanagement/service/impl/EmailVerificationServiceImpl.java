@@ -34,6 +34,8 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.EmailVerificationReposit
 import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailNotificationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
+import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
+import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRequest;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.ObjectConverter;
@@ -52,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -73,6 +76,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     private UsersRepository usersRepository;
     private ApplicationProperties applicationProperties;
     private EmailNotificationService emailNotificationService;
+    private UsersService usersService;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EmailVerificationServiceImpl.class);
 
@@ -139,6 +143,17 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             EmailVerificationEntity savedEmailVerification = emailVerificationRepository.save(emailVerificationEntity);
             LOGGER.debug("Email Verification updated with verified flag value as: {} updated on: {}",
                          savedEmailVerification.getIsVerified(), Timestamp.valueOf(currentDateTime));
+            if (!applicationProperties.getIsUserStatusLifeCycleEnabled().booleanValue()) {
+                LOGGER.debug("Email Verification completed and updating user status for user {}",
+                         savedEmailVerification.getUserId());
+
+                UserChangeStatusRequest userChangeStatusRequest = new UserChangeStatusRequest();
+                userChangeStatusRequest.setApproved(true);
+                userChangeStatusRequest.setIds(Set.of(savedEmailVerification.getUserId()));
+                
+                usersService.changeUserStatus(userChangeStatusRequest, savedEmailVerification.getUserId());
+            }
+            
             redirectUrl = applicationProperties.getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_SUCCESS;
             httpServletResponse.sendRedirect(redirectUrl);
         } catch (Exception exception) {

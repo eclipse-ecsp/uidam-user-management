@@ -5,6 +5,8 @@ import io.prometheus.client.CollectorRegistry;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RolesEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAccountRoleMappingEntity;
@@ -108,7 +110,13 @@ class UsersControllerIntegrationTest {
     private List<RolesEntity> rolesEntities;
 
     private List<AccountEntity> accountEntities;
-
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     /**
      * Init before each test.
      */

@@ -46,6 +46,7 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.UserAccountRoleMappingExc
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.AssociateAccountAndRolesDto;
+import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.ExternalUserDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.FederatedUserDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRequest;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoV1;
@@ -231,8 +232,8 @@ public class UsersController {
         } catch (RecordAlreadyExistsException e) {
             throw new RecordAlreadyExistsException(ApiConstants.USER);
         } catch (Exception e) {
-            LOGGER.error("failed to create user: {}", userDto.getUserName(), e);
-            throw new ApplicationRuntimeException(e.getMessage(), BAD_REQUEST);
+            throw new ApplicationRuntimeException(
+                    "Failed to create user '" + userDto.getUserName() + "': " + e.getMessage(), BAD_REQUEST);
         }
         try {
             verificationEmailSent = emailVerificationService.resendEmailVerification(userResponseV1);
@@ -493,7 +494,8 @@ public class UsersController {
         @RequestParam(name = SEARCH_TYPE, required = false)
         @Parameter(description = SEARCH_TYPE_DESCRIPTION, schema = @Schema(allowableValues = {"PREFIX", "SUFFIX",
             "CONTAINS"})) SearchType searchType,
-        @Valid @RequestBody
+        @Valid 
+        @RequestBody
         @Parameter(name = "Request payload", description = "Parameters and values by which to filter. "
             + "To get all users, leave empty.")
         UsersGetFilterV1 userGetFilter) throws ResourceNotFoundException {
@@ -736,9 +738,8 @@ public class UsersController {
         @RequestHeader(value = LOGGED_IN_USER_ID) String userId,
         @Valid @RequestBody @Parameter(name = "Request payload",
             description = "Parameters that define a single external user")
-              @JsonView(UserDtoViews.UserDtoV1ExternalView.class) UserDtoV1 externalUserDto) 
+              @JsonView(UserDtoViews.UserDtoV1ExternalView.class) ExternalUserDto externalUserDto) 
                 throws ResourceNotFoundException {
-        externalUserDto.setIsExternalUser(Boolean.TRUE);
         LOGGER.info("Add External User Resource Started, user: {}", externalUserDto.getUserName());
         UserResponseV1 userResponse = (UserResponseV1) usersService.addExternalUser(externalUserDto,
             new BigInteger(userId));
@@ -832,7 +833,6 @@ public class UsersController {
             @JsonView(UserDtoViews.UserDtoV1FederatedView.class) FederatedUserDto federatedUserDto)
             throws ResourceNotFoundException {
         LOGGER.info("Add Federated User Resource Started, user: {}", federatedUserDto.getUserName());
-        federatedUserDto.setIsExternalUser(Boolean.TRUE);
         UserResponseV1 userResponse = (UserResponseV1) usersService.addFederatedUser(federatedUserDto,
                 StringUtils.isNotEmpty(userId) ? new BigInteger(userId) : null);
         return new ResponseEntity<>(userResponse, HttpStatus.OK);
@@ -889,5 +889,5 @@ public class UsersController {
         LOGGER.info("Get Password Policy request received");
         PasswordPolicyResponse passwordPolicy = usersService.getPasswordPolicy();
         return new ResponseEntity<>(passwordPolicy, HttpStatus.OK);
-    }
+    }    
 }

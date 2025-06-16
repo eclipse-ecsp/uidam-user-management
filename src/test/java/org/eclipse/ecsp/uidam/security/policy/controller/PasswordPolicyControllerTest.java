@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,7 @@ class PasswordPolicyControllerTest {
     @InjectMocks
     private PasswordPolicyController passwordPolicyController;
 
-    private static final String LOGGED_IN_USER = "test-user";
+    private static final BigInteger LOGGED_IN_USER = new BigInteger("12345678901234567890");
     private static final String POLICY_KEY = "passwordPolicy";
     
     @Mock
@@ -70,15 +71,16 @@ class PasswordPolicyControllerTest {
         validationRules.put("minLength", INT_10);
         validationRules.put("maxLength", INT_16);
         policy.setValidationRules(validationRules);
-        when(passwordPolicyService.getAllPolicies()).thenReturn(List.of(policy));
+        when(passwordPolicyService.getAllPolicies(LOGGED_IN_USER)).thenReturn(List.of(policy));
         ResponseEntity<PasswordPolicyResponse> response = passwordPolicyController
                 .getAllPasswordPolicies(LOGGED_IN_USER);
         assertNotNull(response);
-        assertEquals(INT_200, response.getStatusCodeValue());
+        assertEquals(INT_200, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        verify(passwordPolicyService, times(1)).getAllPolicies();
+        verify(passwordPolicyService, times(1)).getAllPolicies(LOGGED_IN_USER);
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void testGetPolicyByKey() {
         PasswordPolicy policy = new PasswordPolicy();
@@ -88,13 +90,13 @@ class PasswordPolicyControllerTest {
         validationRules.put("minLength", INT_10);
         validationRules.put("maxLength", INT_16);
         policy.setValidationRules(validationRules);
-        when(passwordPolicyService.getPolicyByKey(POLICY_KEY)).thenReturn(policy);
+        when(passwordPolicyService.getPolicyByKey(POLICY_KEY, LOGGED_IN_USER)).thenReturn(policy);
         ResponseEntity<PasswordPolicyResponse> response = 
                 passwordPolicyController.getPolicyByKey(POLICY_KEY, LOGGED_IN_USER);
         assertNotNull(response);
-        assertEquals(INT_200, response.getStatusCodeValue());
+        assertEquals(INT_200, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        verify(passwordPolicyService, times(1)).getPolicyByKey(POLICY_KEY);
+        verify(passwordPolicyService, times(1)).getPolicyByKey(POLICY_KEY, LOGGED_IN_USER);
     }
 
     @Test
@@ -111,7 +113,7 @@ class PasswordPolicyControllerTest {
         ResponseEntity<PasswordPolicyResponse> response = 
                 passwordPolicyController.updatePasswordPolicies(patchRequest, LOGGED_IN_USER);        
         assertNotNull(response);
-        assertEquals(INT_200, response.getStatusCodeValue());
+        assertEquals(INT_200, response.getStatusCode().value());
         assertNotNull(response.getBody());
         verify(passwordPolicyService, times(1)).updatePolicies(patchRequest, LOGGED_IN_USER);
     }

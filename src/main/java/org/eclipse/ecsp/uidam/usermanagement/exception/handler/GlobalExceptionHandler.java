@@ -29,6 +29,7 @@ import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ClientRegistrationException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.InActiveUserException;
+import org.eclipse.ecsp.uidam.usermanagement.exception.PasswordValidationException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.PermissionDeniedException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecoverySecretExpireException;
@@ -145,6 +146,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             exception.getProperty());
         logger.error(APPLICATION_ERROR_MESSAGE, exception);
         return new ResponseEntity<>(errorDetails, exception.getHttpStatus());
+    }
+    
+    /**
+     * PasswordValidationException.
+     *
+     * @param webRequest request
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(PasswordValidationException.class)
+    public ResponseEntity<String> handleGlobalException(PasswordValidationException exception, WebRequest webRequest) {
+        logger.error(APPLICATION_ERROR_MESSAGE, exception);
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     /**

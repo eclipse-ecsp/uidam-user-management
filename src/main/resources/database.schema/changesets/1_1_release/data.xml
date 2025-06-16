@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+	<changeSet id="insert_password_policies_v2" author="Venkatakumar Puvvada">
+		<insert tableName="password_policies">
+			<column name="NAME" value="Password LastUpdate Validation" />
+			<column name="KEY" value="passwordLastUpdateValidation" />
+			<column name="DESCRIPTION"
+				value="This policy ensures that a password cannot be changed too frequently. It checks the time elapsed since the last password update and enforces a minimum interval before allowing another change. This helps in preventing rapid password changes, which can be a security risk." />
+			<column name="VALIDATION_RULES">
+		        <![CDATA[{"passwordUpdateTimeIntervalSec": 1140}]]>
+		    </column>
+			<column name="PRIORITY" value="6" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>
+		<insert tableName="password_policies">
+			<column name="NAME" value="Compromised Password" />
+			<column name="KEY" value="CompromisedPassword" />
+			<column name="DESCRIPTION"
+				value="Used to check if the password is compromised or not." />
+			<column name="VALIDATION_RULES">
+		        <![CDATA[{"passwordHashSubStringLength": 5}]]>
+		    </column>
+			<column name="PRIORITY" value="7" />
+			<column name="REQUIRED" value="true" />
+			<column name="CREATED_BY" value="system" />
+			<column name="CREATE_DATE" value="${now}" />
+			<column name="UPDATED_BY" value="NULL" />
+			<column name="UPDATE_DATE" value="NULL" />
+		</insert>		
+	</changeSet>  	
+</databaseChangeLog>

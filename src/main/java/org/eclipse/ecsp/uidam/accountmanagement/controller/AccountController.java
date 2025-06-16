@@ -29,7 +29,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.security.Security;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.CreateAccountDto;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.UpdateAccountDto;

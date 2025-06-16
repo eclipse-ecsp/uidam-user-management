@@ -30,6 +30,11 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.UNKNO
 @Getter
 public class ResourceNotFoundException extends Exception {
 
+    /**
+     * serialVersionUID.
+     */
+    private static final long serialVersionUID = -2260904370868111455L;
+    
     private final String resourceName;
     private final String fieldName;
     private final String fieldValue;

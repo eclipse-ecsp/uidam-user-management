@@ -29,6 +29,8 @@ import org.eclipse.ecsp.uidam.accountmanagement.account.response.dto.GetAccountA
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
@@ -139,11 +141,17 @@ class AccountManagementIntegrationTest {
 
     @MockBean
     private RolesService rolesService;
-
+    
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     private List<AccountEntity> accountEntityList;
 
     @MockBean
     private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
 
     @BeforeEach
     public void init() {

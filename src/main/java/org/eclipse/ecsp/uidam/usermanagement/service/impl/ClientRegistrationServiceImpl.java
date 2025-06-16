@@ -167,10 +167,14 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
         client.setAuthenticationMethods(Optional.ofNullable(request.getClientAuthenticationMethods()).isPresent()
                 ? request.getClientAuthenticationMethods().stream().map(Object::toString)
                         .collect(Collectors.joining(","))
-                : DEFAULT_CLIENT_AUTHENTICATION_METHODS);
+                : DEFAULT_CLIENT_AUTHENTICATION_METHODS);        
         if (request.getRedirectUris() != null) {
             client.setRedirectUrls(
                     request.getRedirectUris().stream().map(Object::toString).collect(Collectors.joining(",")));
+        }
+        if (request.getPostLogoutRedirectUris() != null) {
+            client.setPostLogoutRedirectUris(request.getPostLogoutRedirectUris().stream().map(Object::toString)
+                    .collect(Collectors.joining(",")));
         }
         client.setGrantTypes(
                 request.getAuthorizationGrantTypes().stream().map(Object::toString).collect(Collectors.joining(",")));
@@ -209,11 +213,16 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
         registeredClientDetails.setAdditionalInformation(client.getAdditionalInformation());
         registeredClientDetails
                 .setClientAuthenticationMethods(Arrays.asList(client.getAuthenticationMethods().split(",")).stream()
-                        .map(Object::toString).toList());
+                        .map(Object::toString).toList());        
         if (Optional.ofNullable(client.getRedirectUrls()).isPresent()
                 && !Optional.ofNullable(client.getRedirectUrls()).isEmpty()) {
             registeredClientDetails.setRedirectUris(Arrays.asList(client.getRedirectUrls().split(",")).stream()
                     .map(Object::toString).toList());
+        }
+        if (Optional.ofNullable(client.getPostLogoutRedirectUris()).isPresent()
+                && !client.getPostLogoutRedirectUris().isEmpty()) {
+            registeredClientDetails.setPostLogoutRedirectUris(Arrays
+                    .asList(client.getPostLogoutRedirectUris().split(",")).stream().map(Object::toString).toList());
         }
         registeredClientDetails.setAuthorizationGrantTypes(Arrays.asList(client.getGrantTypes().split(",")).stream()
                 .map(Object::toString).toList());
@@ -247,12 +256,8 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
                 && !request.getClientAuthenticationMethods().isEmpty()) {
             client.setAuthenticationMethods(request.getClientAuthenticationMethods().stream().map(Object::toString)
                     .collect(Collectors.joining(",")));
-        }
-
-        if (request.getRedirectUris() != null && !request.getRedirectUris().isEmpty()) {
-            client.setRedirectUrls(
-                    request.getRedirectUris().stream().map(Object::toString).collect(Collectors.joining(",")));
-        }
+        }        
+        updateRedirectUris(client, request);
         if (Optional.ofNullable(request.getAuthorizationGrantTypes()).isPresent()
                 && !request.getAuthorizationGrantTypes().isEmpty()) {
             ValidationUtils.validateUris(request);
@@ -274,6 +279,24 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
         }
         client.setUpdatedBy(request.getCreatedBy());
         return client;
+    }
+
+    /**
+     * Method to update redirect uris.
+     *
+     * @param client  client entity present in db.
+     * @param request input client data modification request.
+     */
+    private void updateRedirectUris(ClientEntity client, RegisteredClientDetails request) {
+        if (request.getRedirectUris() != null && !request.getRedirectUris().isEmpty()) {
+            client.setRedirectUrls(
+                    request.getRedirectUris().stream().map(Object::toString).collect(Collectors.joining(",")));
+        }
+        if (Optional.ofNullable(request.getPostLogoutRedirectUris()).isPresent()
+                && !request.getPostLogoutRedirectUris().isEmpty()) {
+            client.setPostLogoutRedirectUris(request.getPostLogoutRedirectUris().stream().map(Object::toString)
+                    .collect(Collectors.joining(",")));
+        }
     }
 
     /**

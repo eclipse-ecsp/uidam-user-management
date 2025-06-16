@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import io.prometheus.client.CollectorRegistry;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
@@ -112,7 +114,13 @@ class UserEventTest {
 
     @MockBean
     AccountRepository accountRepository;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
 
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     private static final long ROLE_ID = 2L;
 
     @BeforeEach
@@ -472,14 +480,12 @@ class UserEventTest {
         Set<BigInteger> roleId = new HashSet<>();
         roleId.add(ROLE_ID_1);
         userEntity1.setAccountRoleMapping(getAccountRoleMapping(userEntity1));
-        ;
         UserAddressEntity userAddress = new UserAddressEntity();
         userAddress.setAddress1("address1");
         userAddress.setCity("City");
         Set<BigInteger> roleIds = new HashSet<>();
         roleIds.add(ROLE_ID_2);
         userEntity.setAccountRoleMapping(getAccountRoleMapping(userEntity));
-        ;
         List<UserAddressEntity> addresses = new ArrayList<>();
         addresses.add(userAddress);
         userEntity.setUserAddresses(addresses);

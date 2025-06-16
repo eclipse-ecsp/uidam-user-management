@@ -12,5 +12,9 @@
     <!-- Release 1.0 Initial Data -->
     <include file="changesets/1_0_release/initial_data.xml" relativeToChangelogFile="true"/>
    
+    <!-- Release 1.1 Schema -->
+    <include file="changesets/1_1_release/schema.xml" relativeToChangelogFile="true"/>
+    <!-- Release 1.1 Initial Data -->
+    <include file="changesets/1_1_release/data.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

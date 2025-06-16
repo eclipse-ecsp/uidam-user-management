@@ -536,7 +536,7 @@
             <column name="USER_ID"/>
         </createIndex>
     </changeSet>
-    
+
     <changeSet id="create_password_policies" author="Venkatakumar Puvvada">
 		<createTable tableName="password_policies">
 			<column name="ID" type="${BIG_INTEGER}"

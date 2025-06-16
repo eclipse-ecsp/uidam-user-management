@@ -21,6 +21,8 @@ package org.eclipse.ecsp.uidam.usermanagement.service;
 import io.prometheus.client.CollectorRegistry;
 import jakarta.servlet.http.HttpServletResponse;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.entity.EmailVerificationEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAddressEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
@@ -82,7 +84,13 @@ class EmailVerificationServiceTest {
 
     @MockBean
     AccountRepository accountRepository;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
 
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     private static final Long MINUS_DAYS = 8L;
     private static final BigInteger USER_ID = new BigInteger("157236105403847391232405464474353");
 
@@ -168,6 +176,7 @@ class EmailVerificationServiceTest {
         when(emailVerificationRepository.findByToken(anyString()))
                 .thenReturn(Optional.of(emailVerificationEntity));
         emailVerificationEntity.setIsVerified(true);
+        emailVerificationEntity.setUserId(USER_ID);
         when(emailVerificationRepository.save(any(EmailVerificationEntity.class)))
                 .thenReturn(emailVerificationEntity);
         String token = String.valueOf(UUID.randomUUID());

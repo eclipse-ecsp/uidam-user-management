@@ -21,6 +21,8 @@ package org.eclipse.ecsp.uidam.usermanagement.notification;
 import io.prometheus.client.CollectorRegistry;
 import jakarta.mail.MessagingException;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
@@ -59,6 +61,12 @@ class InternalConfigResolverTest {
     @Autowired
     private NotificationConfigResolver notificationConfigResolver;
 
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     /**
      * application test config.
      */

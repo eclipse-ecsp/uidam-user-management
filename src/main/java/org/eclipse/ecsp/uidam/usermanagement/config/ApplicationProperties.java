@@ -58,10 +58,6 @@ public class ApplicationProperties {
     private String clientId;
     private String clientSecret;
     private String authorizationServerHostName;
-    private long passwordUpdateTimeInterval;
-    private int minPasswordLength;
-    private int maxPasswordLength;
-    private String passwordRegexPattern;
     private BigInteger userDefaultAccountId;
     private String externalUserPermittedRoles;
     private String externalUserDefaultStatus;

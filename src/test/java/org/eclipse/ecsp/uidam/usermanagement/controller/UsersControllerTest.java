@@ -23,12 +23,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import io.prometheus.client.CollectorRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
+import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.ExternalUserDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.FederatedUserDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRequest;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoV1;
@@ -149,6 +151,9 @@ public class UsersControllerTest {
     @Autowired
     private ApplicationContext applicationContext;
 
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    
     private static final String API_VERSION_1 = "v1";
 
     @BeforeEach
@@ -716,7 +721,7 @@ public class UsersControllerTest {
 
     @Test
     void addExternalUserSuccess() throws Exception {
-        when(usersService.addExternalUser(any(UserDtoV1.class), any(BigInteger.class))).thenReturn(
+        when(usersService.addExternalUser(any(ExternalUserDto.class), any(BigInteger.class))).thenReturn(
             getUserResponse());
         mockMvc.perform(post(VERSION_V1 + USER_RESOURCE_PATH + PATH_EXTERNAL_USER)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -746,7 +751,8 @@ public class UsersControllerTest {
         UserDtoV1 userDto = getExternalUserDto();
         userDto.setIsExternalUser(true);
         userDto.setPassword("TestPass@22");
-        when(usersService.addExternalUser(any(UserDtoV1.class), any(BigInteger.class))).thenReturn(getUserResponse());
+        when(usersService.addExternalUser(any(ExternalUserDto.class), any(BigInteger.class)))
+                .thenReturn(getUserResponse());
         mockMvc.perform(post(VERSION_V1 + USER_RESOURCE_PATH + PATH_EXTERNAL_USER)
                 .contentType(MediaType.APPLICATION_JSON_VALUE).content(asJsonString(userDto))
                 .header(CORRELATION_ID, "12345").header(LOGGED_IN_USER_ID, USER_ID_VALUE).header(TENANT_ID, "tenant1"))
@@ -768,7 +774,6 @@ public class UsersControllerTest {
     void addUserWrongPatternPasswordValidation() throws Exception {
         UserDtoV1 userDto = getExternalUserDto();
         userDto.setIsExternalUser(false);
-        userDto.setPassword("pass");
         when(usersService.addExternalUser(any(UserDtoV1.class), any(BigInteger.class))).thenReturn(getUserResponse());
         mockMvc.perform(post(VERSION_V1 + USER_RESOURCE_PATH).contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(asJsonString(userDto)).header(CORRELATION_ID, "12345").header(LOGGED_IN_USER_ID, USER_ID_VALUE)

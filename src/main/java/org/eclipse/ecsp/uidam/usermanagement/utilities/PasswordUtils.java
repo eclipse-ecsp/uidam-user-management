@@ -19,11 +19,16 @@
 package org.eclipse.ecsp.uidam.usermanagement.utilities;
 
 import org.apache.axiom.util.base64.Base64Utils;
+import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
+import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.springframework.http.HttpStatus;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -68,5 +73,42 @@ public class PasswordUtils {
         Random random = new SecureRandom();
         random.nextBytes(salt);
         return Base64Utils.encode(salt);
+    }
+
+    /**
+     * Method to validate user's new password against old passwords.
+     *
+     * @param passwordEncoder   password encoder.
+     * @param newPassword       user's new password.
+     * @param userSalts         user salt history.
+     * @param userOldPasswords  user old password history.
+     * @return true if the new password is not in the history, false otherwise.
+     */
+    public static boolean isPasswordValid(String passwordEncoder, String newPassword, List<String> userSalts,
+                                          List<String> userOldPasswords) {
+        return userSalts.stream()
+                        .map(salt -> PasswordUtils.getSecurePassword(newPassword, salt, passwordEncoder))
+                        .noneMatch(userOldPasswords::contains);
+    }
+
+
+    /**
+     * Method to generate user's password history.
+     *
+     * @param userEntity    user entity.
+     */
+    public static PasswordHistoryEntity generateUserPasswordHistoryEntity(UserEntity userEntity) {
+        PasswordHistoryEntity passwordHistoryEntity = new PasswordHistoryEntity();
+        passwordHistoryEntity.setUserEntity(userEntity);
+        passwordHistoryEntity.setPasswordSalt(userEntity.getPasswordSalt());
+        passwordHistoryEntity.setUserPassword(userEntity.getUserPassword());
+        passwordHistoryEntity.setUserName(userEntity.getUserName());
+        passwordHistoryEntity.setCreatedBy(userEntity.getCreatedBy());
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        passwordHistoryEntity.setCreateDate(now);
+        passwordHistoryEntity.setUpdatedBy("system");
+        passwordHistoryEntity.setUpdateDate(now);
+
+        return passwordHistoryEntity;
     }
 }

@@ -44,6 +44,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * UsersService to be called for CRUD APIs.
@@ -95,5 +96,8 @@ public interface UsersService {
     UserResponseBase addFederatedUser(FederatedUserDto federatedUserDto, BigInteger userId)
             throws ResourceNotFoundException;
 
+    boolean hasUserPermissionForScope(BigInteger loggedInUserId, Set<String> scopes);
+
     PasswordPolicyResponse getPasswordPolicy();
+
 }
