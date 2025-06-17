@@ -127,4 +127,41 @@ class CompromisedPasswordPolicyHandlerTest {
     void testGetMessageDigest() throws NoSuchAlgorithmException {
         assertNotNull(handler.getMessageDigest());
     }
+
+    @Test
+    void testIsPasswordCompromisedReturnsTrue() throws Exception {
+        CompromisedPasswordPolicyHandler handler = new CompromisedPasswordPolicyHandler(rules) {
+            @Override
+            protected String toHash(String password) {
+                return "ABCDEF12345";
+            }
+
+            @Override
+            public boolean isPasswordCompromised(String password) {
+                return true;
+            }
+        };
+        assertTrue(handler.isPasswordCompromised("any"));
+    }
+
+    @Test
+    void testIsPasswordCompromisedReturnsFalse() throws Exception {
+        CompromisedPasswordPolicyHandler handler = new CompromisedPasswordPolicyHandler(rules) {
+            @Override
+            protected String toHash(String password) {
+                return "ABCDEF12345";
+            }
+
+            @Override
+            public boolean isPasswordCompromised(String password) {
+                return false;
+            }
+        };
+        assertFalse(handler.isPasswordCompromised("any"));
+    }
+
+    @Test
+    void testLogRequestReturnsFilter() {
+        assertNotNull(CompromisedPasswordPolicyHandler.logRequest());
+    }
 }
