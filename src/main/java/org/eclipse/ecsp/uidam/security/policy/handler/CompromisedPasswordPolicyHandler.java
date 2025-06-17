@@ -52,8 +52,7 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
      * Validates the password against the compromised password database. It checks if the password hash exists in the
      * database of compromised passwords.
      *
-     * @param password The password to validate.
-     * @param username The username to check against.
+     * @param input The password validation input containing password and username.
      * @return true if the password is valid, false otherwise.
      */
     @Override
@@ -121,13 +120,6 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
         return body != null && body.contains(passwordHash.substring(passwordHashSubStringLength));
     }
 
-    /**
-     * This method is used to convert the object to int.
-     *
-     * @param value The value to convert.
-     * @param defaultValue The default value to return if the value is null.
-     * @return The converted int value.
-     */
     protected MessageDigest getMessageDigest() throws NoSuchAlgorithmException {
         if (messageDigest == null) {
             messageDigest = MessageDigest.getInstance("SHA-1");

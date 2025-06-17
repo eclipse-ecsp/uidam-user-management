@@ -188,12 +188,10 @@ public class PasswordValidationService {
     }
 
     /**
-     * Validates the password for an existing user, including checking the last update time.
+     * Represents the result of a password validation check.
      *
-     * @param password The password to validate.
-     * @param username The username of the user.
-     * @param lastUpdateTime The last update time of the password.
-     * @return ValidationResult indicating whether the password is valid and any error message.
+     * @param isValid Indicates whether the password is valid.
+     * @param errorMessage Contains an error message if the password is invalid, null otherwise.
      */
     public record ValidationResult(boolean isValid, String errorMessage) {
     }

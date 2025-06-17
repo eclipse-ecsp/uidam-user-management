@@ -49,8 +49,7 @@ public class UsernameExclusionPolicyHandler extends PasswordPolicyHandler {
      * Validates the password against the username. It checks if the password contains a sequence of characters from the
      * username.
      *
-     * @param password The password to validate.
-     * @param username The username to check against.
+     * @param input The password validation input containing password and username.
      * @return true if the password is valid, false otherwise.
      */
     @Override

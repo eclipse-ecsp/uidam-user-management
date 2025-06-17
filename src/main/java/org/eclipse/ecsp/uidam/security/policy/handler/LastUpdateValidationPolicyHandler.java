@@ -45,9 +45,8 @@ public class LastUpdateValidationPolicyHandler extends PasswordPolicyHandler {
     /**
      * Validates the password update time interval.
      *
-     * @param userDetails Map containing user details
+     * @param input The password validation input containing user details.
      * @return true if validation passes, false otherwise
-     * @throws Exception if an error occurs during validation
      */
     @Override
     protected boolean doHandle(PasswordValidationInput input) {
