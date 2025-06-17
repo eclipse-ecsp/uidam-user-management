@@ -20,10 +20,13 @@ package org.eclipse.ecsp.uidam.usermanagement.controller;
 
 import io.prometheus.client.CollectorRegistry;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.ClientEntity;
 import org.eclipse.ecsp.uidam.usermanagement.repository.ClientRepository;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.AesEncryptionDecryption;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 /**
@@ -61,7 +66,16 @@ class ClientRegistrationTest {
 
     @MockBean
     AccountRepository accountRepository;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
 
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
+    @MockBean
+    AesEncryptionDecryption aesEncryptionDecryption;
+    
     private static final Long ONE_HUNDRED = 100L;
     private static final int ONE_HUNDRED_INT = 100;
     private static final Long TWO_THOUSAND = 2000L;
@@ -347,7 +361,7 @@ class ClientRegistrationTest {
 
     @Test
     void testGetClient() {
-        when(clientRepository.findByClientIdAndStatus("testClient", "approved")).thenReturn(Optional.of(getClient()));
+        when(clientRepository.findByClientIdAndStatus(anyString(), anyString())).thenReturn(Optional.of(getClient()));
 
         webTestClient.get()
             .uri("/v1/oauth2/client/testClient")

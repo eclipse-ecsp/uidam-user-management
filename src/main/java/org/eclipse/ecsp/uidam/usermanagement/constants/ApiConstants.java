@@ -73,17 +73,6 @@ public final class ApiConstants {
             + "chars and must use at least three of the four available character types: "
             + "lowercase letters, uppercase letters, "
             + "numbers, and any character from the following list: \n" + PASS_LIST;
-    public static final String PASS_REGEXP = ""
-        + "(?=^[a-zA-Z\\d!#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~].*[a-zA-Z\\d!#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~]$)"
-        + "(^"
-        + "(?:"
-        + "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)|" //Lower case, upper case, digits OR
-        + "(?=.*[a-z])(?=.*[A-Z])(?=.*[ !#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~])|" //Lower case, upper case, symbols OR
-        + "(?=.*[a-z])(?=.*[ !#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~])(?=.*\\d)|" //Lower case, symbols, digits OR
-        + "(?=.*[ !#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~])(?=.*[A-Z])(?=.*\\d)" //Symbols, upper case, digits
-        + ")"
-        + ".{6,80}"
-        + ")$"; // at least six characters long
     public static final String ROLE_FIELD_DESCRIPTION =
         "Role. Allowed values are: [VEHICLE_OWNER, OEM_ADMIN, BUSINESS_ADMIN] or one of the defined custom roles";
     public static final String ROLE_REGEXP = "^[A-Za-z0-9_-]+";
@@ -175,6 +164,8 @@ public final class ApiConstants {
     public static final String WEAK_PASSWORD = "Password is weak, try using some strong password";
     public static final String USER_OR_PASSWORD_NOT_NULL = "Username or Password is null";
     public static final String PASSWORD_CANT_BE_CHANGED = "Password can't be changed as it was changed recently";
+    public static final String OLD_PASSWORD_CANT_BE_REUSED = "Old password cannot be reused";
+    public static final String PASSWORD_EXPIRED = "Password expired, please reset password";
     public static final String LAST_PASSWORD_UPDATE_TIME = "lastPasswordUpdateTime";
     public static final String MIN_PASSWORD_LENGTH_VIOLATION = "Password length is less than"
             + " allowed minimum password length";
@@ -221,6 +212,7 @@ public final class ApiConstants {
     public static final String USER_ADDRESS_ENTITY_TABLE_NAME = "user_address";
     public static final String EMAIL_VERIFICATION_TABLE_NAME = "user_verification";
     public static final String USER_ACCOUNT_ROLE_MAPPING_TABLE_NAME = "user_account_role_mapping";
+    public static final String USER_PASSWORD_HISTORY_TABLE_NAME = "user_password_history";
 
     public static final String PATH_IS_EMAIL_VERIFIED = "isEmailVerified";
 

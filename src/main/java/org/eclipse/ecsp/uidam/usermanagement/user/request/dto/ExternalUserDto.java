@@ -16,16 +16,15 @@
  *
  */
 
-package org.eclipse.ecsp.uidam.usermanagement.validations.password.policy;
-
-import java.util.Map;
+package org.eclipse.ecsp.uidam.usermanagement.user.request.dto;
 
 /**
- * This is interface for password validation handler.
- *
+ * External User Request Dto.
  */
-public interface PasswordValidationHandler {
+public class ExternalUserDto extends UserDtoV1 {
 
-    boolean validate(Map<String, String> userDetails) throws Exception;
+    public ExternalUserDto() {
+        super.isExternalUser = Boolean.valueOf(true);
+    }
 
 }

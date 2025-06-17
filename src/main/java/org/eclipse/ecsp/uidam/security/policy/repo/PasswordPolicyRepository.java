@@ -19,14 +19,19 @@
 package org.eclipse.ecsp.uidam.security.policy.repo;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import java.math.BigInteger;
+import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Repository interface for managing password policies.
  */
 @Repository
-public interface PasswordPolicyRepository extends JpaRepository<PasswordPolicy, Long> {
+public interface PasswordPolicyRepository extends JpaRepository<PasswordPolicy, BigInteger> { 
 
     /**
      * Find a password policy by its unique key.
@@ -35,4 +40,19 @@ public interface PasswordPolicyRepository extends JpaRepository<PasswordPolicy, 
      * @return An optional containing the password policy if found.
      */
     Optional<PasswordPolicy> findByKey(String key);
+    
+    /**
+     * Find all password policies that are required, ordered by priority in ascending order.
+     *
+     * @return A list of required password policies ordered by priority.
+     */
+    Optional<List<PasswordPolicy>> findAllByRequiredTrueOrderByPriorityAsc();
+
+    /**
+     * Fetch the latest update date from the password policies.
+     *
+     * @return The latest update date as a Timestamp.
+     */
+    @Query("SELECT MAX(p.updateDate) FROM PasswordPolicy p")
+    Timestamp findLatestUpdateDate();
 }

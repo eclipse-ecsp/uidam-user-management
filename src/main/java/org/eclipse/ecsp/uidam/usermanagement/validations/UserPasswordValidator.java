@@ -25,37 +25,25 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoBase;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ResponseMessage;
 
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NULL_AND_EMPTY_USER_PASSWORD;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PASS_REGEXP;
 
 /**
  * Hibernate constraint validator for read only fields.
  */
 public class UserPasswordValidator implements ConstraintValidator<UserPasswordValidation, UserDtoBase> {
 
-    private String message;
-
     @Override
     public void initialize(UserPasswordValidation constraintAnnotation) {
-        this.message = constraintAnnotation.message();
+        // No initialization needed as message is not used
     }
 
     @Override
     public boolean isValid(UserDtoBase userDto, ConstraintValidatorContext ctx) {
-
         if (Boolean.FALSE.equals(userDto.getIsExternalUser()) && StringUtils.isEmpty(userDto.getPassword())) {
 
             ctx.disableDefaultConstraintViolation();
-            ConstraintValidatorContext.ConstraintViolationBuilder builder =
-                ctx.buildConstraintViolationWithTemplate(NULL_AND_EMPTY_USER_PASSWORD);
+            ConstraintValidatorContext.ConstraintViolationBuilder builder = ctx
+                    .buildConstraintViolationWithTemplate(NULL_AND_EMPTY_USER_PASSWORD);
             ResponseMessage responseMessage = new ResponseMessage(NULL_AND_EMPTY_USER_PASSWORD);
-            builder.addBeanNode().inIterable().atKey(responseMessage).addConstraintViolation();
-            return false;
-        } else if (Boolean.FALSE.equals(userDto.getIsExternalUser()) && !userDto.getPassword().matches(PASS_REGEXP)) {
-
-            ctx.disableDefaultConstraintViolation();
-            ConstraintValidatorContext.ConstraintViolationBuilder builder =
-                ctx.buildConstraintViolationWithTemplate(message);
-            ResponseMessage responseMessage = new ResponseMessage(message);
             builder.addBeanNode().inIterable().atKey(responseMessage).addConstraintViolation();
             return false;
         }

@@ -21,6 +21,8 @@ package org.eclipse.ecsp.uidam.usermanagement.notification;
 import io.prometheus.client.CollectorRegistry;
 import jakarta.mail.MessagingException;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
@@ -77,7 +79,13 @@ class IgniteEmailNotificationTest {
     private RestTemplate restTemplate;
 
     private MockRestServiceServer mockRestServiceServer;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
 
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     /**
      * application test configuration.
      */

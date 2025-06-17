@@ -28,6 +28,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
+import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
@@ -37,6 +41,7 @@ import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.dao.UserManagementDao;
+import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RolesEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAccountRoleMappingEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAddressEntity;
@@ -48,11 +53,13 @@ import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.InActiveUserException;
+import org.eclipse.ecsp.uidam.usermanagement.exception.PasswordValidationException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.UserAccountRoleMappingException;
 import org.eclipse.ecsp.uidam.usermanagement.mapper.UserMapper;
 import org.eclipse.ecsp.uidam.usermanagement.repository.CloudProfilesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.EmailVerificationRepository;
+import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.RolesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeValueRepository;
@@ -73,13 +80,13 @@ import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresent
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserDetailsResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserMetaDataResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
-import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV2;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.PatchMap;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.RoleAssociationUtilities;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
@@ -115,6 +122,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CAPTC
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CAPTCHA_REQUIRED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_EXTERNAL_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_INPUT_ROLE;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.OLD_PASSWORD_CANT_BE_REUSED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ACTION_FORBIDDEN;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_DATA_IS_INVALID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_IS_UNIQUE;
@@ -146,13 +154,10 @@ import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.FEDERATE
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.FIRST_NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.FIRST_NAME_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.GENDER;
-import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.INTERVAL_FOR_LAST_PASSWORD_UPDATE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.INVALID_ROLE_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.LAST_NAME_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.LOCALE_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.LOGGED_IN_USER_ID_VALUE;
-import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.MAX_PASSWORD_LENGTH;
-import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.MIN_PASSWORD_LENGTH;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.MODIFIED_CITY;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.MODIFIED_FIRST_NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.PASSWORD_VALUE;
@@ -171,6 +176,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.USER_NAM
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Utilities.asJsonString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -231,7 +237,14 @@ class UsersServiceTest {
     CloudProfilesRepository cloudProfilesRepository;
     @MockBean
     EmailVerificationRepository emailVerificationRepository;
+    @MockBean
+    PasswordHistoryRepository passwordHistoryRepository;
 
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    @MockBean
+    PasswordPolicyRepository passwordPolicyRepository;
+    
     private String passwordEncoder = "SHA-256";
 
     private static final int INDEX_0 = 0;
@@ -253,6 +266,7 @@ class UsersServiceTest {
     private static final int ONE_HUNDRED_INT = 100;
     private static final int TWO_THOUSAND_INT = 2000;
     private static final String API_VERSION_1 = "v1";
+    private static final int LIMIT_3 = 3;
     private static final String API_VERSION_2 = "v2";
 
     @BeforeEach
@@ -473,6 +487,64 @@ class UsersServiceTest {
     }
 
     @Test
+    void testAddUserPasswordHistoryFailure() throws ResourceNotFoundException {
+        UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
+        userPost.setPassword("TEstj3@123");
+        RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
+            .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
+        PasswordHistoryEntity phe1 = new PasswordHistoryEntity();
+        phe1.setId(ATTR_ID_VALUE);
+        phe1.setUserName("John");
+        phe1.setUserPassword("t4q4J/QRatxJmd8w/jFb+bmQ4SY8hSbkEkFYJL7H8vw=");
+        phe1.setPasswordSalt("PnTh7IZFolk3lzieWU5qTQ==");
+        UserEntity ue1 = new UserEntity();
+        ue1.setId(USER_ID_VALUE);
+        phe1.setUserEntity(ue1);
+        phe1.setCreateDate(Timestamp.valueOf(LocalDateTime.now()));
+
+        PasswordHistoryEntity phe2 = new PasswordHistoryEntity();
+        phe2.setId(ATTR_ID_VALUE_1);
+        phe2.setUserName("John");
+        phe2.setUserPassword("ZD/WaNUMn547CnvBa09sF8n8FEn6r30mwGKkQSEj5lI=");
+        phe2.setPasswordSalt("hskg4ZPcs2Mh7zf+C/tryA==");
+        UserEntity ue2 = new UserEntity();
+        ue2.setId(USER_ID_VALUE);
+        phe2.setUserEntity(ue2);
+        phe2.setCreateDate(Timestamp.valueOf(LocalDateTime.now()));
+
+        PasswordHistoryEntity phe3 = new PasswordHistoryEntity();
+        phe3.setId(ATTR_ID_VALUE_2);
+        phe3.setUserName("John");
+        phe3.setUserPassword("tvn5eJP52MNp07vW/z3ld04bRfFzmMvsmgl/nDpups4=");
+        phe3.setPasswordSalt("1r38Fy8KrXk59shkNF5CnA==");
+        UserEntity ue3 = new UserEntity();
+        ue3.setId(USER_ID_VALUE);
+        phe3.setUserEntity(ue3);
+        phe3.setCreateDate(Timestamp.valueOf(LocalDateTime.now()));
+
+        List<PasswordHistoryEntity> passwordHistoryEntityList = new ArrayList<>();
+        passwordHistoryEntityList.add(phe1);
+        passwordHistoryEntityList.add(phe2);
+        passwordHistoryEntityList.add(phe3);
+
+        when(passwordHistoryRepository.findPasswordHistoryByUserName(anyString(), any()))
+            .thenReturn(passwordHistoryEntityList);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(false, OLD_PASSWORD_CANT_BE_REUSED));
+        try {
+            usersService.addUser(userPost, null, false);
+        } catch (PasswordValidationException e) {
+            assertEquals(OLD_PASSWORD_CANT_BE_REUSED, e.getMessage());
+            return;
+        }
+        fail("Expected ApplicationRuntimeException");
+    }
+
+    @Test
     void testAddUserAlreadyExists() throws NoSuchAlgorithmException, ResourceNotFoundException {
         UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
@@ -483,9 +555,6 @@ class UsersServiceTest {
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -497,6 +566,8 @@ class UsersServiceTest {
         role.setId(ROLE_ID_2);
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
 
         try {
             usersService.addUser(userPost, null, false);
@@ -525,11 +596,9 @@ class UsersServiceTest {
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
         when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.empty());
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -556,9 +625,6 @@ class UsersServiceTest {
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -570,7 +636,8 @@ class UsersServiceTest {
         role.setId(ROLE_ID_2);
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UserResponseV1 receivedResponse = (UserResponseV1) usersService.addUser(userPost, null, false);
         assertEquals(userResponse.getUserName(), receivedResponse.getUserName());
         assertEquals(userResponse.getEmail(), receivedResponse.getEmail());
@@ -592,9 +659,6 @@ class UsersServiceTest {
         when(userRepository.save(any(UserEntity.class)))
             .thenReturn(userEntity);
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
@@ -609,7 +673,8 @@ class UsersServiceTest {
         role.setId(ROLE_ID_2);
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UserResponseV1 receivedResponse = (UserResponseV1) usersService.addUser(userPost, null, false);
         assertEquals(userResponse.getUserName(), receivedResponse.getUserName());
         assertEquals(userResponse.getEmail(), receivedResponse.getEmail());
@@ -637,9 +702,6 @@ class UsersServiceTest {
             .getUser(any(BigInteger.class), eq(API_VERSION_1));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -651,6 +713,8 @@ class UsersServiceTest {
         role.setId(ROLE_ID_2);
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UserResponseV1 receivedResponse = (UserResponseV1) usersService1.addUser(userPost, USER_ID_VALUE, false);
         assertEquals(userResponse.getUserName(), receivedResponse.getUserName());
         assertEquals(userResponse.getEmail(), receivedResponse.getEmail());
@@ -664,16 +728,15 @@ class UsersServiceTest {
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(userPost);
         List<UserAccountRoleMappingEntity> l = new ArrayList<>();
         l.add(createUserAccountRoleMappingEntity(ROLE_ID_2));
-        userEntity.setAccountRoleMapping(l);;
+        userEntity.setAccountRoleMapping(l);
         UserResponseV1 userResponse = UserMapper.USER_MAPPER.mapToUserResponseV1(userEntity);
         userResponse.setRoles(userPost.getRoles());
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class)))
             .thenReturn(userEntity);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UsersService usersService1 = Mockito.spy(usersService);
         Mockito.doReturn(userResponse).when(usersService1)
             .getUser(any(BigInteger.class), eq(API_VERSION_1));
@@ -690,9 +753,8 @@ class UsersServiceTest {
         userPost.setRoles(Collections.singleton("INVALID_ROLE"));
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         try {
             usersService.addUser(userPost, USER_ID_VALUE, false);
         } catch (ApplicationRuntimeException exception) {
@@ -706,10 +768,9 @@ class UsersServiceTest {
     void testAddUserExceptionWhenInvalidClient() throws NoSuchAlgorithmException, ResourceNotFoundException {
         UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         try {
             usersService.addUser(userPost, null, false);
         } catch (ApplicationRuntimeException exception) {
@@ -729,8 +790,8 @@ class UsersServiceTest {
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         try {
             usersService.addUser(userPost, null, false);
         } catch (ApplicationRuntimeException exception) {
@@ -756,9 +817,6 @@ class UsersServiceTest {
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -771,7 +829,8 @@ class UsersServiceTest {
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         try {
             usersService.addUser(userPost, null, false);
         } catch (ApplicationRuntimeException exception) {
@@ -793,9 +852,6 @@ class UsersServiceTest {
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(userAttributeValueEntities);
@@ -812,6 +868,8 @@ class UsersServiceTest {
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         try {
             usersService.addUser(userPost, null, false);
         } catch (ApplicationRuntimeException exception) {
@@ -837,9 +895,6 @@ class UsersServiceTest {
             .findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -852,6 +907,8 @@ class UsersServiceTest {
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         try {
             usersService.addUser(userPost, USER_ID_VALUE, false);
         } catch (ApplicationRuntimeException exception) {
@@ -877,9 +934,6 @@ class UsersServiceTest {
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
@@ -900,6 +954,8 @@ class UsersServiceTest {
         role.setId(ROLE_ID_2);
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UserResponseV1 receivedResponse = (UserResponseV1) usersService.addUser(userPost, USER_ID_VALUE, false);
         assertEquals("hello", receivedResponse.getAdditionalAttributes().get("mandatoryAttribute"));
     }
@@ -945,9 +1001,6 @@ class UsersServiceTest {
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
 
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -959,6 +1012,8 @@ class UsersServiceTest {
         role.setId(ROLE_ID_2);
         when(rolesRepository.getRolesByName(any(String.class))).thenReturn(role);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UserResponseV1 receivedResponse = (UserResponseV1) usersService.addUser(userPost, null, false);
         assertEquals(asJsonString(attr1), asJsonString(
             receivedResponse.getAdditionalAttributes().get("mandatoryAttribute")));
@@ -3095,5 +3150,61 @@ class UsersServiceTest {
         assertDoesNotThrow(() -> {
             usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, false, API_VERSION_2);
         });
+    }
+
+    @Test
+    void testHasUserPermissionForScopeSuccess() throws ResourceNotFoundException {
+        BigInteger loggedInUserId = USER_ID_VALUE;
+        
+        UserResponseV1 loggedInUser = new UserResponseV1();
+        loggedInUser.setRoles(Set.of("ROLE_2", "VEHICLE_OWNER"));
+
+        RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+
+        UsersServiceImpl usersServiceSpy = (UsersServiceImpl) Mockito.spy(usersService);
+        Mockito.doReturn(loggedInUser).when(usersServiceSpy).getUser(eq(loggedInUserId), anyString());
+        Set<String> scopes = Set.of("SelfManage");
+        boolean result = usersServiceSpy.hasUserPermissionForScope(loggedInUserId, scopes);
+        assertTrue(result);
+    }
+
+    @Test
+    void testHasUserPermissionForScopeFailure_UserNotFound() throws ResourceNotFoundException {
+        BigInteger loggedInUserId = USER_ID_VALUE; // Ensure a valid userId is provided
+        Set<String> scopes = Set.of("scope1", "scope2");
+
+        UsersServiceImpl usersServiceSpy = (UsersServiceImpl) Mockito.spy(usersService);
+
+        // Mock getUser to throw ResourceNotFoundException
+        Mockito.doThrow(new ResourceNotFoundException("User not found for userId: " + loggedInUserId, "", ""))
+                .when(usersServiceSpy).getUser(eq(loggedInUserId), anyString());
+
+        boolean result = usersServiceSpy.hasUserPermissionForScope(loggedInUserId, scopes);
+        assertFalse(result); // Assert that the result is false when user is not found
+    }
+
+    @Test
+    void testHasUserPermissionForScopeFailure_ScopesNotMatching() throws ResourceNotFoundException {
+        BigInteger loggedInUserId = USER_ID_VALUE;
+        
+
+        UserResponseV1 loggedInUser = new UserResponseV1();
+        loggedInUser.setRoles(Set.of("role1", "role2"));
+
+        RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+
+        UsersServiceImpl usersServiceSpy = (UsersServiceImpl) Mockito.spy(usersService);
+        Mockito.doReturn(loggedInUser).when(usersServiceSpy).getUser(eq(loggedInUserId), anyString());
+
+        Set<String> roleScopes = Set.of("scope3");
+        try (MockedStatic<RoleManagementUtils> mockedStatic = Mockito.mockStatic(RoleManagementUtils.class)) {
+            mockedStatic.when(() -> RoleManagementUtils.getScopesFromRoles(any(RoleListRepresentation.class)))
+                        .thenReturn(roleScopes);
+        }
+        Set<String> scopes = Set.of("scope1", "scope2");
+        boolean result = usersServiceSpy.hasUserPermissionForScope(loggedInUserId, scopes);
+        assertFalse(result);
     }
 }

@@ -36,14 +36,14 @@ import java.time.Instant;
 /**
  * Entity class for client details - client_details.
  */
-@Entity
-@Table(name = "client_details")
-@Getter
+@Entity 
+@Table(name = "client_details") 
+@Getter 
 @Setter
 public class ClientEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id 
+    @GeneratedValue(strategy = GenerationType.IDENTITY) 
     @Column(name = "ID", columnDefinition = "NUMERIC(38) DEFAULT get_uuid()")
     private BigInteger id;
 
@@ -68,6 +68,9 @@ public class ClientEntity {
     @Column(name = "REDIRECT_URI")
     private String redirectUrls;
 
+    @Column(name = "POST_LOGOUT_REDIRECT_URIS")
+    private String postLogoutRedirectUris;
+
     @Column(name = "SCOPES")
     private String scopes;
 
@@ -80,8 +83,7 @@ public class ClientEntity {
     @Column(name = "AUTHORIZATION_CODE_VALIDITY")
     private long authorizationCodeValidity;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "ADDITIONAL_INFORMATION", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "ADDITIONAL_INFORMATION", columnDefinition = "jsonb")
     private String additionalInformation;
 
     @Column(name = "REQUIRE_AUTHORIZATION_CONSENT ")
@@ -125,14 +127,14 @@ public class ClientEntity {
     @Override
     public String toString() {
         return "ClientEntity [id=" + id + ", clientId=" + clientId + ", tenantId=" + tenantId + ", clientName="
-            + clientName + ", authenticationMethods=" + authenticationMethods + ", grantTypes=" + grantTypes
-            + ", redirectUrls=" + redirectUrls + ", scopes=" + scopes + ", accessTokenValidity="
-            + accessTokenValidity + ", refreshTokenValidity=" + refreshTokenValidity
-            + ", authorizationCodeValidity=" + authorizationCodeValidity + ", additionalInformation="
-            + additionalInformation + ", requiredAuthorizationConsent=" + requiredAuthorizationConsent + ", status="
-            + status + ", approvedBy=" + approvedBy + ", approvedDate=" + approvedDate + ", createdBy=" + createdBy
-            + ", updatedBy=" + updatedBy + ", createDate=" + createDate + ", clientSecretExpireAt="
-            + clientSecretExpireAt + ", updateDate=" + updateDate + "]";
+                + clientName + ", authenticationMethods=" + authenticationMethods + ", grantTypes=" + grantTypes
+                + ", redirectUrls=" + redirectUrls + ", postLogoutRedirectUris=" + postLogoutRedirectUris + ", scopes="
+                + scopes + ", accessTokenValidity=" + accessTokenValidity + ", refreshTokenValidity="
+                + refreshTokenValidity + ", authorizationCodeValidity=" + authorizationCodeValidity
+                + ", additionalInformation=" + additionalInformation + ", requiredAuthorizationConsent="
+                + requiredAuthorizationConsent + ", status=" + status + ", approvedBy=" + approvedBy + ", approvedDate="
+                + approvedDate + ", createdBy=" + createdBy + ", updatedBy=" + updatedBy + ", createDate=" + createDate
+                + ", clientSecretExpireAt=" + clientSecretExpireAt + ", updateDate=" + updateDate + "]";
     }
 
 }

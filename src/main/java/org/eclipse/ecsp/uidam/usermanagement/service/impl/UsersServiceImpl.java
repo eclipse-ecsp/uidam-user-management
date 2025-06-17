@@ -27,7 +27,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
 import lombok.AllArgsConstructor;
-import lombok.Setter;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -35,6 +34,10 @@ import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
+import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
+import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
@@ -43,6 +46,7 @@ import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.dao.UserManagementDao;
 import org.eclipse.ecsp.uidam.usermanagement.entity.CloudProfileEntity;
+import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RolesEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAccountRoleMappingEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAddressEntity;
@@ -61,6 +65,7 @@ import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ClientRegistrationException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.InActiveUserException;
+import org.eclipse.ecsp.uidam.usermanagement.exception.PasswordValidationException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecoverySecretExpireException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
@@ -69,6 +74,7 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
 import org.eclipse.ecsp.uidam.usermanagement.mapper.UserMapper;
 import org.eclipse.ecsp.uidam.usermanagement.repository.CloudProfilesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.EmailVerificationRepository;
+import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.RolesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeValueRepository;
@@ -109,7 +115,6 @@ import org.eclipse.ecsp.uidam.usermanagement.utilities.UserAccountRoleAssociatio
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserAttributeSpecification;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserManagementUtils;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserSpecification;
-import org.eclipse.ecsp.uidam.usermanagement.validations.password.policy.CustomPasswordPatternPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -177,12 +182,10 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVAL
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_INPUT_ROLE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_PAYLOAD_ERROR_MESSAGE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.LASTNAME;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.MIN_CONSECUTIVE_LETTERS_LENGTH;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NO_ROLEID_FOR_FILTER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.OPERATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ORIGINAL_USERNAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PASSWORD;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PASS_REGEXP;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.REPLACE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ROLES_RESOURCE_PATH;
@@ -240,6 +243,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFil
 import static org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterBase.UserGetFilterEnum.STATUS;
 import static org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterBase.UserGetFilterEnum.TIMEZONE;
 import static org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterBase.UserGetFilterEnum.USER_NAMES;
+import static org.eclipse.ecsp.uidam.usermanagement.utilities.PasswordUtils.generateUserPasswordHistoryEntity;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria.RootParam.USER_ACCOUNT_ROLE_ROOT;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria.RootParam.USER_ADDRESS_ROOT;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria.RootParam.USER_ROOT;
@@ -285,13 +289,18 @@ public class UsersServiceImpl implements UsersService {
     @Autowired
     private RolesService rolesService;
     @Autowired
+    private PasswordPolicyRepository passwordPolicyRepository;
+    @Autowired
     private RolesRepository rolesRepository;
     @Autowired
     ClientRegistration clientRegistrationService;
     private CloudProfilesRepository cloudProfilesRepository;
     private EmailVerificationRepository emailVerificationRepository;
-
+    private PasswordHistoryRepository passwordHistoryRepository;
+    public static final String POLICY_VALIDATION_FAILED = "um.password.policy.validation.failed";
     private static final Logger LOGGER = LoggerFactory.getLogger(UsersServiceImpl.class);
+    @Autowired
+    private PasswordValidationService passwordValidationService;
 
     @Autowired
     private AccountRepository accountRepository;
@@ -339,8 +348,13 @@ public class UsersServiceImpl implements UsersService {
         if (!isSelfAddUser || applicationProperties.isAdditionalAttrCheckEnabledForSignUp()) {
             userAttributeEntities = validateMissingMandatoryAttributes(userDto.getAdditionalAttributes());
         }
-        userDto.setStatus(applicationProperties.getIsUserStatusLifeCycleEnabled().booleanValue() ? UserStatus.PENDING
-            : UserStatus.ACTIVE);
+        
+        if (applicationProperties.getIsUserStatusLifeCycleEnabled().booleanValue() 
+                || BooleanUtils.isTrue(applicationProperties.getIsEmailVerificationEnabled())) {
+            userDto.setStatus(UserStatus.PENDING);
+        } else {
+            userDto.setStatus(UserStatus.ACTIVE);
+        }
 
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(userDto);
         String passwordSalt = PasswordUtils.getSalt();
@@ -373,6 +387,7 @@ public class UsersServiceImpl implements UsersService {
             userResponseBase
                 .setAdditionalAttributes(persistAdditionalAttributes(userDto, savedUser).get(savedUser.getId()));
         }
+        passwordHistoryRepository.save(generateUserPasswordHistoryEntity(savedUser));
         return userResponseBase;
     }
 
@@ -494,6 +509,21 @@ public class UsersServiceImpl implements UsersService {
      * @param password password of the user.
      */
     private void validateUserNameAndPassword(String userName, String password) {
+        validateUserName(userName, password);
+        LOGGER.debug("Password validation as per configured password policy started");
+        ValidationResult result = passwordValidationService.validatePassword(password, userName);
+        if (!result.isValid()) {
+            throw new PasswordValidationException(result.errorMessage());
+        }
+    }
+
+    /**
+     * Method to validate input username.
+     *
+     * @param userName username of the user.
+     * @param password password of the user.
+     */
+    private void validateUserName(String userName, String password) {
         final String invalidPrefix = "federated_";
         if (!userName.matches(USERNAME_REGEXP)) {
             LOGGER.error("Validate session, user name pattern is invalid: {}", userName);
@@ -505,14 +535,6 @@ public class UsersServiceImpl implements UsersService {
         if (StringUtils.containsIgnoreCase(password, userName)) {
             throw new ApplicationRuntimeException(INVALID_INPUT_PASS_CANNOT_CONTAIN_USERNAME, BAD_REQUEST, PASSWORD,
                 USERNAME2);
-        }
-        LOGGER.debug("Password validation as per configured password policy started");
-        CustomPasswordPatternPolicy customPasswordPatternPolicy = new CustomPasswordPatternPolicy(
-            applicationProperties);
-
-        if (!customPasswordPatternPolicy.enforce(password, userName)) {
-            throw new ApplicationRuntimeException(customPasswordPatternPolicy.getErrorMessage(), BAD_REQUEST,
-                ApiConstants.PASSWORD);
         }
     }
 
@@ -1309,22 +1331,22 @@ public class UsersServiceImpl implements UsersService {
             }
             case VERSION_2: {
                 Map<BigInteger, Set<BigInteger>> acRoleMap = userEntity.getAccountRoleMapping().stream()
-                    .collect(Collectors.groupingBy(UserAccountRoleMappingEntity::getAccountId,
-                        Collectors.mapping(UserAccountRoleMappingEntity::getRoleId, Collectors.toSet())));
-
+                        .collect(Collectors.groupingBy(UserAccountRoleMappingEntity::getAccountId,
+                                Collectors.mapping(UserAccountRoleMappingEntity::getRoleId, Collectors.toSet())));
                 // Now map this map to set of accounts
                 Set<UserAccountsAndRoles> accounts = new HashSet<>();
                 for (Map.Entry<BigInteger, Set<BigInteger>> entry : acRoleMap.entrySet()) {
                     BigInteger accountId = entry.getKey();
                     String accountName = accountIdToNameMapping.containsKey(accountId)
-                        ? accountIdToNameMapping.get(accountId)
-                        : accountRepository.findById(accountId).get().getAccountName();
+                            ? accountIdToNameMapping.get(accountId)
+                            : accountRepository.findById(accountId).map(AccountEntity::getAccountName)
+                                    .orElse("Unknown Account");
                     Set<BigInteger> roleIds = entry.getValue();
                     Set<String> roles = new HashSet<>();
                     if (!roleIds.stream().allMatch(roleIdToNameMapping::containsKey)) {
                         RoleListRepresentation roleListRepresentation = rolesService.getRoleById(roleIds);
                         roleIdToNameMapping = roleListRepresentation.getRoles().stream()
-                            .collect(Collectors.toMap(RoleCreateResponse::getId, RoleCreateResponse::getName));
+                                .collect(Collectors.toMap(RoleCreateResponse::getId, RoleCreateResponse::getName));
                     }
                     roleIds.stream().forEach(r -> roles.add(roleIdToNameMapping.get(r)));
                     UserAccountsAndRoles ac = new UserDtoV2.UserAccountsAndRoles();
@@ -1557,7 +1579,7 @@ public class UsersServiceImpl implements UsersService {
         Specification<UserAttributeValueEntity> specification = null;
         for (int i = 0; i < userAttributeSpecifications.size(); i++) {
             if (i == 0) {
-                specification = Specification.where(userAttributeSpecifications.get(0));
+                specification = userAttributeSpecifications.get(0);
             } else {
                 specification = specification.and(userAttributeSpecifications.get(i));
             }
@@ -1748,6 +1770,46 @@ public class UsersServiceImpl implements UsersService {
         Set<String> roleScopes = RoleManagementUtils.getScopesFromRolesDto(roleListDto, roles);
         return userScopes.containsAll(roleScopes);
     }
+    
+    
+    /**
+     * Method to check if user has permission for scope.
+     *
+     * @param loggedInUserId user id of user trying to modify user data.
+     * @param scopes         set of scopes to be checked.
+     * @return true if user has permission for scope else false.
+     */
+    @Override
+    public boolean hasUserPermissionForScope(BigInteger loggedInUserId, Set<String> scopes) {
+        LOGGER.debug("Checking if user with Id '{}' has permission for scope '{}'", loggedInUserId, scopes);
+        UserResponseBase loggedInUser;
+        try {
+            loggedInUser = getUser(loggedInUserId, VERSION_2);
+        } catch (ResourceNotFoundException e) {
+            LOGGER.error("User with Id '{}' not found", loggedInUserId);
+            return false;
+        }
+        if (ObjectUtils.isEmpty(loggedInUser)) {
+            LOGGER.error("User with Id '{}' not found", loggedInUserId);
+            return false;
+        }
+
+        Set<String> loggedInUserRoles = getUserRolesFromUserResponse(loggedInUser);
+        RoleListRepresentation roleListDto = rolesService.filterRoles(loggedInUserRoles,
+                Integer.parseInt(ApiConstants.PAGE_NUMBER_DEFAULT), Integer.parseInt(ApiConstants.PAGE_SIZE_DEFAULT),
+                false);
+
+        if (ObjectUtils.isEmpty(roleListDto)) {
+            LOGGER.warn("auth management response does not contain results, roles {} does not exist",
+                    loggedInUserRoles);
+            return false;
+        }
+
+        Set<String> roleScopes = RoleManagementUtils.getScopesFromRoles(roleListDto);
+        LOGGER.debug("Role scopes retrieved: {}", roleScopes);
+
+        return roleScopes.containsAll(scopes);
+    }
 
     /**
      * Returns roles depending on version 1 response or version 2 response.
@@ -1821,7 +1883,7 @@ public class UsersServiceImpl implements UsersService {
                     return new UserSpecification(searchCriteria);
                 }
             }).filter(Objects::nonNull).toList();
-        Specification<UserEntity> specification = Specification.where(UserSpecification.getExistingUserSpecification());
+        Specification<UserEntity> specification = UserSpecification.getExistingUserSpecification();
         for (int i = 0; i < userSpecifications.size(); i++) {
             if (i == 0) {
                 specification = specification.and(userSpecifications.get(0));
@@ -1936,53 +1998,80 @@ public class UsersServiceImpl implements UsersService {
      */
     @Override
     public void updateUserPasswordUsingRecoverySecret(UserUpdatePasswordDto userUpdatePasswordDto)
-        throws ResourceNotFoundException {
+            throws ResourceNotFoundException {
         UserRecoverySecret userRecoverySecret = userRecoverySecretRepository
-            .findUserRecoverySecretDetailsByRecoverySecret(userUpdatePasswordDto.getSecret());
+                .findUserRecoverySecretDetailsByRecoverySecret(userUpdatePasswordDto.getSecret());
         LOGGER.debug("updating password for userId {} with recovery secret {}", userRecoverySecret.getUserId(),
-            userRecoverySecret.getRecoverySecret());
+                userRecoverySecret.getRecoverySecret());
         if (UserRecoverySecretStatus.GENERATED.name().equals(userRecoverySecret.getRecoverySecretStatus())) {
             long minutes = applicationProperties.getRecoverySecretExpiresInMinutes();
             if (userRecoverySecret.getSecretGeneratedAt().plus(minutes, ChronoUnit.MINUTES).isAfter(Instant.now())) {
                 UserEntity userEntity = userRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(),
-                    UserStatus.DELETED);
+                        UserStatus.DELETED);
                 if (Objects.isNull(userEntity)) {
                     throw new ResourceNotFoundException(USER, USER_ID_VARIABLE,
-                        String.valueOf(userRecoverySecret.getUserId()));
+                            String.valueOf(userRecoverySecret.getUserId()));
                 }
-                validateUserNameAndPassword(userEntity.getUserName(), userUpdatePasswordDto.getPassword());
-                CustomPasswordPatternPolicy customPasswordPatternPolicy = new CustomPasswordPatternPolicy(
-                    applicationProperties);
-                if (customPasswordPatternPolicy.enforce(userUpdatePasswordDto.getPassword(), userEntity.getUserName(),
-                        userEntity.getPwdChangedtime())) {
-                    String passwordSalt = PasswordUtils.getSalt();
-                    String hashPassword = PasswordUtils.getSecurePassword(userUpdatePasswordDto.getPassword(),
-                            passwordSalt, applicationProperties.getPasswordEncoder());
-                    userEntity.setUserPassword(hashPassword);
-                    userEntity.setPasswordSalt(passwordSalt);
-                    userEntity.setPwdChangedtime(Timestamp.from(Instant.now()));
-                    userRepository.save(userEntity);
-                    userRecoverySecret.setRecoverySecretStatus(UserRecoverySecretStatus.VERIFIED.name());
-                    userRecoverySecretRepository.save(userRecoverySecret);
-                    revokeUserTokens(userEntity.getUserName());
-                } else {
-                    throw new ApplicationRuntimeException(customPasswordPatternPolicy.getErrorMessage(), BAD_REQUEST,
-                        ApiConstants.PASSWORD);
-                }
-
+                validateUserName(userEntity.getUserName(), userUpdatePasswordDto.getPassword());
+                ValidationResult result = passwordValidationService.validatePassword(
+                        userUpdatePasswordDto.getPassword(), userEntity.getUserName(), userEntity.getPwdChangedtime());
+                handleUserRecoverySecret(userUpdatePasswordDto, userRecoverySecret, userEntity, result);
             } else {
                 LOGGER.info("recovery secret is expired for the userid {}", userRecoverySecret.getUserId());
-
                 userRecoverySecret.setRecoverySecretStatus(UserRecoverySecretStatus.EXPIRED.name());
                 userRecoverySecretRepository.save(userRecoverySecret);
                 throw new RecoverySecretExpireException("recover secret is expired!");
             }
-        } else if (UserRecoverySecretStatus.EXPIRED.name().equals(userRecoverySecret.getRecoverySecretStatus())
-                || UserRecoverySecretStatus.VERIFIED.name().equals(userRecoverySecret.getRecoverySecretStatus())
-                || UserRecoverySecretStatus.INVALIDATED.name().equals(userRecoverySecret.getRecoverySecretStatus())) {
+        } else if (isSecretExpired(userRecoverySecret)) {
             LOGGER.info("recovery secret is expired for the userid {}", userRecoverySecret.getUserId());
             throw new RecoverySecretExpireException("recover secret is expired!");
         }
+    }
+
+    /**
+     * Method to handle user recovery secret and update user password.
+     *
+     * @param userUpdatePasswordDto UserUpdatePasswordDto object.
+     * @param userRecoverySecret    UserRecoverySecret object.
+     * @param userEntity            UserEntity object.
+     * @param result                ValidationResult object.
+     * @throws PasswordValidationException if password does not match the policy.
+     */
+    private void handleUserRecoverySecret(UserUpdatePasswordDto userUpdatePasswordDto,
+            UserRecoverySecret userRecoverySecret, UserEntity userEntity, ValidationResult result) {
+        if (result.isValid()) {
+            String passwordSalt = PasswordUtils.getSalt();
+            String hashPassword = PasswordUtils.getSecurePassword(userUpdatePasswordDto.getPassword(),
+                    passwordSalt, applicationProperties.getPasswordEncoder());
+            userEntity.setUserPassword(hashPassword);
+            userEntity.setPasswordSalt(passwordSalt);
+            userEntity.setPwdChangedtime(Timestamp.from(Instant.now()));
+            userRepository.save(userEntity);
+            userRecoverySecret.setRecoverySecretStatus(UserRecoverySecretStatus.VERIFIED.name());
+            userRecoverySecretRepository.save(userRecoverySecret);
+            PasswordHistoryEntity historyEntity = generateUserPasswordHistoryEntity(userEntity);
+            historyEntity.setCreatedBy("system");
+            passwordHistoryRepository.save(historyEntity);
+            revokeUserTokens(userEntity.getUserName());
+        } else {
+            if (LOGGER.isErrorEnabled()) {
+                LOGGER.error("Password does not match the password policy for user {} with error {}",
+                        userRecoverySecret.getUserId(), result.errorMessage());
+            }
+            throw new PasswordValidationException(result.errorMessage());
+        }
+    }
+
+    /**
+     * Method to check if the user recovery secret is expired.
+     *
+     * @param userRecoverySecret UserRecoverySecret object.
+     * @return true if the secret is expired, false otherwise.
+     */
+    private boolean isSecretExpired(UserRecoverySecret userRecoverySecret) {
+        return UserRecoverySecretStatus.EXPIRED.name().equals(userRecoverySecret.getRecoverySecretStatus())
+                || UserRecoverySecretStatus.VERIFIED.name().equals(userRecoverySecret.getRecoverySecretStatus())
+                || UserRecoverySecretStatus.INVALIDATED.name().equals(userRecoverySecret.getRecoverySecretStatus());
     }
 
     /**
@@ -2565,7 +2654,7 @@ public class UsersServiceImpl implements UsersService {
         }
         return user;
     }
-
+    
     /**
      * Fetches the password policy.
      * This method retrieves the password policy settings, such as minimum length,
@@ -2575,12 +2664,7 @@ public class UsersServiceImpl implements UsersService {
      */
     public PasswordPolicyResponse getPasswordPolicy() {
         LOGGER.debug("Creating Password Policy Response");
-        PasswordPolicyResponse passwordPolicy = new PasswordPolicyResponse();
-        // Set the password policy details
-        passwordPolicy.setMinLength(applicationProperties.getMinPasswordLength());
-        passwordPolicy.setMaxLength(applicationProperties.getMaxPasswordLength());
-        passwordPolicy.setMinConsecutiveLettersLength(MIN_CONSECUTIVE_LETTERS_LENGTH);
-        passwordPolicy.setPasswordRegex(PASS_REGEXP);
-        return passwordPolicy;
+        List<PasswordPolicy> policies = passwordPolicyRepository.findAll();
+        return PasswordPolicyResponse.fromEntities(policies);
     }
 }

@@ -23,6 +23,9 @@ import jakarta.persistence.EntityManagerFactory;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
+import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
@@ -38,6 +41,7 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException
 import org.eclipse.ecsp.uidam.usermanagement.mapper.UserMapper;
 import org.eclipse.ecsp.uidam.usermanagement.repository.CloudProfilesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.EmailVerificationRepository;
+import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.RolesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeValueRepository;
@@ -159,6 +163,14 @@ class UsersServiceV2Test {
     private CloudProfilesRepository cloudProfilesRepository;
     @MockBean
     private EmailVerificationRepository emailVerificationRepository;
+    @MockBean
+    private PasswordHistoryRepository passwordHistoryRepository;
+
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    
+    @MockBean
+    PasswordPolicyRepository passwordPolicyRepository;
 
     private String passwordEncoder = "SHA-256";
 
@@ -279,9 +291,6 @@ class UsersServiceV2Test {
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowedToManageUsersResponse()));
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
@@ -305,7 +314,8 @@ class UsersServiceV2Test {
         List<RolesEntity> roleEntityList = new ArrayList<>();
         roleEntityList.add(role);
         when(rolesRepository.findByIdIn(any(Set.class))).thenReturn(roleEntityList);
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         UserResponseV2 receivedResponse = (UserResponseV2) usersService.addUser(userPost, null, false);
         UserResponseV2 userResponse = UserMapper.USER_MAPPER.mapToUserResponseV2(userEntity);
         assertEquals(userResponse.getUserName(), receivedResponse.getUserName());

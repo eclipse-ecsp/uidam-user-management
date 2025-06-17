@@ -20,6 +20,8 @@ package org.eclipse.ecsp.uidam.usermanagement.template;
 
 import io.prometheus.client.CollectorRegistry;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +54,11 @@ class MustacheTemplateParserImplFailureTest {
     @Autowired
     private TemplateParser templateManager;
 
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     /**
      * app test config.
      */

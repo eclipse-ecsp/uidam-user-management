@@ -40,6 +40,7 @@ public class RegisteredClientDetails {
     private List<String> clientAuthenticationMethods;
     private List<String> authorizationGrantTypes;
     private List<String> redirectUris;
+    private List<String> postLogoutRedirectUris;
     private Set<String> scopes;
     private Integer accessTokenValidity;
     private Integer refreshTokenValidity;

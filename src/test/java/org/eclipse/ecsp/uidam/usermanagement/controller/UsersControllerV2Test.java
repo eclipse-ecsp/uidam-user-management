@@ -26,9 +26,13 @@ import jakarta.transaction.Transactional;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
+import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RoleScopeMappingEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RolesEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.ScopesEntity;
@@ -36,6 +40,7 @@ import org.eclipse.ecsp.uidam.usermanagement.entity.UserAccountRoleMappingEntity
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
+import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.RolesRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeValueRepository;
@@ -74,6 +79,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -118,6 +124,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.USER_NAM
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -174,6 +181,15 @@ class UsersControllerV2Test {
     @MockBean
     private RolesService rolesService;
 
+    @MockBean
+    private PasswordHistoryRepository passwordHistoryRepository;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
+    
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     private String passwordEncoder = "SHA-256";
 
     /**
@@ -350,12 +366,10 @@ class UsersControllerV2Test {
     @Test
     void testCreateUserSuccess() throws IOException, ResourceNotFoundException {
         addAccountIntoDb("TestAccount", AccountStatus.ACTIVE, ROLE_ID_1, ACCOUNT_ID_VALUE, null);
+        when(passwordHistoryRepository.save(any(PasswordHistoryEntity.class))).thenReturn(mockPasswordHistoryEntity());
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
         when(userRepository.findByIdAndStatusNot(any(BigInteger.class), any(UserStatus.class)))
                 .thenReturn(loggedInUserEntity());
         Set<RoleCreateResponse> roles = new HashSet<>();
@@ -376,6 +390,8 @@ class UsersControllerV2Test {
         when(accountRepository
                 .findIdAndNameByStatusAndAccountNameIn(any(AccountStatus.class), anySet())).thenReturn(activeAccounts);
         UserDtoV2 userDto = createUserPostV2(UserStatus.ACTIVE, "TestAccount", ROLE_VALUE);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         webTestClient.post().uri("/v2/users").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -407,14 +423,12 @@ class UsersControllerV2Test {
 
         UserDtoV2 userDto = createUserPostV2(UserStatus.ACTIVE, "TestAccount", ROLE_VALUE);
         userDto.setAccounts(accounts);
+        when(passwordHistoryRepository.save(any(PasswordHistoryEntity.class))).thenReturn(mockPasswordHistoryEntity());
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
         when(userRepository.findByIdAndStatusNot(any(BigInteger.class), any(UserStatus.class)))
                 .thenReturn(loggedInUserEntity());
         when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(applicationProperties.getMaxPasswordLength()).thenReturn(MAX_PASSWORD_LENGTH);
-        when(applicationProperties.getMinPasswordLength()).thenReturn(MIN_PASSWORD_LENGTH);
-        when(applicationProperties.getPasswordUpdateTimeInterval()).thenReturn(INTERVAL_FOR_LAST_PASSWORD_UPDATE);
         Set<RoleCreateResponse> roles1 = new HashSet<>();
         RoleCreateResponse role = new RoleCreateResponse();
         role.setName("VEHICLE_OWNER");
@@ -435,7 +449,8 @@ class UsersControllerV2Test {
         activeAccounts.add(accountArray);
         when(accountRepository
                 .findIdAndNameByStatusAndAccountNameIn(any(AccountStatus.class), anySet())).thenReturn(activeAccounts);
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         webTestClient.post().uri("/v2/users").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -459,6 +474,8 @@ class UsersControllerV2Test {
                 .thenReturn(rolesRepresentation);
         when(rolesService.getRoleById(any(HashSet.class))).thenReturn(rolesRepresentation);
         UserDtoV2 userDto = createUserPostV2(UserStatus.ACTIVE, "TestAccount", ROLE_VALUE);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         when(accountRepository
                 .findIdAndNameByStatusAndAccountNameIn(any(AccountStatus.class), anySet())).thenReturn(List.of());
         webTestClient.post().uri("/v2/users").headers(http -> {
@@ -501,7 +518,8 @@ class UsersControllerV2Test {
         activeAccounts.add(accountArray);
         when(accountRepository
                 .findIdAndNameByStatusAndAccountNameIn(any(AccountStatus.class), anySet())).thenReturn(activeAccounts);
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         webTestClient.post().uri("/v2/users").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -588,7 +606,8 @@ class UsersControllerV2Test {
         when(rolesService.getRoleById(any(HashSet.class))).thenReturn(rolesRepresentation);
         when(accountRepository
                 .findIdAndNameByStatusAndAccountNameIn(any(AccountStatus.class), anySet())).thenReturn(List.of());
-
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
         webTestClient.post().uri("/v2/users").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -792,4 +811,17 @@ class UsersControllerV2Test {
         return usersGetFilter;
     }
 
+    private PasswordHistoryEntity mockPasswordHistoryEntity() {
+
+        PasswordHistoryEntity passwordHistoryEntity = new PasswordHistoryEntity();
+        passwordHistoryEntity.setId(USER_ID_VALUE);
+        passwordHistoryEntity.setUserName("John");
+        passwordHistoryEntity.setUserPassword("G3K1s4dOe9yCm/btuMhik3KWlJ1KYT8RlTCcKejUm9g=");
+        passwordHistoryEntity.setPasswordSalt("1r38Fy8KrXk59shkNF5CnA==");
+        UserEntity userEntity = new UserEntity();
+        userEntity.setId(mockUserEntity().getId());
+        passwordHistoryEntity.setUserEntity(userEntity);
+        passwordHistoryEntity.setCreateDate(Timestamp.valueOf(LocalDateTime.now()));
+        return passwordHistoryEntity;
+    }
 }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="user_password_history" author="Venkatakumar Puvvada">
+        <createTable tableName="user_password_history">
+            <column name="ID" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_ID" type="${BIG_INTEGER}">
+                <constraints nullable="false"
+                             foreignKeyName="FK_USER_ID"
+                             referencedTableName="user"
+                             referencedColumnNames="ID"/>
+            </column>
+            <column name="USER_NAME" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="USER_PASSWORD" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="PASSWORD_SALT" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CREATED_BY" type="${STRING_SMALL}"/>
+            <column name="CREATE_DATE" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="UPDATED_BY" type="${STRING_SMALL}"/>
+            <column name="UPDATE_DATE" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <addPrimaryKey columnNames="ID" constraintName="PK_USER_PWD_HISTORY" tableName="user_password_history"/>
+    </changeSet>	
+    <changeSet id="client-details-add-post-logout-redirect-uris"
+		author="VENKATAKUMAR PUVVADA">
+         <addColumn tableName="client_details">
+	           <column name="POST_LOGOUT_REDIRECT_URIS" type="${STRING_MEDIUM}" />
+	     </addColumn>
+    </changeSet>
+</databaseChangeLog>

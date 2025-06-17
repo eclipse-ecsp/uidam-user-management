@@ -35,12 +35,10 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CLIENT_ID_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.IS_EXTERNAL_USER_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PASS_FIELD_DESCRIPTION;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PASS_REGEXP;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ROLE_FIELD_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.STATUS_FIELD_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USERNAME_FIELD_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USERNAME_REGEXP;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_INPUT_PASS_PATTERN;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_INPUT_USERNAME_PATTERN;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_LENGTH;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MISSING_MANDATORY_PARAMETERS;
@@ -60,7 +58,6 @@ public class UserDto extends UserRequest {
     protected String userName;
 
     @Schema(description = PASS_FIELD_DESCRIPTION, requiredMode = Schema.RequiredMode.REQUIRED, example = "Aa1234")
-    @Pattern(regexp = PASS_REGEXP, message = INVALID_INPUT_PASS_PATTERN)
     @NotBlank(message = MISSING_MANDATORY_PARAMETERS)
     protected String password;
 

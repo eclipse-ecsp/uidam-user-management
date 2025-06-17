@@ -29,7 +29,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.security.Security;
 import org.eclipse.ecsp.uidam.security.policy.response.PasswordPolicyResponse;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.springframework.http.MediaType;
@@ -43,6 +42,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigInteger;
 import java.util.List;
 
 
@@ -89,9 +89,10 @@ public class PasswordPolicyController {
         schema = @Schema(type = STRING), in = ParameterIn.HEADER) 
     @GetMapping
     public ResponseEntity<PasswordPolicyResponse> getAllPasswordPolicies(
-            @RequestHeader(value = LOGGED_IN_USER_ID, required = true) String loggedInUser) {
+            @RequestHeader(value = LOGGED_IN_USER_ID, required = true) BigInteger loggedInUser) {
         log.info("Fetching all password policies. Logged in user: {}", loggedInUser);
-        PasswordPolicyResponse response = PasswordPolicyResponse.fromEntities(passwordPolicyService.getAllPolicies());
+        PasswordPolicyResponse response = PasswordPolicyResponse
+                .fromEntities(passwordPolicyService.getAllPolicies(loggedInUser));
         log.info("Fetched {} password policies.", response.getPasswordPolicies().size());
         return ResponseEntity.ok(response);
     }
@@ -112,10 +113,10 @@ public class PasswordPolicyController {
     public ResponseEntity<PasswordPolicyResponse> getPolicyByKey(
             @Valid @PathVariable(value = "policyKey")
             @Parameter(description = "Policy key", required = true) String policyKey,
-            @RequestHeader(value = LOGGED_IN_USER_ID, required = true) String loggedInUser) {
+            @RequestHeader(value = LOGGED_IN_USER_ID, required = true) BigInteger loggedInUser) {
         log.info("Fetching password policy for key: {}. Logged in user: {}", policyKey, loggedInUser);
         PasswordPolicyResponse response = PasswordPolicyResponse
-                .fromEntities(List.of(passwordPolicyService.getPolicyByKey(policyKey)));
+                .fromEntities(List.of(passwordPolicyService.getPolicyByKey(policyKey, loggedInUser)));
         log.info("Fetched password policy for key: {}", policyKey);
         return ResponseEntity.ok(response);
     }
@@ -135,7 +136,7 @@ public class PasswordPolicyController {
         in = ParameterIn.HEADER) 
     @PatchMapping
     public ResponseEntity<PasswordPolicyResponse> updatePasswordPolicies(@RequestBody JsonNode patchRequest,
-            @RequestHeader(value = LOGGED_IN_USER_ID, required = true) String loggedInUser) {
+            @RequestHeader(value = LOGGED_IN_USER_ID, required = true) BigInteger loggedInUser) {
         log.info("Updating password policies. Logged in user: {}. Patch request: {}", loggedInUser, patchRequest);
         PasswordPolicyResponse response = PasswordPolicyResponse
                 .fromEntities(passwordPolicyService.updatePolicies(patchRequest, loggedInUser));

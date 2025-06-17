@@ -16,23 +16,21 @@
  *
  */
 
-package org.eclipse.ecsp.uidam.usermanagement.validations.password.policy;
-
-import java.util.Map;
+package org.eclipse.ecsp.uidam.usermanagement.exception;
 
 /**
- * validation chain for password validation handlers.
+ * Password validation exception class.
  *
  */
-public class ValidationChain {
-    private PasswordValidationHandler passwordValidation;
+public class PasswordValidationException extends RuntimeException {
 
-    public void setStartingPoint(PasswordValidationHandler passwordValidation) {
-        this.passwordValidation = passwordValidation;
-    }
+    /**
+     * serial version uid.
+     */
+    private static final long serialVersionUID = -5897490651059190617L;
 
-    public boolean startValidation(Map<String, String> userDetails) throws Exception {
-        return passwordValidation.validate(userDetails);
+    public PasswordValidationException(String message) {
+        super(message);
     }
 
 }

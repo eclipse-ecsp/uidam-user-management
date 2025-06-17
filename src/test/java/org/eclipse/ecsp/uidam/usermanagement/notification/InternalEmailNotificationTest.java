@@ -23,6 +23,8 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
+import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NonRegisteredUserData;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
@@ -67,7 +69,13 @@ class InternalEmailNotificationTest {
 
     @MockBean
     private JavaMailSender javaMailSender;
+    
+    @MockBean
+    PasswordValidationService passwordValidationService;
 
+    @MockBean
+    PasswordPolicyService passwordPolicyService;
+    
     /**
      * application test config.
      */

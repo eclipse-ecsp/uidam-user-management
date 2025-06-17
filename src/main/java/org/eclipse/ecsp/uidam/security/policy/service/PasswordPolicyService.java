@@ -30,12 +30,13 @@ import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.text.FieldPosition;
 import java.text.MessageFormat;
@@ -45,8 +46,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MANAGE_ACCOUNTS_SCOPE;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -57,11 +60,13 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Service 
 @Slf4j
 public class PasswordPolicyService {
-
+    private static final String USER_ID = "userId";
     private static final int INT_8 = 8;
     private static final int INT_2 = 2;
     public static final String POLICY_DOES_NOT_EXIST_MSG = "The policy does not exist: {0}";
     public static final String POLICY_DOES_NOT_EXIST = "um.policy.does.not.exist";
+    public static final String INVALID_USER_PERMISSION_MSG = "User does not have permission to access this resource.";
+    public static final String INVALID_USER_PERMISSION = "um.user.permission";
     public static final String PATCH_POLICY_DOES_NOT_EXIST_MSG = "Apply patch failed,policy not exit policy key:{0}";
     public static final String PATCH_POLICY_DOES_NOT_EXIST = "um.patch.policy.not.exist";
     public static final String INVALID_PATCH_POLICY_OPERATION_MSG = "Apply patch failed,invalid patch opeation:{0}";
@@ -73,18 +78,42 @@ public class PasswordPolicyService {
     public static final String PATCH_POLICY_VALIDATION_ERROR = "um.patch.policy.validation.failed";
     public static final String POLICY_ID = "policyKey";
     private static final String POLICY_ERROR = "policyError";
-    
     private final PasswordPolicyRepository passwordPolicyRepository;
     private final ObjectMapper objectMapper;
+    private final UsersService usersService;
 
-    @Autowired
-    public PasswordPolicyService(PasswordPolicyRepository passwordPolicyRepository, ObjectMapper objectMapper) {
+    /**
+     * Constructor for PasswordPolicyService.
+     *
+     * @param passwordPolicyRepository The repository for password policies.
+     * @param objectMapper The ObjectMapper for JSON operations.
+     * @param usersService The service for user management.
+     */
+    public PasswordPolicyService(PasswordPolicyRepository passwordPolicyRepository, 
+            ObjectMapper objectMapper,
+            UsersService usersService) {
         this.passwordPolicyRepository = passwordPolicyRepository;
         this.objectMapper = objectMapper;
+        this.usersService = usersService;
     }
 
     /**
      * Retrieves all password policies.
+     *
+     * @param loggedInUserId The ID of the logged-in user.
+     * @return List of password policies.
+     */
+    public List<PasswordPolicy> getAllPolicies(BigInteger loggedInUserId) {
+        log.debug("Fetching all password policies by user ID: {}", loggedInUserId);
+        if (!usersService.hasUserPermissionForScope(loggedInUserId, Set.of(MANAGE_ACCOUNTS_SCOPE))) {
+            throwException(INVALID_USER_PERMISSION_MSG, INVALID_USER_PERMISSION, USER_ID, loggedInUserId.toString(),
+                    BAD_REQUEST);
+        }
+        return passwordPolicyRepository.findAll();
+    }
+    
+    /**
+     * Retrieves all password policies without user permission check.
      *
      * @return List of password policies.
      */
@@ -95,10 +124,16 @@ public class PasswordPolicyService {
     /**
      * Retrieves a password policy by its key.
      *
-     * @param key The key of the policy.
-     * @return The found password policy.
+     * @param key The key of the password policy.
+     * @param loggedInUserId The ID of the logged-in user.
+     * @return The password policy.
      */
-    public PasswordPolicy getPolicyByKey(String key) {
+    public PasswordPolicy getPolicyByKey(String key, BigInteger loggedInUserId) {
+        log.debug("Fetching password policy by key: {}", key);
+        if (!usersService.hasUserPermissionForScope(loggedInUserId, Set.of(MANAGE_ACCOUNTS_SCOPE))) {
+            throwException(INVALID_USER_PERMISSION_MSG, INVALID_USER_PERMISSION, USER_ID, loggedInUserId.toString(),
+                    BAD_REQUEST);
+        }
         Optional<PasswordPolicy> policy = passwordPolicyRepository.findByKey(key);
         if (policy.isEmpty()) {
             throwException(POLICY_DOES_NOT_EXIST_MSG, POLICY_DOES_NOT_EXIST, POLICY_ID, key, NOT_FOUND);
@@ -115,8 +150,12 @@ public class PasswordPolicyService {
      * @return Updated list of password policies.
      */
     @Transactional
-    public List<PasswordPolicy> updatePolicies(JsonNode patch, String loginUserId) {
+    public List<PasswordPolicy> updatePolicies(JsonNode patch, BigInteger loginUserId) {
         log.info("Applying patch to password policies. User: {}", loginUserId);
+        if (!usersService.hasUserPermissionForScope(loginUserId, Set.of(MANAGE_ACCOUNTS_SCOPE))) {
+            throwException(INVALID_USER_PERMISSION_MSG, INVALID_USER_PERMISSION, USER_ID, loginUserId.toString(),
+                    BAD_REQUEST);
+        }
         Map<String, JsonPatch> policiesPatchMap = processJsonPatch(patch);
         // Get all policies and apply the patch to each
         List<PasswordPolicy> policies = passwordPolicyRepository.findAll();
@@ -188,10 +227,11 @@ public class PasswordPolicyService {
      * Applies a JSON Patch operation to update a password policy.
      *
      * @param patch The JSON Patch containing update operations.
+     * @param policy The key of the policy to update.
      * @param loginUserId The ID of the user performing the update.
      * @return The updated password policy.
      */
-    protected PasswordPolicy applyPatchToPolicy(JsonPatch patch, PasswordPolicy policy, String loginUserId) {
+    protected PasswordPolicy applyPatchToPolicy(JsonPatch patch, PasswordPolicy policy, BigInteger loginUserId) {
         try {
             log.debug("Applying patch to policy: {}", policy.getKey());
             // Step 1: Clone the original policy object
@@ -212,12 +252,10 @@ public class PasswordPolicyService {
             return updatedPolicy;
         } catch (IOException | JsonPatchException e) {
             log.error("Failed to apply patch to policy.", e);
-            throwException(PATCH_POLICY_ERROR_MSG, PATCH_POLICY_ERROR, "user", loginUserId, BAD_REQUEST);
+            throwException(PATCH_POLICY_ERROR_MSG, PATCH_POLICY_ERROR, "user", loginUserId.toString(), BAD_REQUEST);
             return null;
         }
     }
-
-    
 
     /**
      * Validates a password policy update.
@@ -246,8 +284,8 @@ public class PasswordPolicyService {
                 String errorMsg = String.format(
                         "Key %s, Invalid length constraints: minLength must be >= 8 and maxLength > minLength.",
                         originalPolicy.getKey());
-                throwException(PATCH_POLICY_VALIDATION_ERROR_MSG, PATCH_POLICY_VALIDATION_ERROR, POLICY_ERROR,
-                        errorMsg, BAD_REQUEST);
+                throwException(PATCH_POLICY_VALIDATION_ERROR_MSG, PATCH_POLICY_VALIDATION_ERROR, POLICY_ERROR, errorMsg,
+                        BAD_REQUEST);
             }
         }
         if (originalPolicy.getKey().equals("specialChars")) {
@@ -256,8 +294,17 @@ public class PasswordPolicyService {
             if (allowed != null && excluded != null && allowed.chars().anyMatch(ch -> excluded.indexOf(ch) >= 0)) {
                 String errorMsg = String.format("Key %s, Excluded characters must not be in allowed set.",
                         originalPolicy.getKey());
-                throwException(PATCH_POLICY_VALIDATION_ERROR_MSG, PATCH_POLICY_VALIDATION_ERROR, POLICY_ERROR,
-                        errorMsg, BAD_REQUEST);
+                throwException(PATCH_POLICY_VALIDATION_ERROR_MSG, PATCH_POLICY_VALIDATION_ERROR, POLICY_ERROR, errorMsg,
+                        BAD_REQUEST);
+            }
+        }
+        if (updatedPolicy.getValidationRules().containsKey("passwordExpiryDays")) {
+            Integer passwordExpiryDays = (Integer) updatedPolicy.getValidationRules().get("passwordExpiryDays");
+            if (passwordExpiryDays <= 0) {
+                String errorMsg = String.format("Key %s, passwordExpiryDays must be greater than 0.",
+                        originalPolicy.getKey());
+                throwException(PATCH_POLICY_VALIDATION_ERROR_MSG, PATCH_POLICY_VALIDATION_ERROR, POLICY_ERROR, errorMsg,
+                        BAD_REQUEST);
             }
         }
     }
@@ -294,4 +341,5 @@ public class PasswordPolicyService {
         msgFormat.format(arguments, errorMessage, new FieldPosition(0));
         return errorMessage.toString();
     }
+
 }

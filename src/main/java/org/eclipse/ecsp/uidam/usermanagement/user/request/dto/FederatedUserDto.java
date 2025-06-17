@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.IDENTITY_PROVIDER_NAME_FIELD_DESCRIPTION;
@@ -34,13 +33,22 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MI
  */
 @Getter
 @Setter
-@NoArgsConstructor
 public class FederatedUserDto extends UserDtoV1 {
 
+    /**
+     * Constructor.
+     */
+    public FederatedUserDto() {
+        super.isExternalUser = Boolean.valueOf(true);
+    }
+    
     @JsonView(UserDtoViews.UserDtoV1FederatedView.class)
     @Schema(description = IDENTITY_PROVIDER_NAME_FIELD_DESCRIPTION, requiredMode = Schema.RequiredMode.REQUIRED,
         example = "Google")
     @NotBlank(message = MISSING_MANDATORY_PARAMETERS)
     @JsonProperty("identity_provider_name")
     protected String identityProviderName;
+    
+    
+    
 }

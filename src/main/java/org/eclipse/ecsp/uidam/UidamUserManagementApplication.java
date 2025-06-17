@@ -24,6 +24,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * UidamUserManagementApplication main microservice class.
@@ -31,6 +32,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @SpringBootApplication(scanBasePackages = {"org.eclipse.ecsp"})
 @EnableConfigurationProperties({ApplicationProperties.class})
 @EnableJpaAuditing
+@EnableScheduling
 public class UidamUserManagementApplication extends BaseApplication {
 
     public static void main(String[] args) {
