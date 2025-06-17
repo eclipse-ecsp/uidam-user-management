@@ -40,6 +40,7 @@ import static org.mockito.Mockito.when;
 
 class PasswordPolicyServiceTest {
 
+    private static final int INT_2 = 2;
     private static final int INT_5 = 5;
     private static final int INT_6 = 6;
     private static final int INT_8 = 8;
@@ -59,7 +60,7 @@ class PasswordPolicyServiceTest {
     @InjectMocks
     private PasswordPolicyService passwordPolicyService;
 
-    private PasswordPolicy policy;
+    private PasswordPolicy commonPolicy;
 
     private String policyKey = "size";
 
@@ -68,24 +69,24 @@ class PasswordPolicyServiceTest {
         MockitoAnnotations.openMocks(this);
 
         // Setting up a basic PasswordPolicy object for testing
-        policy = new PasswordPolicy();
-        policy.setKey(policyKey);
-        policy.setRequired(true);
+        commonPolicy = new PasswordPolicy();
+        commonPolicy.setKey(policyKey);
+        commonPolicy.setRequired(true);
         Map<String, Object> validationRules = new HashMap<>();
         validationRules.put("minLength", INT_8);
         validationRules.put("maxLength", INT_16);
-        policy.setValidationRules(validationRules);
-        policy.setName("Test Policy");
-        policy.setDescription("Test Description");
-        policy.setPriority(1);
-        policy.setCreatedBy("admin");
-        policy.setCreateDate(new Timestamp(System.currentTimeMillis()));
+        commonPolicy.setValidationRules(validationRules);
+        commonPolicy.setName("Test Policy");
+        commonPolicy.setDescription("Test Description");
+        commonPolicy.setPriority(1);
+        commonPolicy.setCreatedBy("admin");
+        commonPolicy.setCreateDate(new Timestamp(System.currentTimeMillis()));
     }
 
     // Test for getting all policies
     @Test
     void testGetAllPolicies() {
-        List<PasswordPolicy> policies = Arrays.asList(policy);
+        List<PasswordPolicy> policies = Arrays.asList(commonPolicy);
 
         when(passwordPolicyRepository.findAll()).thenReturn(policies);
         when(usersService.hasUserPermissionForScope(any(BigInteger.class), anySet())).thenReturn(true);
@@ -107,7 +108,7 @@ class PasswordPolicyServiceTest {
     // Test for getting a policy by key
     @Test
     void testGetPolicyByKey() {
-        when(passwordPolicyRepository.findByKey("passwordPolicy1")).thenReturn(Optional.of(policy));
+        when(passwordPolicyRepository.findByKey("passwordPolicy1")).thenReturn(Optional.of(commonPolicy));
         when(usersService.hasUserPermissionForScope(any(BigInteger.class), anySet())).thenReturn(true);
         PasswordPolicy result = passwordPolicyService.getPolicyByKey("passwordPolicy1",
                 new BigInteger("12345678901234567890"));
@@ -131,7 +132,7 @@ class PasswordPolicyServiceTest {
         String patchJson = "[{\"op\":\"replace\", \"path\":\"/size/validationRules/minLength\", \"value\":10}]";
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode patchNode = objectMapper.readTree(patchJson);
-        when(passwordPolicyRepository.findAll()).thenReturn(Arrays.asList(policy));
+        when(passwordPolicyRepository.findAll()).thenReturn(Arrays.asList(commonPolicy));
         // Simulating successful patch application
         Map<String, JsonPatch> patchMap = new HashMap<>();
         patchMap.put(policyKey, JsonPatch.fromJson((ArrayNode) patchNode));
@@ -139,7 +140,7 @@ class PasswordPolicyServiceTest {
         JsonNode modifiedPatchJsonNode = objectMapper.readTree(modifiedPatchJson);
         when(this.objectMapper.valueToTree(any(Object.class)))
                 .thenReturn(objectMapper.valueToTree(modifiedPatchJsonNode))
-                .thenReturn(objectMapper.valueToTree(objectMapper.valueToTree(policy)));
+                .thenReturn(objectMapper.valueToTree(objectMapper.valueToTree(commonPolicy)));
         // Create a mock patched Policy
         PasswordPolicy patchedPolicy = new PasswordPolicy();
         patchedPolicy.setKey("size");
@@ -149,12 +150,13 @@ class PasswordPolicyServiceTest {
         validationRules.put("maxLength", INT_16);
         patchedPolicy.setValidationRules(validationRules);
         // Mock the behavior of objectReader.readValue(patchedNode) to return the patched Policy
-        when(this.objectMapper.writeValueAsString(policy)).thenReturn(objectMapper.writeValueAsString(policy));
-        when(this.objectMapper.readValue(objectMapper.writeValueAsString(policy), PasswordPolicy.class))
-                .thenReturn(policy);
+        when(this.objectMapper.writeValueAsString(commonPolicy))
+            .thenReturn(objectMapper.writeValueAsString(commonPolicy));
+        when(this.objectMapper.readValue(objectMapper.writeValueAsString(commonPolicy), PasswordPolicy.class))
+                .thenReturn(commonPolicy);
         // Mock the behavior of objectMapper.readerForUpdating(policy) to return a mocked ObjectReader
         ObjectReader objectReader = mock(ObjectReader.class);
-        when(this.objectMapper.readerForUpdating(policy)).thenReturn(objectReader);
+        when(this.objectMapper.readerForUpdating(commonPolicy)).thenReturn(objectReader);
         when(objectReader.readValue(any(JsonNode.class))).thenReturn(patchedPolicy);
         when(usersService.hasUserPermissionForScope(any(BigInteger.class), anySet())).thenReturn(true);
         List<PasswordPolicy> updatedPolicies = passwordPolicyService.updatePolicies(patchNode,
@@ -189,7 +191,7 @@ class PasswordPolicyServiceTest {
         Map<String, Object> validationRules = new HashMap<>();
         validationRules.put("minLength", INT_8);
         validationRules.put("maxLength", INT_16);
-        policy.setValidationRules(validationRules);
+        commonPolicy.setValidationRules(validationRules);
 
         PasswordPolicy updatedPolicy = new PasswordPolicy();
         updatedPolicy.setKey("passwordPolicy1");
@@ -198,7 +200,7 @@ class PasswordPolicyServiceTest {
 
         // Test validation for valid update
         try {
-            passwordPolicyService.validatePolicyUpdate(policy, updatedPolicy);
+            passwordPolicyService.validatePolicyUpdate(commonPolicy, updatedPolicy);
         } catch (PasswordPolicyException e) {
             fail("Validation failed when it should have passed");
         }
@@ -209,7 +211,7 @@ class PasswordPolicyServiceTest {
         Map<String, Object> validationRules = new HashMap<>();
         validationRules.put("minLength", INT_5);
         validationRules.put("maxLength", INT_16);
-        policy.setValidationRules(validationRules);
+        commonPolicy.setValidationRules(validationRules);
 
         PasswordPolicy updatedPolicy = new PasswordPolicy();
         updatedPolicy.setKey(policyKey);
@@ -218,7 +220,7 @@ class PasswordPolicyServiceTest {
 
         // Test validation for invalid minLength
         Exception exception = assertThrows(PasswordPolicyException.class, () -> {
-            passwordPolicyService.validatePolicyUpdate(policy, updatedPolicy);
+            passwordPolicyService.validatePolicyUpdate(commonPolicy, updatedPolicy);
         });
         assertTrue(exception.getMessage().contains("Invalid length constraints"));
     }
@@ -247,6 +249,35 @@ class PasswordPolicyServiceTest {
         Map<String, JsonPatch> result = service.processJsonPatch(emptyArray);
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testProcessJsonPatchUnsupportedOp() throws IOException {
+        PasswordPolicyService service = 
+                new PasswordPolicyService(passwordPolicyRepository, new ObjectMapper(), usersService);
+        String patchJson = "[{\"op\":\"add\", \"path\":\"/size/minLength\", \"value\":10}]";
+        JsonNode patchNode = new ObjectMapper().readTree(patchJson);
+        Exception exception = assertThrows(PasswordPolicyException.class, () -> {
+            service.processJsonPatch(patchNode);
+        });
+        assertTrue(exception.getMessage().contains("invalid patch opeation"));
+    }
+
+    @Test
+    void testValidatePolicyUpdate_InvalidPasswordExpiryDays() {
+        PasswordPolicy originalPolicy = new PasswordPolicy();
+        originalPolicy.setRequired(true);
+        originalPolicy.setKey("expiry");
+        Map<String, Object> rules = new HashMap<>();
+        rules.put("passwordExpiryDays", 0);
+        PasswordPolicy updatedPolicy = new PasswordPolicy();
+        updatedPolicy.setRequired(true);
+        updatedPolicy.setKey("expiry");
+        updatedPolicy.setValidationRules(rules);
+        Exception exception = assertThrows(PasswordPolicyException.class, () -> {
+            passwordPolicyService.validatePolicyUpdate(originalPolicy, updatedPolicy);
+        });
+        assertTrue(exception.getMessage().contains("passwordExpiryDays must be greater than 0"));
     }
 
     @Test
@@ -447,5 +478,50 @@ class PasswordPolicyServiceTest {
     void testConstructorWithNulls() {
         PasswordPolicyService service = new PasswordPolicyService(null, null, null);
         assertNotNull(service);
+    }
+
+    @Test
+    void testGetAllPoliciesNoArg() {
+        PasswordPolicyService service = new PasswordPolicyService(passwordPolicyRepository, new ObjectMapper(),
+                usersService);
+        List<PasswordPolicy> policies = Arrays.asList(new PasswordPolicy());
+        when(passwordPolicyRepository.findAll()).thenReturn(policies);
+        List<PasswordPolicy> result = service.getAllPolicies();
+        assertNotNull(result);
+        assertEquals(1, result.size());
+    }
+    
+    @Test
+    void testFormatErrorMessageMultipleArgs() {
+        PasswordPolicyService service = new PasswordPolicyService(null, null, null);
+        String msg = service.getClass().getDeclaredMethods()[service.getClass().getDeclaredMethods().length - 1]
+                .getName(); // just to avoid unused warning
+        String formatted = service.getClass().getDeclaredMethods()[service.getClass().getDeclaredMethods().length
+                - INT_2].getName(); // just to avoid unused warning
+        String result = service.getClass().getSimpleName(); // just to avoid unused warning
+        // Actually test formatErrorMessage via throwException
+        Exception exception = assertThrows(PasswordPolicyException.class, () -> {
+            service.throwException("Error {0} {1}", "key", "p", "v", HttpStatus.BAD_REQUEST);
+        });
+        assertTrue(exception.getMessage().contains("Error v {1}"));
+    }
+
+
+    @Test
+    void testApplyPatchToPolicy_JsonPatchException() throws Exception {
+        PasswordPolicy policy = new PasswordPolicy();
+        policy.setKey("size");
+        policy.setRequired(true);
+        Map<String, Object> validationRules = new HashMap<>();
+        validationRules.put("minLength", INT_8);
+        validationRules.put("maxLength", INT_16);
+        policy.setValidationRules(validationRules);
+        JsonPatch patch = mock(JsonPatch.class);
+        JsonNode mockJsonNode = mock(JsonNode.class);
+        when(objectMapper.valueToTree(any(Object.class))).thenReturn(mockJsonNode);
+        when(patch.apply(any(JsonNode.class))).thenThrow(new JsonPatchException("Simulated patch error"));
+        assertThrows(PasswordPolicyException.class, () ->
+            passwordPolicyService.applyPatchToPolicy(patch, policy, new BigInteger("12345678901234567890"))
+        );
     }
 }

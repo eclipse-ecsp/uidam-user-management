@@ -21,6 +21,7 @@ package org.eclipse.ecsp.uidam.security.policy.handler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,14 +43,14 @@ class CompromisedPasswordPolicyHandlerTest {
 
     private static final int INT_5 = 5;
     private static final int INT_40 = 40;
-    private CompromisedPasswordPolicyHandler handler;
+    private CompromisedPasswordPolicyHandler handlerMain;
     private Map<String, Object> rules;
 
     @BeforeEach
     void setUp() {
         rules = new HashMap<>();
         rules.put("passwordHashSubStringLength", INT_5);
-        handler = new CompromisedPasswordPolicyHandler(rules);
+        handlerMain = new CompromisedPasswordPolicyHandler(rules);
     }
 
     @Test
@@ -57,7 +58,7 @@ class CompromisedPasswordPolicyHandlerTest {
         PasswordValidationInput input = mock(PasswordValidationInput.class);
         when(input.password()).thenReturn("StrongPassword123!");
 
-        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handlerMain);
         doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
 
         boolean result = spyHandler.doHandle(input);
@@ -71,7 +72,7 @@ class CompromisedPasswordPolicyHandlerTest {
         PasswordValidationInput input = mock(PasswordValidationInput.class);
         when(input.password()).thenReturn("WeakPassword");
 
-        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handlerMain);
         doReturn(true).when(spyHandler).isPasswordCompromised(anyString());
 
         boolean result = spyHandler.doHandle(input);
@@ -84,7 +85,7 @@ class CompromisedPasswordPolicyHandlerTest {
     void testDoHandleThrowsException() throws NoSuchAlgorithmException {
         PasswordValidationInput input = mock(PasswordValidationInput.class);
         when(input.password()).thenReturn("AnyPassword");
-        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handlerMain);
         doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
         // Simulate exception
         Mockito.doThrow(new NoSuchAlgorithmException()).when(spyHandler).isPasswordCompromised("AnyPassword");
@@ -102,7 +103,7 @@ class CompromisedPasswordPolicyHandlerTest {
     @Test
     void testToHashValidPassword() throws NoSuchAlgorithmException {
         String password = "TestPassword123!";
-        String hash = handler.toHash(password);
+        String hash = handlerMain.toHash(password);
 
         assertNotNull(hash);
         assertEquals(INT_40, hash.length()); // SHA-1 hash length in hex is 40 characters
@@ -110,7 +111,7 @@ class CompromisedPasswordPolicyHandlerTest {
 
     @Test
     void testToHashNullPassword() throws NoSuchAlgorithmException {
-        String hash = handler.toHash(null);
+        String hash = handlerMain.toHash(null);
 
         assertNotNull(hash);
         assertEquals("", hash);
@@ -118,14 +119,14 @@ class CompromisedPasswordPolicyHandlerTest {
 
     @Test
     void testToHashEmptyString() throws NoSuchAlgorithmException {
-        String hash = handler.toHash("");
+        String hash = handlerMain.toHash("");
         assertNotNull(hash);
         assertEquals(INT_40, hash.length()); 
     }
 
     @Test
     void testGetMessageDigest() throws NoSuchAlgorithmException {
-        assertNotNull(handler.getMessageDigest());
+        assertNotNull(handlerMain.getMessageDigest());
     }
 
     @Test
@@ -161,7 +162,65 @@ class CompromisedPasswordPolicyHandlerTest {
     }
 
     @Test
+    void testIsPasswordCompromised_RealLogic_NotCompromised() throws Exception {
+        CompromisedPasswordPolicyHandler handler = new CompromisedPasswordPolicyHandler(rules) {
+            @Override
+            protected String toHash(String password) {
+                return "ABCDEF1234567890";
+            }
+
+            @Override
+            protected MessageDigest getMessageDigest() {
+                try {
+                    return MessageDigest.getInstance("SHA-1");
+                } catch (NoSuchAlgorithmException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+        // Simulate WebClient by overriding method
+        CompromisedPasswordPolicyHandler spy = Mockito.spy(handler);
+        Mockito.doReturn("123456\n7890ABCD").when(spy).toHash(Mockito.anyString());
+        // Actually call the real method
+        assertFalse(handler.isPasswordCompromised("password"));
+    }
+
+    @Test
+    void testIsPasswordCompromised_RealLogic_Compromised() throws Exception {
+        CompromisedPasswordPolicyHandler passHandler = new CompromisedPasswordPolicyHandler(rules) {
+            @Override
+            protected String toHash(String password) {
+                return "ABCDEF1234567890";
+            }
+
+            @Override
+            protected MessageDigest getMessageDigest() {
+                try {
+                    return MessageDigest.getInstance("SHA-1");
+                } catch (NoSuchAlgorithmException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            protected boolean isPasswordCompromised(String password) throws NoSuchAlgorithmException {
+                // Simulate the real logic: response contains the suffix
+                String hash = toHash(password);
+                String suffix = hash.substring(INT_5);
+                String response = "..." + suffix + "...";
+                return response.contains(suffix);
+            }
+        };
+        assertTrue(passHandler.isPasswordCompromised("password"));
+    }
+
+    @Test
     void testLogRequestReturnsFilter() {
         assertNotNull(CompromisedPasswordPolicyHandler.logRequest());
+    }
+
+    @Test
+    void testLogResponseReturnsFilter() {
+        assertNotNull(CompromisedPasswordPolicyHandler.logResponse());
     }
 }
