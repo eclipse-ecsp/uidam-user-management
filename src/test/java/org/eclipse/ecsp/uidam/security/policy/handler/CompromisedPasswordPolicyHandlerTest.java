@@ -83,6 +83,26 @@ class CompromisedPasswordPolicyHandlerTest {
     }
 
     @Test
+    void testDoHandleThrowsException() throws NoSuchAlgorithmException {
+        PasswordValidationService.PasswordValidationInput input = mock(
+                PasswordValidationService.PasswordValidationInput.class);
+        when(input.password()).thenReturn("AnyPassword");
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
+        // Simulate exception
+        Mockito.doThrow(new NoSuchAlgorithmException()).when(spyHandler).isPasswordCompromised("AnyPassword");
+        boolean result = spyHandler.doHandle(input);
+        assertFalse(result);
+    }
+
+    @Test
+    void testConstructorWithMissingRule() {
+        Map<String, Object> emptyRules = new HashMap<>();
+        CompromisedPasswordPolicyHandler handlerWithDefault = new CompromisedPasswordPolicyHandler(emptyRules);
+        assertNotNull(handlerWithDefault);
+    }
+
+    @Test
     void testToHashValidPassword() throws NoSuchAlgorithmException {
         String password = "TestPassword123!";
         String hash = handler.toHash(password);
@@ -99,6 +119,12 @@ class CompromisedPasswordPolicyHandlerTest {
         assertEquals("", hash);
     }
 
+    @Test
+    void testToHashEmptyString() throws NoSuchAlgorithmException {
+        String hash = handler.toHash("");
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length()); 
+    }
 
     @Test
     void testGetMessageDigest() throws NoSuchAlgorithmException {

@@ -95,6 +95,15 @@ class PasswordPolicyServiceTest {
         assertEquals(policyKey, result.get(0).getKey());
     }
 
+    @Test
+    void testGetAllPoliciesNoPermission() {
+        when(usersService.hasUserPermissionForScope(any(BigInteger.class), anySet())).thenReturn(false);
+        Exception exception = assertThrows(PasswordPolicyException.class, () -> {
+            passwordPolicyService.getAllPolicies(new BigInteger("12345678901234567890"));
+        });
+        assertTrue(exception.getMessage().contains("User does not have permission"));
+    }
+
     // Test for getting a policy by key
     @Test
     void testGetPolicyByKey() {
@@ -231,6 +240,16 @@ class PasswordPolicyServiceTest {
     }
 
     @Test
+    void testProcessJsonPatchEmptyArray() throws Exception {
+        PasswordPolicyService service = new PasswordPolicyService(passwordPolicyRepository, new ObjectMapper(),
+                usersService);
+        JsonNode emptyArray = new ObjectMapper().readTree("[]");
+        Map<String, JsonPatch> result = service.processJsonPatch(emptyArray);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     void testApplyPatchToPolicyError() throws JsonPatchException  {
         // Ensure the policy object is properly initialized
         PasswordPolicy policy = new PasswordPolicy();
@@ -260,6 +279,27 @@ class PasswordPolicyServiceTest {
 
         // Verify that the exception message contains the expected error
         assertTrue(exception.getMessage().contains("Apply patch failed,with loginuser:12345678901234567890"));
+    }
+
+    @Test
+    void testApplyPatchToPolicyHappyPath() throws Exception {
+        PasswordPolicy passpolicy = new PasswordPolicy();
+        passpolicy.setKey("size");
+        passpolicy.setRequired(true);
+        Map<String, Object> validationRules = new HashMap<>();
+        validationRules.put("minLength", INT_8);
+        validationRules.put("maxLength", INT_16);
+        passpolicy.setValidationRules(validationRules);
+        PasswordPolicyService service = new PasswordPolicyService(passwordPolicyRepository, new ObjectMapper(),
+                usersService);
+        // Patch both minLength and maxLength using the correct nested path
+        JsonPatch patch = JsonPatch.fromJson(new ObjectMapper()
+                .readTree("[\n" + "  {\"op\":\"replace\",\"path\":\"/validationRules/minLength\",\"value\":10},\n"
+                        + "  {\"op\":\"replace\",\"path\":\"/validationRules/maxLength\",\"value\":16}\n" + "]"));
+        PasswordPolicy updated = service.applyPatchToPolicy(patch, passpolicy, new BigInteger("12345678901234567890"));
+        assertNotNull(updated);
+        assertEquals(INT_10, updated.getValidationRules().get("minLength"));
+        assertEquals(INT_16, updated.getValidationRules().get("maxLength"));
     }
 
     // Test for throwing exceptions
@@ -401,5 +441,11 @@ class PasswordPolicyServiceTest {
         });
         assertEquals("Apply patch failed,validation failed with error:"
                 + "Key specialChars, Excluded characters must not be in allowed set.", exception.getMessage());
+    }
+
+    @Test
+    void testConstructorWithNulls() {
+        PasswordPolicyService service = new PasswordPolicyService(null, null, null);
+        assertNotNull(service);
     }
 }
