@@ -18,7 +18,7 @@
 
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
-import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationInput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.Set;

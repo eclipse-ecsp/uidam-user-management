@@ -20,7 +20,7 @@ package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationInput;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;

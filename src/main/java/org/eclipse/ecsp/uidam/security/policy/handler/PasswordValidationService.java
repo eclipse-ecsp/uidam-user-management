@@ -195,10 +195,4 @@ public class PasswordValidationService {
      */
     public record ValidationResult(boolean isValid, String errorMessage) {
     }
-
-    /**
-     * Input class for password validation, containing the username, password, and last update time.
-     */
-    public record PasswordValidationInput(String username, String password, Timestamp lastUpdateTime) {
-    }
 }

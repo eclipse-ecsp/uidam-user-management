@@ -43,21 +43,21 @@ class SizePolicyHandlerTest {
 
     @Test
     void testPasswordWithinValidRange() {
-        PasswordValidationService.PasswordValidationInput input = new PasswordValidationService.PasswordValidationInput(
+        PasswordValidationInput input = new PasswordValidationInput(
                 null, "ValidPass", null);
         assertTrue(sizePolicyHandler.doHandle(input), "Password within valid range should pass validation.");
     }
 
     @Test
     void testPasswordTooShort() {
-        PasswordValidationService.PasswordValidationInput input = new PasswordValidationService.PasswordValidationInput(
+        PasswordValidationInput input = new PasswordValidationInput(
                 null, "Short", null);
         assertFalse(sizePolicyHandler.doHandle(input), "Password shorter than minimum length should fail validation.");
     }
 
     @Test
     void testPasswordTooLong() {
-        PasswordValidationService.PasswordValidationInput input = new PasswordValidationService.PasswordValidationInput(
+        PasswordValidationInput input = new PasswordValidationInput(
                 null, "ThisPasswordIsWayTooLong", null);
         assertFalse(sizePolicyHandler.doHandle(input), "Password longer than maximum length should fail validation.");
     }

@@ -18,7 +18,6 @@
 
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
-import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
 import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;

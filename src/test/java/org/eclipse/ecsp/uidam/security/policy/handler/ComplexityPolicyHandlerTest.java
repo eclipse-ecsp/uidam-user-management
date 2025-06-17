@@ -45,7 +45,7 @@ class ComplexityPolicyHandlerTest {
         rules.put("minDigits", 1);
 
         ComplexityPolicyHandler handler = new ComplexityPolicyHandler(rules);
-        PasswordValidationService.PasswordValidationInput input = new PasswordValidationService.PasswordValidationInput(
+        PasswordValidationInput input = new PasswordValidationInput(
                 null, "AaBbc1", null);
 
         assertTrue(handler.doHandle(input), "Password should meet the complexity requirements.");
@@ -62,7 +62,7 @@ class ComplexityPolicyHandlerTest {
         rules.put("minDigits", 1);
 
         ComplexityPolicyHandler handler = new ComplexityPolicyHandler(rules);
-        PasswordValidationService.PasswordValidationInput input = new PasswordValidationService.PasswordValidationInput(
+        PasswordValidationInput input = new PasswordValidationInput(
                 null, password, null);
 
         assertFalse(handler.doHandle(input), expectedReason);
@@ -73,7 +73,7 @@ class ComplexityPolicyHandlerTest {
         Map<String, Object> rules = new HashMap<>();
 
         ComplexityPolicyHandler handler = new ComplexityPolicyHandler(rules);
-        PasswordValidationService.PasswordValidationInput input = new PasswordValidationService.PasswordValidationInput(
+        PasswordValidationInput input = new PasswordValidationInput(
                 null, "Aa1", null);
 
         assertTrue(handler.doHandle(input), "Password should meet the default complexity requirements.");

@@ -54,8 +54,7 @@ class CompromisedPasswordPolicyHandlerTest {
 
     @Test
     void testDoHandlePasswordNotCompromised() throws NoSuchAlgorithmException {
-        PasswordValidationService.PasswordValidationInput input = mock(
-                PasswordValidationService.PasswordValidationInput.class);
+        PasswordValidationInput input = mock(PasswordValidationInput.class);
         when(input.password()).thenReturn("StrongPassword123!");
 
         CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
@@ -69,8 +68,7 @@ class CompromisedPasswordPolicyHandlerTest {
 
     @Test
     void testDoHandlePasswordCompromised() throws NoSuchAlgorithmException {
-        PasswordValidationService.PasswordValidationInput input = mock(
-                PasswordValidationService.PasswordValidationInput.class);
+        PasswordValidationInput input = mock(PasswordValidationInput.class);
         when(input.password()).thenReturn("WeakPassword");
 
         CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
@@ -84,8 +82,7 @@ class CompromisedPasswordPolicyHandlerTest {
 
     @Test
     void testDoHandleThrowsException() throws NoSuchAlgorithmException {
-        PasswordValidationService.PasswordValidationInput input = mock(
-                PasswordValidationService.PasswordValidationInput.class);
+        PasswordValidationInput input = mock(PasswordValidationInput.class);
         when(input.password()).thenReturn("AnyPassword");
         CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
         doReturn(false).when(spyHandler).isPasswordCompromised(anyString());

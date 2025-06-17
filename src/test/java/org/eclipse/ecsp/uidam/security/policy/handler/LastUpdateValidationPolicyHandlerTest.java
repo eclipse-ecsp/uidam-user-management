@@ -46,8 +46,8 @@ class LastUpdateValidationPolicyHandlerTest {
     @Test
     void testDoHandle_PasswordRecentlyUpdated() {
         // Mock input
-        PasswordValidationService.PasswordValidationInput input = Mockito
-                .mock(PasswordValidationService.PasswordValidationInput.class);
+        PasswordValidationInput input = Mockito
+                .mock(PasswordValidationInput.class);
         Mockito.when(input.lastUpdateTime())
                 .thenReturn(new Timestamp(System.currentTimeMillis() - INT_30 * LONG_1000L)); // 30 seconds ago
         Mockito.when(input.username()).thenReturn("testUser");
@@ -62,8 +62,8 @@ class LastUpdateValidationPolicyHandlerTest {
     @Test
     void testDoHandle_PasswordUpdateAllowed() {
         // Mock input
-        PasswordValidationService.PasswordValidationInput input = Mockito
-                .mock(PasswordValidationService.PasswordValidationInput.class);
+        PasswordValidationInput input = Mockito
+                .mock(PasswordValidationInput.class);
         Mockito.when(input.lastUpdateTime())
                 .thenReturn(new Timestamp(System.currentTimeMillis() - INT_120 * LONG_1000L)); // 120 seconds ago
         Mockito.when(input.username()).thenReturn("testUser");
@@ -78,8 +78,8 @@ class LastUpdateValidationPolicyHandlerTest {
     @Test
     void testDoHandle_NoLastUpdateTime() {
         // Mock input
-        PasswordValidationService.PasswordValidationInput input = Mockito
-                .mock(PasswordValidationService.PasswordValidationInput.class);
+        PasswordValidationInput input = Mockito
+                .mock(PasswordValidationInput.class);
         Mockito.when(input.lastUpdateTime()).thenReturn(null);
         Mockito.when(input.username()).thenReturn("testUser");
 
