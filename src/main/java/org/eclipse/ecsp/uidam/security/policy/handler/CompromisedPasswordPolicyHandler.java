@@ -119,12 +119,16 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
         return body != null && body.contains(passwordHash.substring(passwordHashSubStringLength));
     }
 
+    /**
+     * SonarQube S4790: SHA-1 is required for compatibility with the Pwned Passwords API (not used for security).
+     * Suppress this warning as this is not a security-sensitive use.
+     */
+    @SuppressWarnings("java:S4790")
     protected MessageDigest getMessageDigest() throws NoSuchAlgorithmException {
         if (messageDigest == null) {
             messageDigest = MessageDigest.getInstance("SHA-1");
         }
         return messageDigest;
-
     }
 
     /**
