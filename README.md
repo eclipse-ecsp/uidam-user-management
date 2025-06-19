@@ -180,7 +180,7 @@ Note: Replace the placeholders with actual values. The above shared curls are fo
    To encode jks -> `cat <jks-file-name>.jks | base64 -w 0`
 * Update encrypted value in values.yaml (`jks_file`) of uidam-authorization-server charts.
   ex: Source of values.yaml - jks_file
-* Along with jks, update the chart with jks alias (`values.yaml -> keyAlias`) and jks password (`secrets.yaml -> keystorePassword`).
+* Along with jks, update the chart with jks alias (`values.yaml -> keyAlias`) and jks password (`values.yaml -> keystorePassword`).
 
 #### Glossary
 * CLIENT_REGISTRATION_SECRET_KEY - Client registration secret key for encryption
