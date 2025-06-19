@@ -171,7 +171,7 @@ Note: Replace the placeholders with actual values. The above shared curls are fo
 ### JKS Generation Steps
 * Make sure you have Java installed in your system
 * Open CMD
-* Go to <Java Installation Folder>\bin
+* Go to java JAVA_INSTALLATION_FOLDER\bin
 * Use the following command:
    `keytool -genkey -alias <alias_name> -keyalg RSA -keypass <key-password> -storepass <store-password> -keystore <full path where jks to be stored along with jks file name>.jks -validity <validity period in days> -keysize  4096`
 * Add required details
