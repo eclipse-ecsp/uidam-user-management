@@ -25,14 +25,15 @@ import org.eclipse.ecsp.uidam.accountmanagement.exception.AccountManagementExcep
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAccountRoleMappingRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.RolesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -95,8 +96,11 @@ class AccountDeleteServiceTest {
     private AccountRepository accountRepository;
 
     @MockBean
-    private ApplicationProperties applicationProperties;
-    
+    private TenantConfigurationService tenantConfigurationService;
+
+    @MockBean
+    private UserManagementTenantProperties tenantProperties;
+
     @MockBean
     private RolesService rolesService;
 
@@ -105,16 +109,22 @@ class AccountDeleteServiceTest {
 
     private static final String USER_DEFAULT_ACCOUNTID = "112313385530649019824702444100150";
 
-    @BeforeAll
-    public void beforeAll() {
+    @BeforeEach
+    public void setupTenantConfiguration() {
         MockitoAnnotations.openMocks(this);
         AccountEntity accountEntity = new AccountEntity();
         accountEntity.setId(new BigInteger(USER_DEFAULT_ACCOUNTID));
-        when(applicationProperties.getUserDefaultAccountName()).thenReturn(USER_DEFAULT_ACCOUNT);
+        accountEntity.setAccountName(USER_DEFAULT_ACCOUNT);
+        
+        // Mock tenant configuration for lazy loading cache
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn(USER_DEFAULT_ACCOUNT);
         when(accountRepository.findByAccountName(USER_DEFAULT_ACCOUNT)).thenReturn(Optional.of(accountEntity));
-        accountsService = new AccountServiceImpl(accountRepository, rolesService, applicationProperties,
+        
+        accountsService = new AccountServiceImpl(accountRepository, rolesService, tenantConfigurationService,
                 userAccountRoleMappingRepository);
-        accountsService.postConstruct();
+        // Note: postConstruct() method was replaced with lazy loading cache
+        // No need to call postConstruct() anymore as account ID is resolved on-demand
     }
 
     @Test

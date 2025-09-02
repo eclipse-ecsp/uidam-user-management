@@ -33,7 +33,6 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SortOrder;
@@ -44,6 +43,7 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.RecoverySecretExpireExcep
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.UserAccountRoleMappingException;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.AssociateAccountAndRolesDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.ExternalUserDto;
@@ -169,8 +169,6 @@ public class UsersController {
     private EmailVerificationService emailVerificationService;
     private static final Logger LOGGER = LoggerFactory.getLogger(UsersController.class);
     private static final String API_VERSION_1 = VERSION_V1.substring(1);
-    @Autowired
-    private ApplicationProperties applicationProperties;
 
     /**
      * API to create a new user.

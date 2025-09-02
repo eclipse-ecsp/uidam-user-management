@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 - 2024 Harman International
+ * Copyright (c) 2023 Harman International
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,10 +18,11 @@
 
 package org.eclipse.ecsp.uidam;
 
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.BaseApplication;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -29,8 +30,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 /**
  * UidamUserManagementApplication main microservice class.
  */
-@SpringBootApplication(scanBasePackages = {"org.eclipse.ecsp"})
-@EnableConfigurationProperties({ApplicationProperties.class})
+@SpringBootApplication(scanBasePackages = {"org.eclipse.ecsp"}, exclude = {LiquibaseAutoConfiguration.class})
+@EnableConfigurationProperties({MultiTenantProperties.class})
 @EnableJpaAuditing
 @EnableScheduling
 public class UidamUserManagementApplication extends BaseApplication {

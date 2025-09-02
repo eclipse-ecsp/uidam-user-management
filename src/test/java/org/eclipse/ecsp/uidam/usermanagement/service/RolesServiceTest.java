@@ -23,6 +23,8 @@ import jakarta.persistence.EntityNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RolePatch;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RolesCreateRequestDto;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.AuthProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RoleScopeMappingEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RolesEntity;
@@ -82,6 +84,8 @@ class RolesServiceTest {
     private UsersRepository userRepository;
     @Mock
     private ScopesService scopesService;
+    @Mock
+    private TenantConfigurationService tenantConfigurationService;
 
     @InjectMocks
     private RolesService rolesService;
@@ -90,6 +94,15 @@ class RolesServiceTest {
     @AfterEach
     public void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
+        setupTenantConfiguration();
+    }
+
+    private void setupTenantConfiguration() {
+        UserManagementTenantProperties tenantProperties = new UserManagementTenantProperties();
+        AuthProperties authProperties = new AuthProperties();
+        authProperties.setAdminScope("UIDAMSystem");
+        tenantProperties.setAuth(authProperties);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
     }
 
     @Test

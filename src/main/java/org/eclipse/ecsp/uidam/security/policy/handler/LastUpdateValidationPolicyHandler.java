@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 
 import java.sql.Timestamp;
@@ -44,7 +45,7 @@ public class LastUpdateValidationPolicyHandler extends PasswordPolicyHandler {
     /**
      * Validates the password update time interval.
      *
-     * @param input The password validation input containing user details.
+     * @param input The password validation input containing username, password, and last update time
      * @return true if validation passes, false otherwise
      */
     @Override

@@ -30,7 +30,7 @@ import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDe
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
 import org.eclipse.ecsp.uidam.usermanagement.cache.CacheTokenService;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.dao.UserManagementDao;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RolesEntity;
@@ -138,7 +138,9 @@ class UsersServiceV2Test {
     @MockBean
     private ClientRegistration clientRegistrationService;
     @MockBean
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
+    @MockBean
+    private UserManagementTenantProperties tenantProperties;
     @MockBean
     CacheTokenService cacheTokenService;
     @MockBean
@@ -290,7 +292,8 @@ class UsersServiceV2Test {
             .thenReturn(userEntity);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowedToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");

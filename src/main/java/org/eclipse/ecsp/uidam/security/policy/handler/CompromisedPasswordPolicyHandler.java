@@ -19,6 +19,7 @@
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -51,7 +52,7 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
      * Validates the password against the compromised password database. It checks if the password hash exists in the
      * database of compromised passwords.
      *
-     * @param input The password validation input containing password and username.
+     * @param input The password validation input containing username, password, and last update time
      * @return true if the password is valid, false otherwise.
      */
     @Override
@@ -120,15 +121,17 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
     }
 
     /**
-     * SonarQube S4790: SHA-1 is required for compatibility with the Pwned Passwords API (not used for security).
-     * Suppress this warning as this is not a security-sensitive use.
+     * Gets the SHA-1 message digest instance for password hashing.
+     *
+     * @return The MessageDigest instance configured for SHA-1
+     * @throws NoSuchAlgorithmException if SHA-1 algorithm is not available
      */
-    @SuppressWarnings("java:S4790")
     protected MessageDigest getMessageDigest() throws NoSuchAlgorithmException {
         if (messageDigest == null) {
             messageDigest = MessageDigest.getInstance("SHA-1");
         }
         return messageDigest;
+
     }
 
     /**

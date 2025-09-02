@@ -18,9 +18,10 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.utilities;
 
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -54,11 +55,8 @@ public class AesEncryptionDecryption {
     private static final int AES_KEY_BIT = 256;
     private static final int ITERATION_COUNT = 65536;
 
-    @Value("${client.registration.secret.key:random_secret_key}")
-    private String secretKey;
-
-    @Value("${client.registration.secret.salt:random_salt}")
-    private String salt;
+    @Autowired
+    private TenantConfigurationService tenantConfigurationService;
 
     /**
      * This method is used to encrypt client secret.
@@ -69,7 +67,11 @@ public class AesEncryptionDecryption {
         String encryptedText = "";
         try {
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            KeySpec spec = new PBEKeySpec(secretKey.toCharArray(), salt.getBytes(), ITERATION_COUNT, AES_KEY_BIT);
+            KeySpec spec = new PBEKeySpec(
+                    tenantConfigurationService.getTenantProperties().getClientRegistration().getSecretKey()
+                            .toCharArray(),
+                    tenantConfigurationService.getTenantProperties().getClientRegistration().getSecretSalt().getBytes(),
+                    ITERATION_COUNT, AES_KEY_BIT);
             SecretKey secret = new SecretKeySpec(factory.generateSecret(spec).getEncoded(), ALGORITHM);
 
             if (data == null) {
@@ -85,13 +87,14 @@ public class AesEncryptionDecryption {
             byte[] encryptedBytes = encryptCipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
             // prefix IV and Salt to cipher text
-            byte[] cipherTextWithIvSalt = ByteBuffer.allocate(iv.length + salt.length() + encryptedBytes.length).put(iv)
-                    .put(salt.getBytes()).put(encryptedBytes).array();
+            String saltValue = tenantConfigurationService.getTenantProperties().getClientRegistration().getSecretSalt();
+            byte[] cipherTextWithIvSalt = ByteBuffer.allocate(iv.length + saltValue.length() + encryptedBytes.length)
+                    .put(iv).put(saltValue.getBytes()).put(encryptedBytes).array();
 
             encryptedText = Base64.getEncoder().encodeToString(cipherTextWithIvSalt);
 
         } catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException
-                 | NoSuchPaddingException | InvalidAlgorithmParameterException | InvalidKeySpecException e) {
+                | NoSuchPaddingException | InvalidAlgorithmParameterException | InvalidKeySpecException e) {
             logger.error("error while encrypting secret {}", e.getMessage());
             throw new RuntimeException("error while encrypting secret {}" + e.getMessage());
         }
@@ -117,14 +120,19 @@ public class AesEncryptionDecryption {
             ByteBuffer bb = ByteBuffer.wrap(encryptedPayload);
             byte[] iv = new byte[IV_LENGTH_BYTE];
             bb.get(iv);
-            byte[] secretSalt = new byte[salt.length()];
+            String saltValue = tenantConfigurationService.getTenantProperties().getClientRegistration().getSecretSalt();
+            byte[] secretSalt = new byte[saltValue.length()];
             bb.get(secretSalt);
             byte[] encryptedBytes = new byte[bb.remaining()];
             bb.get(encryptedBytes);
 
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
             Cipher decryptCipher = Cipher.getInstance(AES_TRANSFORMATION_MODE);
-            KeySpec spec = new PBEKeySpec(secretKey.toCharArray(), salt.getBytes(), ITERATION_COUNT, AES_KEY_BIT);
+            KeySpec spec = new PBEKeySpec(
+                    tenantConfigurationService.getTenantProperties().getClientRegistration().getSecretKey()
+                            .toCharArray(),
+                    tenantConfigurationService.getTenantProperties().getClientRegistration().getSecretSalt().getBytes(),
+                    ITERATION_COUNT, AES_KEY_BIT);
             SecretKey secret = new SecretKeySpec(factory.generateSecret(spec).getEncoded(), ALGORITHM);
             decryptCipher.init(Cipher.DECRYPT_MODE, secret, new GCMParameterSpec(TAG_LENGTH_BIT, iv));
 

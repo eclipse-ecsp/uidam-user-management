@@ -23,9 +23,9 @@ import jakarta.mail.MessagingException;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NonRegisteredUserData;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.junit.jupiter.api.AfterEach;
@@ -72,8 +72,8 @@ class IgniteEmailNotificationTest {
     @Autowired
     private NotificationManager notificationManager;
 
-    @Autowired
-    private ApplicationProperties applicationProperties;
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -105,15 +105,29 @@ class IgniteEmailNotificationTest {
     @BeforeEach
     public void setup() {
         mockRestServiceServer = MockRestServiceServer.bindTo(restTemplate).build();
+        
+        // Configure the mock TenantConfigurationService
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties tenantProperties = 
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties();
+        
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties notificationProperties = 
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties();
+        notificationProperties.setNotificationApiUrl("http://test-notification-api:8080/v1/notifications/nonRegisteredUsers");
+        notificationProperties.setNotificationId("TEST_NOTIFICATION_ID");
+        
+        tenantProperties.setNotification(notificationProperties);
+        
+        org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
     }
 
     @Test
     void testSuccess() throws MessagingException, IOException {
-        mockRestServiceServer.expect(ExpectedCount.once(),
-                MockRestRequestMatchers.requestTo(applicationProperties.getNotification().getNotificationApiUrl()))
+        mockRestServiceServer
+                .expect(ExpectedCount.once(),
+                        MockRestRequestMatchers.requestTo(tenantConfigurationService.getTenantProperties()
+                                .getNotification().getNotificationApiUrl()))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK)
-                        .body("{\"message\": \"success\"}"));
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK).body("{\"message\": \"success\"}"));
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());
@@ -140,11 +154,12 @@ class IgniteEmailNotificationTest {
 
     @Test
     void testError() throws MessagingException, IOException {
-        mockRestServiceServer.expect(ExpectedCount.once(),
-                MockRestRequestMatchers.requestTo(applicationProperties.getNotification().getNotificationApiUrl()))
-                        .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                        .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST)
-                                .body("{\"message\": \"invalid notification id\"}"));
+        mockRestServiceServer
+                .expect(ExpectedCount.once(),
+                        MockRestRequestMatchers.requestTo(tenantConfigurationService.getTenantProperties()
+                                .getNotification().getNotificationApiUrl()))
+                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST)).andRespond(MockRestResponseCreators
+                        .withStatus(HttpStatus.BAD_REQUEST).body("{\"message\": \"invalid notification id\"}"));
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());
@@ -170,11 +185,12 @@ class IgniteEmailNotificationTest {
 
     @Test
     void testDefaultLocale() throws MessagingException {
-        mockRestServiceServer.expect(ExpectedCount.once(),
-                MockRestRequestMatchers.requestTo(applicationProperties.getNotification().getNotificationApiUrl()))
-                        .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK)
-                                .body("{\"message\": \"success\"}"));
+        mockRestServiceServer
+                .expect(ExpectedCount.once(),
+                        MockRestRequestMatchers.requestTo(tenantConfigurationService.getTenantProperties()
+                                .getNotification().getNotificationApiUrl()))
+                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK).body("{\"message\": \"success\"}"));
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());

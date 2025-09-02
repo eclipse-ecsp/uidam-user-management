@@ -21,7 +21,6 @@ package org.eclipse.ecsp.uidam.usermanagement.service;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +44,7 @@ import static org.springframework.http.HttpMethod.POST;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthorizationServerClient {
     @Autowired
-    ApplicationProperties applicationProperties;
+    TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private WebClient webClient;
@@ -71,7 +70,7 @@ public class AuthorizationServerClient {
         String token = BEARER + authorization;
         try {
             return webClient.method(POST)
-                .uri(applicationProperties.getAuthServerRevokeTokenUrl())
+                .uri(tenantConfigurationService.getTenantProperties().getAuthServer().getRevokeTokenUrl())
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .headers(httpHeaders -> httpHeaders.add(HttpHeaders.AUTHORIZATION, token))
                 .body(BodyInserters.fromFormData(map))

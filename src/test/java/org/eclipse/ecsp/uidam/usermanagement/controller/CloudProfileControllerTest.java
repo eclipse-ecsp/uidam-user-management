@@ -25,6 +25,7 @@ import org.eclipse.ecsp.uidam.usermanagement.cloudprofile.request.dto.CloudProfi
 import org.eclipse.ecsp.uidam.usermanagement.cloudprofile.response.dto.CloudProfileResponse;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.service.CloudProfileService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,6 +86,8 @@ class CloudProfileControllerTest {
     private CloudProfileController controller;
     @MockBean
     private CloudProfileService cloudProfileService;
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
     @Autowired
     private ApplicationContext applicationContext;
 

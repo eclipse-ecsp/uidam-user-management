@@ -46,7 +46,6 @@ import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresent
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -77,8 +76,8 @@ public class RolesService {
     @Autowired
     private UsersRepository userRepository;
 
-    @Value("${uidam.auth.admin.scope:UIDAMSystem}")
-    private String adminUser;
+    @Autowired
+    private TenantConfigurationService tenantConfigurationService;
 
     /**
      * method for create role.
@@ -100,7 +99,9 @@ public class RolesService {
         for (String userScope : userScopes.split(",")) {
             userScopeSet.add(userScope.trim());
         }
-        boolean isAllowed = userScopeSet.contains(adminUser) || userScopeSet.containsAll(rolesDto.getScopeNames());
+        boolean isAllowed = userScopeSet
+                .contains(tenantConfigurationService.getTenantProperties().getAuth().getAdminScope())
+                || userScopeSet.containsAll(rolesDto.getScopeNames());
         if (!isAllowed) {
             boolean isUserAllowed = isUserAllowedToPerformOperation(userId, userScopeSet);
             if (!isUserAllowed) {
@@ -241,7 +242,9 @@ public class RolesService {
         for (String userScope : userScopes.split(",")) {
             userScopeSet.add(userScope.trim());
         }
-        boolean isAllowed = userScopeSet.contains(adminUser) || userScopeSet.containsAll(rolePatch.getScopeNames());
+        boolean isAllowed = userScopeSet
+                .contains(tenantConfigurationService.getTenantProperties().getAuth().getAdminScope())
+                || userScopeSet.containsAll(rolePatch.getScopeNames());
         if (!isAllowed) {
             boolean isUserAllowed = isUserAllowedToPerformOperation(userId, rolePatch.getScopeNames());
             if (!isUserAllowed) {
@@ -335,7 +338,8 @@ public class RolesService {
             .map(ScopesEntity::getName)
             .collect(Collectors.toSet());
 
-        if (!userScopeSet.contains(adminUser) && !userScopeSet.containsAll(roleScopeSet)
+        if (!userScopeSet.contains(tenantConfigurationService.getTenantProperties().getAuth().getAdminScope()) 
+                && !userScopeSet.containsAll(roleScopeSet)
             && !isUserAllowedToPerformOperation(userId, roleScopeSet)) {
             return false;
         }
@@ -365,7 +369,8 @@ public class RolesService {
             userScopes.addAll(resp.getRoleScopeMapping().stream().map(scope -> scope.getScope().getName())
                 .collect(Collectors.toSet()));
         }
-        return userScopes.contains(adminUser) || userScopes.containsAll(scopeNames);
+        return userScopes.contains(tenantConfigurationService.getTenantProperties().getAuth().getAdminScope()) 
+                || userScopes.containsAll(scopeNames);
     }
 
     /**

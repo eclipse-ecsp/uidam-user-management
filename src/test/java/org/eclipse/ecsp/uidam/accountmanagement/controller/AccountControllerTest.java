@@ -29,6 +29,7 @@ import org.eclipse.ecsp.uidam.accountmanagement.exception.AccountManagementExcep
 import org.eclipse.ecsp.uidam.accountmanagement.service.AccountService;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.UserNotFoundException;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,6 +94,9 @@ class AccountControllerTest {
 
     @MockBean
     private AccountService accountService;
+
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private ApplicationContext applicationContext;

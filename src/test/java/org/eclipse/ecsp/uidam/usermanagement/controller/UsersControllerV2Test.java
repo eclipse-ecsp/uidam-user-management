@@ -30,7 +30,7 @@ import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.RoleScopeMappingEntity;
@@ -47,6 +47,7 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeValueReposi
 import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.RolesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoV2;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoV2.UserAccountsAndRoles;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserRequest;
@@ -74,7 +75,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -176,7 +176,10 @@ class UsersControllerV2Test {
     private EmailVerificationService emailVerificationService;
 
     @MockBean
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
+
+    @MockBean
+    private UserManagementTenantProperties tenantProperties;
 
     @MockBean
     private RolesService rolesService;
@@ -368,8 +371,9 @@ class UsersControllerV2Test {
         addAccountIntoDb("TestAccount", AccountStatus.ACTIVE, ROLE_ID_1, ACCOUNT_ID_VALUE, null);
         when(passwordHistoryRepository.save(any(PasswordHistoryEntity.class))).thenReturn(mockPasswordHistoryEntity());
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         when(userRepository.findByIdAndStatusNot(any(BigInteger.class), any(UserStatus.class)))
                 .thenReturn(loggedInUserEntity());
         Set<RoleCreateResponse> roles = new HashSet<>();
@@ -427,8 +431,9 @@ class UsersControllerV2Test {
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
         when(userRepository.findByIdAndStatusNot(any(BigInteger.class), any(UserStatus.class)))
                 .thenReturn(loggedInUserEntity());
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         Set<RoleCreateResponse> roles1 = new HashSet<>();
         RoleCreateResponse role = new RoleCreateResponse();
         role.setName("VEHICLE_OWNER");

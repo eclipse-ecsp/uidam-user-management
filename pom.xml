@@ -80,7 +80,7 @@
         <springdoc-openapi-starter-webmvc-ui.version>2.8.5</springdoc-openapi-starter-webmvc-ui.version>
         <security-logging-logback.version>1.1.7</security-logging-logback.version>
         <hypersistence-utils-hibernate-62.version>3.5.2</hypersistence-utils-hibernate-62.version>
-        <api.registry.common.version>1.2.0</api.registry.common.version>
+        <api.registry.common.version>1.3.1</api.registry.common.version>
         <snakeyaml.version>2.2</snakeyaml.version>
         <h2database.version>2.2.224</h2database.version>
         <checkstyle.version>10.13.0</checkstyle.version>

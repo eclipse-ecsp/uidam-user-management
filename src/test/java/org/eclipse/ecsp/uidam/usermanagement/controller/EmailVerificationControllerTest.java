@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.usermanagement.controller;
 
 import io.prometheus.client.CollectorRegistry;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,10 +44,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CORRELATION_ID;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_EMAIL_VERIFICATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_IS_EMAIL_VERIFIED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_RESEND_EMAIL_VERIFY;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SLASH;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -67,6 +66,9 @@ class EmailVerificationControllerTest {
 
     @MockBean
     private EmailVerificationService emailVerificationService;
+
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -102,7 +104,8 @@ class EmailVerificationControllerTest {
         when(emailVerificationService.getEmailVerificationByUserId(anyString()))
             .thenReturn(List.of(getEmailVerificationResponse()));
         UUID userId = UUID.randomUUID();
-        mockMvc.perform(get(PATH_EMAIL_VERIFICATION + SLASH + userId + SLASH + PATH_IS_EMAIL_VERIFIED)
+        String tenantId = "ecsp";
+        mockMvc.perform(get("/" + tenantId + "/v1/emailVerification/" + userId + "/" + PATH_IS_EMAIL_VERIFIED)
                             .contentType(MediaType.APPLICATION_JSON_VALUE)
                             .header(CORRELATION_ID, "12345"))
             .andExpect(status().isOk())
@@ -115,7 +118,8 @@ class EmailVerificationControllerTest {
         when(emailVerificationService.getEmailVerificationByUserId(anyString()))
             .thenReturn(List.of(getEmailVerificationResponse()));
         UUID userId = UUID.randomUUID();
-        mockMvc.perform(get(PATH_EMAIL_VERIFICATION + SLASH + userId + SLASH + PATH_IS_EMAIL_VERIFIED)
+        String tenantId = "ecsp";
+        mockMvc.perform(get("/" + tenantId + "/v1/emailVerification/" + userId + "/" + PATH_IS_EMAIL_VERIFIED)
                             .contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(status().isOk());
     }
@@ -123,7 +127,8 @@ class EmailVerificationControllerTest {
     @Test
     void testVerifyEmail() throws Exception {
         UUID token = UUID.randomUUID();
-        mockMvc.perform(get(PATH_EMAIL_VERIFICATION + SLASH + token)
+        String tenantId = "ecsp";
+        mockMvc.perform(get("/" + tenantId + "/v1/emailVerification/" + token)
                             .contentType(MediaType.APPLICATION_JSON_VALUE)
                             .header(CORRELATION_ID, "12345"))
             .andExpect(status().isOk());
@@ -132,7 +137,8 @@ class EmailVerificationControllerTest {
     @Test
     void testVerifyEmailCorrelationIdMissing() throws Exception {
         UUID token = UUID.randomUUID();
-        mockMvc.perform(get(PATH_EMAIL_VERIFICATION + SLASH + token)
+        String tenantId = "ecsp";
+        mockMvc.perform(get("/" + tenantId + "/v1/emailVerification/" + token)
                             .contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(status().isOk());
     }
@@ -141,7 +147,8 @@ class EmailVerificationControllerTest {
     void testResendEmailVerification() throws Exception {
         doNothing().when(emailVerificationService).resendEmailVerification(anyString());
         UUID userId = UUID.randomUUID();
-        mockMvc.perform(put(PATH_EMAIL_VERIFICATION + SLASH + userId + SLASH + PATH_RESEND_EMAIL_VERIFY)
+        String tenantId = "ecsp";
+        mockMvc.perform(put("/" + tenantId + "/v1/emailVerification/" + userId + "/" + PATH_RESEND_EMAIL_VERIFY)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .header(CORRELATION_ID, "12345"))
             .andExpect(status().isOk());
@@ -151,7 +158,8 @@ class EmailVerificationControllerTest {
     void testResendEmailVerificationCorrelationIdMissing() throws Exception {
         doNothing().when(emailVerificationService).resendEmailVerification(anyString());
         UUID userId = UUID.randomUUID();
-        mockMvc.perform(put(PATH_EMAIL_VERIFICATION + SLASH + userId + SLASH + PATH_RESEND_EMAIL_VERIFY)
+        String tenantId = "ecsp";
+        mockMvc.perform(put("/" + tenantId + "/v1/emailVerification/" + userId + "/" + PATH_RESEND_EMAIL_VERIFY)
                 .contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(status().isOk());
     }

@@ -27,12 +27,12 @@ import org.eclipse.ecsp.uidam.usermanagement.enums.ClientStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ClientRegistrationException;
 import org.eclipse.ecsp.uidam.usermanagement.repository.ClientRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.ClientRegistration;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.AesEncryptionDecryption;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.ValidationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.util.Arrays;
 import java.util.Optional;
@@ -47,17 +47,8 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
     private static final String DEFAULT_TENANT_ID = "default_tenant";
     private static final String DEFAULT_CLIENT_AUTHENTICATION_METHODS = "client_secret_basic,client_secret_post";
 
-    @Value("${client.registration.default.status:approved}")
-    private String clientStatus;
-
-    @Value("${client.refresh.token.validaity.default:3600}")
-    private long refreshTokenValidity;
-
-    @Value("${client.access.token.validaity.default:3600}")
-    private long accessTokenValidity;
-
-    @Value("${client.authorization.code.validaity.default:300}")
-    private long authorizationCodeValidity;
+    @Autowired
+    TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     ClientRepository clientRepository;
@@ -180,17 +171,18 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
                 request.getAuthorizationGrantTypes().stream().map(Object::toString).collect(Collectors.joining(",")));
         client.setScopes(request.getScopes().stream().map(Object::toString).collect(Collectors.joining(",")));
         client.setRequiredAuthorizationConsent(request.isRequireAuthorizationConsent());
-        client.setRefreshTokenValidity(
-                Optional.ofNullable(request.getRefreshTokenValidity()).isPresent() ? request.getRefreshTokenValidity()
-                        : refreshTokenValidity);
-        client.setAccessTokenValidity(
-                Optional.ofNullable(request.getAccessTokenValidity()).isPresent() ? request.getAccessTokenValidity()
-                        : accessTokenValidity);
+        client.setRefreshTokenValidity(Optional.ofNullable(request.getRefreshTokenValidity()).isPresent()
+                ? request.getRefreshTokenValidity()
+                : tenantConfigurationService.getTenantProperties().getClientRegistration().getRefreshTokenValidity());
+        client.setAccessTokenValidity(Optional.ofNullable(request.getAccessTokenValidity()).isPresent()
+                ? request.getAccessTokenValidity()
+                : tenantConfigurationService.getTenantProperties().getClientRegistration().getAccessTokenValidity());
         client.setAuthorizationCodeValidity(Optional.ofNullable(request.getAuthorizationCodeValidity()).isPresent()
                 ? request.getAuthorizationCodeValidity()
-                : authorizationCodeValidity);
+                : tenantConfigurationService.getTenantProperties().getClientRegistration()
+                        .getAuthorizationCodeValidity());
         client.setCreatedBy(request.getCreatedBy());
-        client.setStatus(clientStatus);
+        client.setStatus(tenantConfigurationService.getTenantProperties().getClientRegistration().getDefaultStatus());
         // to be updated when multi-tenancy implemented
         client.setTenantId(DEFAULT_TENANT_ID);
         client.setApprovedBy(request.getCreatedBy());

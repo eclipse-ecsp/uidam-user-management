@@ -25,10 +25,12 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.ClientAddCorrelationIdInterceptor;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.CorrelationIdInterceptor;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.LoggingRequestInterceptor;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,7 +64,7 @@ public abstract class BaseApplication {
     private static final Logger LOGGER = LoggerFactory.getLogger(BaseApplication.class);
 
     @Autowired
-    ApplicationProperties applicationProperties;
+    TenantConfigurationService tenantConfigurationService;
 
     @Value("${webclient.max.connections:50}")
     private int webClientMaxConnections;
@@ -144,8 +146,19 @@ public abstract class BaseApplication {
         } catch (SSLException e) {
             LOGGER.error("Error encountered ", e);
         }
-        LOGGER.debug("Authorization Server service URL: {}", applicationProperties.getAuthorizationServerHostName());
-        return WebClient.builder().baseUrl(applicationProperties.getAuthorizationServerHostName())
+        
+        // Get tenant properties with null safety for test environments
+        UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
+        String baseUrl = "http://localhost:8080"; // Default for tests
+        
+        if (tenantProperties != null && tenantProperties.getAuthServer() != null) {
+            baseUrl = tenantProperties.getAuthServer().getHostName();
+            LOGGER.debug("Authorization Server service URL: {}", baseUrl);
+        } else {
+            LOGGER.warn("TenantProperties or AuthServer is null, using default URL: {}", baseUrl);
+        }
+        
+        return WebClient.builder().baseUrl(baseUrl)
             .filter(ClientAddCorrelationIdInterceptor.addCorrelationIdAndContentType())
             .filter(LoggingRequestInterceptor.interceptWebClientHttpRequestAndResponse())
             .clientConnector(connector)

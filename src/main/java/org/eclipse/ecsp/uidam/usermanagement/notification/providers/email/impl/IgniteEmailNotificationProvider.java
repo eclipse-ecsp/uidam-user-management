@@ -22,9 +22,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
@@ -49,18 +49,18 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConsta
 public class IgniteEmailNotificationProvider implements EmailNotificationProvider {
     private static final String LOG_PATTERN =
             "request method: {}, request URI: {}, request headers: {}, request body: {}";
-    private  ApplicationProperties applicationProperties;
+    private  TenantConfigurationService tenantConfigurationService;
     private  RestTemplate restTemplate;
 
     /**
      * Constructor to initialize {@link IgniteEmailNotificationProvider}.
      *
-     * @param applicationProperties application configs
+     * @param tenantConfigurationService tenant configuration service
      * @param restTemplate          for rest api call
      */
-    public IgniteEmailNotificationProvider(ApplicationProperties applicationProperties,
+    public IgniteEmailNotificationProvider(TenantConfigurationService tenantConfigurationService,
                                            RestTemplate restTemplate) {
-        this.applicationProperties = applicationProperties;
+        this.tenantConfigurationService = tenantConfigurationService;
         this.restTemplate = restTemplate;
         this.restTemplate.setErrorHandler(new DefaultResponseErrorHandler());
     }
@@ -69,11 +69,13 @@ public class IgniteEmailNotificationProvider implements EmailNotificationProvide
     @Override
     public boolean sendEmailNotification(NotificationNonRegisteredUser request) {
         log.info("sending email notification using ignite notification center...");
-        String notificationApiUrl =
-                StringUtils.isNotBlank(applicationProperties.getNotification().getNotificationApiUrl())
-                        ? applicationProperties.getNotification().getNotificationApiUrl() : "";
+        String notificationApiUrl = StringUtils
+                .isNotBlank(tenantConfigurationService.getTenantProperties().getNotification().getNotificationApiUrl())
+                        ? tenantConfigurationService.getTenantProperties().getNotification().getNotificationApiUrl()
+                        : "";
         try {
-            request.setNotificationId(applicationProperties.getNotification().getNotificationId());
+            request.setNotificationId(
+                    tenantConfigurationService.getTenantProperties().getNotification().getNotificationId());
             String requestPayload = new ObjectMapper().writeValueAsString(request);
             HttpHeaders headers = new HttpHeaders();
             headers.add(REQUEST_ID, UUID.randomUUID().toString());
@@ -81,8 +83,8 @@ public class IgniteEmailNotificationProvider implements EmailNotificationProvide
             headers.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
             HttpEntity<String> httpEntity = new HttpEntity<>(requestPayload, headers);
             log.info(LOG_PATTERN, HttpMethod.POST, notificationApiUrl, headers, request);
-            ResponseEntity<String> responseEntity =
-                    restTemplate.exchange(notificationApiUrl, HttpMethod.POST, httpEntity, String.class);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(notificationApiUrl, HttpMethod.POST,
+                    httpEntity, String.class);
             String responseData = responseEntity.getBody();
             if (!responseEntity.getStatusCode().is2xxSuccessful()) {
                 throw new ApplicationRuntimeException(responseData, responseEntity.getStatusCode().toString());

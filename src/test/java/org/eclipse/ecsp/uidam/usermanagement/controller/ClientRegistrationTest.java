@@ -23,9 +23,12 @@ import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.ClientRegistrationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.ClientEntity;
 import org.eclipse.ecsp.uidam.usermanagement.repository.ClientRepository;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.AesEncryptionDecryption;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +61,10 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class ClientRegistrationTest {
 
+    private static final int INTEGER_300 = 300;
+
+    private static final int INTEGER_3600 = 3600;
+
     @MockBean
     ClientRepository clientRepository;
 
@@ -76,6 +83,9 @@ class ClientRegistrationTest {
     @MockBean
     AesEncryptionDecryption aesEncryptionDecryption;
     
+    @MockBean
+    TenantConfigurationService tenantConfigurationService;
+    
     private static final Long ONE_HUNDRED = 100L;
     private static final int ONE_HUNDRED_INT = 100;
     private static final Long TWO_THOUSAND = 2000L;
@@ -85,6 +95,19 @@ class ClientRegistrationTest {
     @AfterEach
     public void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
+        setupTenantConfiguration();
+    }
+    
+    private void setupTenantConfiguration() {
+        // Set up mock tenant configuration
+        ClientRegistrationProperties clientRegistrationProperties = new ClientRegistrationProperties();
+        clientRegistrationProperties.setDefaultStatus("approved");
+        clientRegistrationProperties.setRefreshTokenValidity(INTEGER_3600);
+        clientRegistrationProperties.setAccessTokenValidity(INTEGER_3600);
+        clientRegistrationProperties.setAuthorizationCodeValidity(INTEGER_300);
+        UserManagementTenantProperties tenantProperties = new UserManagementTenantProperties();
+        tenantProperties.setClientRegistration(clientRegistrationProperties);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
     }
 
     @Test

@@ -18,7 +18,7 @@
 
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
-import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationInput;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
 import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.PasswordUtils;
