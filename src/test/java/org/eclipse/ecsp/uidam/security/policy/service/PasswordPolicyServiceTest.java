@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.security.policy.exception.PasswordPolicyException;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
@@ -62,6 +63,9 @@ class PasswordPolicyServiceTest {
     private PasswordPolicy policy;
 
     private String policyKey = "size";
+
+    @Mock
+    private UidamMetricsService uidamMetricsService;
 
     @BeforeEach
     void setUp() {

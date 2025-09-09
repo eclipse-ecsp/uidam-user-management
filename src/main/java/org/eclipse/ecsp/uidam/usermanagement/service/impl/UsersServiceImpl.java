@@ -33,6 +33,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.common.metrics.MetricInfo;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetrics;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
@@ -316,6 +319,8 @@ public class UsersServiceImpl implements UsersService {
     private Map<BigInteger, String> accountIdToNameMapping = new HashMap<>();
     private Map<BigInteger, String> roleIdToNameMapping = new HashMap<>();
     private Map<String, BigInteger> roleNameToIdMapping = new HashMap<>();
+
+    private final UidamMetricsService uidamMetricsService;
     
     /**
      * Helper method to get current tenant properties.
@@ -377,6 +382,9 @@ public class UsersServiceImpl implements UsersService {
         userEntity.getUserAddresses().forEach(userAddressEntity -> userAddressEntity.setUserEntity(userEntity));
 
         UserEntity savedUser = userRepository.save(userEntity);
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .build());
         // UserAccountRoleMapping would not have got the new userId now.
         // Set it explicitly for each of them.
         BigInteger savedUserId = savedUser.getId();
@@ -1022,6 +1030,9 @@ public class UsersServiceImpl implements UsersService {
             UserEntity savedUser = updateUserEntity(userRoleNames, userAttributeEntities, attributeIds,
                 additionalAttributes, userAttributeEntitiesMap, objectMapper, addressOperations, userEntity,
                 loggedInUserId, isExternalUser, acRoleMaps);
+            uidamMetricsService.incrementCounter(MetricInfo.builder()
+                    .uidamMetrics(UidamMetrics.TOTAL_UPDATED_USERS)
+                    .build());
             userResponse = buildUserResponse(userId, userRoleNames, savedUser, apiVersion);
         } catch (JsonPatchException | IOException e) {
             throw new ApplicationRuntimeException(FIELD_DATA_IS_INVALID, BAD_REQUEST, String.valueOf(e.getMessage()));
@@ -1319,6 +1330,9 @@ public class UsersServiceImpl implements UsersService {
                     cloudProfilesRepository.deleteCloudProfile(cloudProfileEntity.getId());
                 });
             }
+            uidamMetricsService.incrementCounter(MetricInfo.builder()
+                    .uidamMetrics(UidamMetrics.TOTAL_DELETED_USERS)
+                    .build());
         });
         List<UserEntity> updatedUserEntities = userRepository.saveAll(savedUserEntities);
         Map<BigInteger, Map<String, Object>> additionalAttributes = findAdditionalAttributeData(
@@ -2129,6 +2143,9 @@ public class UsersServiceImpl implements UsersService {
         userRecoverySecret.setRecoverySecret(recoverySecret);
         userRecoverySecret.setUserId(userEntity.getId());
         userRecoverySecretRepository.save(userRecoverySecret);
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_FORGOT_PASSWORD_BY_USER)
+                .build());
 
         String params = ApiConstants.USER_PASSWORD_RECOVERY_SECRET + recoverySecret;
         String encodedParams = Base64.getEncoder().encodeToString(params.getBytes(StandardCharsets.UTF_8));
