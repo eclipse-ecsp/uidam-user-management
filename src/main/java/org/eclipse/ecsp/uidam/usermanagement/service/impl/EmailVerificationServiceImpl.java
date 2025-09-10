@@ -39,7 +39,6 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRe
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.ObjectConverter;
-import org.eclipse.ecsp.uidam.usermanagement.utilities.TokenMaskingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -123,10 +122,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             Optional<EmailVerificationEntity> emailVerificationEntityOptional = emailVerificationRepository
                     .findByToken(emailVerificationToken);
             if (emailVerificationEntityOptional.isEmpty()) {
-                if (LOGGER.isErrorEnabled()) {
-                    LOGGER.error("Email Verification Failed! Email data not found for token: {}", 
-                            TokenMaskingUtils.maskToken(emailVerificationToken));
-                }
+                LOGGER.error("Email Verification Failed! Email data not found for token");
                 redirectUrl = tenantConfigurationService.getTenantProperties()
                         .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
                 httpServletResponse.sendRedirect(redirectUrl);
@@ -138,12 +134,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             if (lastUpdatedTokenTime
                     .plusDays(tenantConfigurationService.getTenantProperties().getEmailVerificationExpDays())
                     .isBefore(currentDateTime)) {
-                if (LOGGER.isErrorEnabled()) {
-                    LOGGER.error(
-                            "Email verification Failed, Token is expired! token: {} currentDateTime: {} "
-                                    + "lastUpdateDateTime: {}",
-                            TokenMaskingUtils.maskToken(emailVerificationToken), currentDateTime, lastUpdatedTokenTime);
-                }
+                LOGGER.error("Email verification Failed, Token is expired! currentDateTime: {} lastUpdateDateTime: {}",
+                        currentDateTime, lastUpdatedTokenTime);
                 redirectUrl = tenantConfigurationService.getTenantProperties()
                         .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
                 httpServletResponse.sendRedirect(redirectUrl);
@@ -189,7 +181,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                     .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
             httpServletResponse.sendRedirect(redirectUrl);
             throw new DataIntegrityViolationException(
-                    "Token format is incorrect expecting UUID format: " + emailVerificationToken);
+                    "Token format is incorrect expecting UUID format");
         }
     }
 
