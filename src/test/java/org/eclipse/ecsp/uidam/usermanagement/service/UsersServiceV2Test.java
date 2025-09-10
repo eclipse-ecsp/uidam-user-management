@@ -23,6 +23,7 @@ import jakarta.persistence.EntityManagerFactory;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
@@ -173,6 +174,9 @@ class UsersServiceV2Test {
     
     @MockBean
     PasswordPolicyRepository passwordPolicyRepository;
+
+    @MockBean
+    UidamMetricsService uidamMetricsService;
 
     private String passwordEncoder = "SHA-256";
 

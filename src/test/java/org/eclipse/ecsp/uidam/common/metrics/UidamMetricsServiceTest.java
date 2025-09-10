@@ -9,6 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Test case for validating UidamMetrics Service.
+ */
 public class UidamMetricsServiceTest {
 
     private UidamMetricsService uidamMetricsService;

@@ -980,7 +980,6 @@ public class UsersServiceImpl implements UsersService {
         if (isExternalUser) {
             validateIsExternalUser(user.getIsExternalUser());
         }
-
         Set<String> userRoleNames = getUserRoleNames(user);
         try {
             List<UserAttributeEntity> userAttributeEntities = userAttributeRepository.findAll();
@@ -1025,20 +1024,19 @@ public class UsersServiceImpl implements UsersService {
                 acRoleMaps = validateAndCreateAccountRoleMappings(loggedInUserId,
                     user, accountOperations, objectMapper);
             }
-
             UserEntity userEntity = applyPatchToUser(JsonPatch.fromJson(objectMapper.valueToTree(operations)), user);
             UserEntity savedUser = updateUserEntity(userRoleNames, userAttributeEntities, attributeIds,
                 additionalAttributes, userAttributeEntitiesMap, objectMapper, addressOperations, userEntity,
                 loggedInUserId, isExternalUser, acRoleMaps);
-            uidamMetricsService.incrementCounter(MetricInfo.builder()
-                    .uidamMetrics(UidamMetrics.TOTAL_UPDATED_USERS)
-                    .build());
+            addUpdatedUserMetrics();
             userResponse = buildUserResponse(userId, userRoleNames, savedUser, apiVersion);
         } catch (JsonPatchException | IOException e) {
             throw new ApplicationRuntimeException(FIELD_DATA_IS_INVALID, BAD_REQUEST, String.valueOf(e.getMessage()));
         }
         return userResponse;
     }
+
+
 
     private void handleAttributes(UserAttributeEntity userAttributeEntity, List<BigInteger> attributeIds,
             Map<String, Object> additionalAttributes, JsonNode operation, String key) {
@@ -2012,12 +2010,16 @@ public class UsersServiceImpl implements UsersService {
                         && a.getEventStatus().equals(UserEventStatus.FAILURE.getValue()))
                     .toList();
                 LOGGER.debug("user event list for failed login attempt: {}", failedLoginAttemptsList);
+                uidamMetricsService.incrementCounter(MetricInfo.builder()
+                        .uidamMetrics(UidamMetrics.BLOCKED_USERS_EVENT_BY_ATTEMPTS).build());
                 if (failedLoginAttemptsList.size() >= allowedLoginAttempts) {
                     Optional<UserEntity> userEntity = userRepository.findById(new BigInteger(userId));
                     if (userEntity.isPresent() && UserStatus.ACTIVE.equals(userEntity.get().getStatus())) {
                         UserEntity userEntityObject = userEntity.get();
                         userEntityObject.setStatus(UserStatus.BLOCKED);
                         userRepository.save(userEntityObject);
+                        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                                .uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT).build());
                         LOGGER.info("user status updated to BLOCKED for userId {}", userId);
                     }
                 }
@@ -2708,5 +2710,10 @@ public class UsersServiceImpl implements UsersService {
         LOGGER.debug("Creating Password Policy Response");
         List<PasswordPolicy> policies = passwordPolicyRepository.findAll();
         return PasswordPolicyResponse.fromEntities(policies);
+    }
+
+    private void addUpdatedUserMetrics() {
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_UPDATED_USERS).build());
     }
 }

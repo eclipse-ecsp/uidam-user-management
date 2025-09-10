@@ -2,6 +2,7 @@ package org.eclipse.ecsp.uidam.common.metrics;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,11 +22,10 @@ public class UidamMetricsService {
     /**
      * Increment the counter for the given metric information.
      *
-     * @param metricInfo
+     * @param metricInfo the metric information
      */
-    public void incrementCounter(MetricInfo metricInfo) {
+    public void incrementCounter(@NonNull MetricInfo metricInfo) {
 
-        Objects.requireNonNull(metricInfo.getUidamMetrics(), "MetricInfo must not be null");
         Objects.requireNonNull(metricInfo.getUidamMetrics(), "Uidam metric must not be null");
         String[] tags = Optional.ofNullable(metricInfo.getTags()).orElse(Stream.empty()).toArray(String[]::new);
         Counter.builder(metricInfo.getUidamMetrics().getMetricName())
