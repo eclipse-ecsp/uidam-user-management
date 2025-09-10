@@ -113,7 +113,9 @@
             **/accountmanagement/constants/*.java,
             **/usermanagement/logging/LoggingRequestInterceptor.java,
             **/BodyInserterWrapper.java,
-            **/ClientAddCorrelationIdInterceptor.java
+            **/ClientAddCorrelationIdInterceptor.java,
+            **/DatabaseProperties.java,
+            **/AuthServerProperties.java
         </sonar.exclusions>
 
         <!-- Jacoco property -->

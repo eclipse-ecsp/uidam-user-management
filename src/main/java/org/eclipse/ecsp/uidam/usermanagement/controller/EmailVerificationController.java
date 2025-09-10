@@ -28,6 +28,7 @@ import lombok.AllArgsConstructor;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.TokenMaskingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -105,7 +106,9 @@ public class EmailVerificationController {
             @PathVariable(TOKEN) String emailVerificationToken, 
             HttpServletResponse httpServletResponse)
             throws IOException {
-        LOGGER.info("verifyEmail started with token: {}", emailVerificationToken);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("verifyEmail started with token: {}", TokenMaskingUtils.maskToken(emailVerificationToken));
+        }
         emailVerificationService.verifyEmail(emailVerificationToken, httpServletResponse);
     }
 

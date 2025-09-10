@@ -39,6 +39,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRe
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.ObjectConverter;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.TokenMaskingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -79,28 +80,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     private UsersService usersService;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EmailVerificationServiceImpl.class);
-    
-    private static final int TOKEN_MIN_LENGTH_FOR_MASKING = 12;
-    private static final int TOKEN_PREFIX_LENGTH = 8;
-    private static final int TOKEN_SUFFIX_LENGTH = 4;
-
-    /**
-     * Masks sensitive token data for logging purposes.
-     * Shows first 8 characters and last 4 characters of the token for tracking while hiding sensitive parts.
-     *
-     * @param token the token to mask
-     * @return masked token string
-     */
-    private String maskToken(String token) {
-        if (StringUtils.isEmpty(token)) {
-            return "null";
-        }
-        if (token.length() <= TOKEN_MIN_LENGTH_FOR_MASKING) {
-            return "****-****-****";
-        }
-        return token.substring(0, TOKEN_PREFIX_LENGTH) + "****" 
-                + token.substring(token.length() - TOKEN_SUFFIX_LENGTH);
-    }
 
     /**
      * Method to fetch email verification response for specific user id.
@@ -146,7 +125,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             if (emailVerificationEntityOptional.isEmpty()) {
                 if (LOGGER.isErrorEnabled()) {
                     LOGGER.error("Email Verification Failed! Email data not found for token: {}", 
-                            maskToken(emailVerificationToken));
+                            TokenMaskingUtils.maskToken(emailVerificationToken));
                 }
                 redirectUrl = tenantConfigurationService.getTenantProperties()
                         .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
@@ -163,7 +142,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                     LOGGER.error(
                             "Email verification Failed, Token is expired! token: {} currentDateTime: {} "
                                     + "lastUpdateDateTime: {}",
-                            maskToken(emailVerificationToken), currentDateTime, lastUpdatedTokenTime);
+                            TokenMaskingUtils.maskToken(emailVerificationToken), currentDateTime, lastUpdatedTokenTime);
                 }
                 redirectUrl = tenantConfigurationService.getTenantProperties()
                         .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
