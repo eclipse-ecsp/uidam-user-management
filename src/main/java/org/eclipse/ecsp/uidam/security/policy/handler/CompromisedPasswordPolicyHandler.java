@@ -122,13 +122,15 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
 
     /**
      * Gets the SHA-1 message digest instance for password hashing.
+     * Note: SHA-1 is required by the Pwned Passwords API specification and cannot be changed.
      *
      * @return The MessageDigest instance configured for SHA-1
      * @throws NoSuchAlgorithmException if SHA-1 algorithm is not available
      */
     protected MessageDigest getMessageDigest() throws NoSuchAlgorithmException {
         if (messageDigest == null) {
-            messageDigest = MessageDigest.getInstance("SHA-1");
+            // SHA-1 is required by Pwned Passwords API - cannot use stronger algorithm
+            messageDigest = MessageDigest.getInstance("SHA-1"); // NOSONAR - Required by external API
         }
         return messageDigest;
 

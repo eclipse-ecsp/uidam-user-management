@@ -105,7 +105,7 @@ public class EmailVerificationController {
             @PathVariable(TOKEN) String emailVerificationToken, 
             HttpServletResponse httpServletResponse)
             throws IOException {
-        LOGGER.info("verifyEmail started for tenant {} with token: {}", tenantId, emailVerificationToken);
+        LOGGER.info("verifyEmail started with token: {}", emailVerificationToken);
         emailVerificationService.verifyEmail(emailVerificationToken, httpServletResponse);
     }
 
@@ -120,7 +120,7 @@ public class EmailVerificationController {
             @PathVariable("tenantId") @Parameter(description = "Tenant ID", required = true) @NotBlank String tenantId,
             @PathVariable(USER_ID_VARIABLE) String userId)
             throws ResourceNotFoundException {
-        LOGGER.info("resendEmailVerification started for tenant {} and user with userId: {}", tenantId, userId);
+        LOGGER.info("resendEmailVerification started for and user with userId: {}", userId);
         emailVerificationService.resendEmailVerification(userId);
     }
 
