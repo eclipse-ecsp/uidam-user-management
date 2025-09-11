@@ -135,7 +135,6 @@ public class UsersControllerV2 {
     @Parameter(name = LOGGED_IN_USER_ID, description = LOGGED_IN_USER_ID,
         schema = @Schema(type = STRING), in = ParameterIn.HEADER)
     @PostMapping
-    @JsonView(UserDtoViews.UserDtoV2View.class)
     public ResponseEntity<UserResponseV2> addUser(
         @RequestHeader(value = LOGGED_IN_USER_ID, required = false) String userId,
         @Valid @RequestBody @Parameter(name = "Request payload", description = "Parameters that define a single user")

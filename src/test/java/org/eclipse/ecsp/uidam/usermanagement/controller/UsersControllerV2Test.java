@@ -829,4 +829,110 @@ class UsersControllerV2Test {
         passwordHistoryEntity.setCreateDate(Timestamp.valueOf(LocalDateTime.now()));
         return passwordHistoryEntity;
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testCreateUserJsonViewFixReturnsCompletePayload() throws IOException, ResourceNotFoundException {
+        // Setup test data - create account and role mappings
+        addAccountIntoDb("TestAccount", AccountStatus.ACTIVE, ROLE_ID_1, ACCOUNT_ID_VALUE, null);
+        when(passwordHistoryRepository.save(any(PasswordHistoryEntity.class))).thenReturn(mockPasswordHistoryEntity());
+        when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity());
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
+        when(userRepository.findByIdAndStatusNot(any(BigInteger.class), any(UserStatus.class)))
+                .thenReturn(loggedInUserEntity());
+
+        // Setup role service mocks
+        Set<RoleCreateResponse> roles = new HashSet<>();
+        RoleCreateResponse role = new RoleCreateResponse();
+        role.setName("VEHICLE_OWNER");
+        role.setId(ROLE_ID_1);
+        roles.add(role);
+        RoleListRepresentation rolesRepresentation = new RoleListRepresentation(roles);
+        when(rolesService.filterRoles(any(Set.class), any(Integer.class), any(Integer.class), anyBoolean()))
+                .thenReturn(rolesRepresentation);
+        when(rolesService.getRoleById(any(Set.class))).thenReturn(rolesRepresentation);
+
+        // Setup account repository mock
+        Object[] accountArray = new Object[INDEX_2];
+        accountArray[INDEX_0] = ACCOUNT_ID_VALUE;
+        accountArray[INDEX_1] = "TestAccount";
+        List<Object[]> activeAccounts = new ArrayList<>();
+        activeAccounts.add(accountArray);
+        when(accountRepository
+                .findIdAndNameByStatusAndAccountNameIn(any(AccountStatus.class), anySet())).thenReturn(activeAccounts);
+
+        // Create user DTO with comprehensive data
+        UserDtoV2 userDto = createUserPostV2(UserStatus.ACTIVE, "TestAccount", ROLE_VALUE);
+        userDto.setFirstName("John");
+        userDto.setLastName("Doe");
+        userDto.setEmail("john.doe@example.com");
+        userDto.setPhoneNumber("+1234567890");
+
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+                .thenReturn(new ValidationResult(true, null));
+
+        // Execute API call and capture response
+        byte[] responseBody = webTestClient.post().uri("/v2/users").headers(http -> {
+            http.add("Content-Type", "application/json");
+            http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
+            http.add(ApiConstants.LOGGED_IN_USER_ID, "1234567890");
+        }).bodyValue(userDto).exchange()
+                .expectStatus().isEqualTo(HttpStatus.CREATED)
+                .expectBody()
+                .returnResult()
+                .getResponseBody();
+
+        // Parse response and verify it contains expected data
+        verifyJsonResponseContainsExpectedFields(responseBody);
+
+        // Verify email verification service was called
+        verify(emailVerificationService, times(1)).resendEmailVerification(any(UserResponseV2.class));
+
+        System.out.println("✅ JsonView fix test passed: V2 create user API returns complete response payload");
+    }
+
+    private void verifyJsonResponseContainsExpectedFields(byte[] responseBody) throws IOException {
+        // Verify response is not empty
+        Assertions.assertNotNull(responseBody, "Response body should not be null");
+        final int minResponseLength = 2;
+        Assertions.assertTrue(responseBody.length > minResponseLength, "Response body should not be empty");
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode responseJson = objectMapper.readTree(responseBody);
+
+        // Verify essential user fields are present
+        String[] requiredFields = {
+            "id", "userName", "status", "firstName", "lastName", "email", 
+            "phoneNumber", "accounts"
+        };
+        for (String field : requiredFields) {
+            Assertions.assertTrue(responseJson.has(field), 
+                    "Response should contain '" + field + "' field");
+        }
+
+        // Verify accounts structure
+        JsonNode accountsNode = responseJson.get("accounts");
+        Assertions.assertTrue(accountsNode.isArray() && accountsNode.size() > 0, 
+                "Accounts should be a non-empty array");
+
+        JsonNode firstAccount = accountsNode.get(0);
+        Assertions.assertTrue(firstAccount.has("account") && firstAccount.has("roles"), 
+                "Account should have both 'account' and 'roles' fields");
+        Assertions.assertEquals("TestAccount", firstAccount.get("account").asText(), 
+                "Account name should match expected value");
+
+        // Verify user data matches input
+        Assertions.assertEquals("johnd", responseJson.get("userName").asText(), 
+                "Username should match input");
+        Assertions.assertEquals("John", responseJson.get("firstName").asText(), 
+                "First name should match input");
+        Assertions.assertEquals("Doe", responseJson.get("lastName").asText(), 
+                "Last name should match input");
+        Assertions.assertEquals("john.doe@example.com", responseJson.get("email").asText(), 
+                "Email should match input");
+        Assertions.assertEquals("+1234567890", responseJson.get("phoneNumber").asText(), 
+                "Phone number should match input");
+    }
 }
