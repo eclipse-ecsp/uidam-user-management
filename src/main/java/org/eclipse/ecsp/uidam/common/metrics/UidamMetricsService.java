@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
@@ -19,6 +20,8 @@ public class UidamMetricsService {
 
     private final MeterRegistry meterRegistry;
 
+    public static final String DEFAULT_API_VERSION = "v1";
+
     /**
      * Increment the counter for the given metric information.
      *
@@ -30,7 +33,9 @@ public class UidamMetricsService {
         String[] tags = Optional.ofNullable(metricInfo.getTags()).orElse(Stream.empty()).toArray(String[]::new);
         Counter.builder(metricInfo.getUidamMetrics().getMetricName())
                 .description(metricInfo.getUidamMetrics().getDescription())
-                .tag("application", "Uidam User Management")
+                .tag("application", "uidam-user-management")
+                .tag("tenantId", TenantContext.getCurrentTenant())
+                .tag("apiVersion", DEFAULT_API_VERSION)
                 .tags(tags)
                 .register(meterRegistry).increment();
     }

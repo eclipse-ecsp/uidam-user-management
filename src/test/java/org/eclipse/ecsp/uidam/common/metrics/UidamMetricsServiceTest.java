@@ -4,6 +4,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.stream.Stream;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -32,10 +35,14 @@ public class UidamMetricsServiceTest {
 
     @Test
     public void incrementCounter_validate_count() {
-        MetricInfo metricInfo = MetricInfo.builder().uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT).build();
+        MetricInfo metricInfo = MetricInfo.builder().uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT)
+                .tags(Stream.of("tenantId", "ecsp")).build();
         uidamMetricsService.incrementCounter(metricInfo);
         double count = meterRegistry.counter(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT.getMetricName(),
-                "application", "Uidam User Management").count();
+                        "application", "uidam-user-management",
+                        "tenantId", "ecsp",
+                        "apiVersion", "v1")
+                .count();
         assertEquals(1.0, count);
     }
 

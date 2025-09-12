@@ -35,6 +35,7 @@ import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.common.metrics.MetricInfo;
 import org.eclipse.ecsp.uidam.common.metrics.UidamMetrics;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsConstants;
 import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
@@ -382,9 +383,6 @@ public class UsersServiceImpl implements UsersService {
         userEntity.getUserAddresses().forEach(userAddressEntity -> userAddressEntity.setUserEntity(userEntity));
 
         UserEntity savedUser = userRepository.save(userEntity);
-        uidamMetricsService.incrementCounter(MetricInfo.builder()
-                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
-                .build());
         // UserAccountRoleMapping would not have got the new userId now.
         // Set it explicitly for each of them.
         BigInteger savedUserId = savedUser.getId();
@@ -396,7 +394,12 @@ public class UsersServiceImpl implements UsersService {
         });
 
         String version = (userDto instanceof UserDtoV1) ? VERSION_1 : VERSION_2;
-
+        String userType = isSelfAddUser ? UidamMetricsConstants.USER_TYPE_SELF : UidamMetricsConstants.USER_TYPE_ADMIN;
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .tags(Stream.of("version", version,
+                        "userType", userType))
+                .build());
         UserResponseBase userResponseBase = addRoleNamesAndMapToUserResponse(userEntity, version);
 
         if ((!isSelfAddUser || getTenantProperties().getAdditionalAttrCheckEnabledForSignUp())
@@ -1328,11 +1331,13 @@ public class UsersServiceImpl implements UsersService {
                     cloudProfilesRepository.deleteCloudProfile(cloudProfileEntity.getId());
                 });
             }
-            uidamMetricsService.incrementCounter(MetricInfo.builder()
-                    .uidamMetrics(UidamMetrics.TOTAL_DELETED_USERS)
-                    .build());
         });
         List<UserEntity> updatedUserEntities = userRepository.saveAll(savedUserEntities);
+        Optional.of(updatedUserEntities).ifPresent(entities ->
+                entities.forEach(entity -> uidamMetricsService.incrementCounter(MetricInfo.builder()
+                        .uidamMetrics(UidamMetrics.TOTAL_DELETED_USERS)
+                        .build()))
+        );
         Map<BigInteger, Map<String, Object>> additionalAttributes = findAdditionalAttributeData(
             updatedUserEntities.stream().map(UserEntity::getId).toList());
         return updatedUserEntities.stream().map(updatedUserEntity -> {
@@ -2010,8 +2015,6 @@ public class UsersServiceImpl implements UsersService {
                         && a.getEventStatus().equals(UserEventStatus.FAILURE.getValue()))
                     .toList();
                 LOGGER.debug("user event list for failed login attempt: {}", failedLoginAttemptsList);
-                uidamMetricsService.incrementCounter(MetricInfo.builder()
-                        .uidamMetrics(UidamMetrics.BLOCKED_USERS_EVENT_BY_ATTEMPTS).build());
                 if (failedLoginAttemptsList.size() >= allowedLoginAttempts) {
                     Optional<UserEntity> userEntity = userRepository.findById(new BigInteger(userId));
                     if (userEntity.isPresent() && UserStatus.ACTIVE.equals(userEntity.get().getStatus())) {
@@ -2094,6 +2097,9 @@ public class UsersServiceImpl implements UsersService {
             historyEntity.setCreatedBy("system");
             passwordHistoryRepository.save(historyEntity);
             revokeUserTokens(userEntity.getUserName());
+            uidamMetricsService.incrementCounter(MetricInfo.builder()
+                    .uidamMetrics(UidamMetrics.TOTAL_RESET_PASSWORD_BY_USER)
+                    .build());
         } else {
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.error("Password does not match the password policy for user {} with error {}",
@@ -2404,6 +2410,10 @@ public class UsersServiceImpl implements UsersService {
                 persistAdditionalAttributes(externalUserDto, savedUser).get(savedUser.getId()));
         }
         LOGGER.debug("##Add external user end for user :{}", userResponseBase.getUserName());
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .tags(Stream.of("userType", UidamMetricsConstants.USER_TYPE_EXTERNAL))
+                .build());
         return userResponseBase;
     }
 
@@ -2676,6 +2686,10 @@ public class UsersServiceImpl implements UsersService {
                 .get(savedUser.getId()));
         }
         LOGGER.debug("Add federated user end for user :{}", userResponseBase.getUserName());
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .tags(Stream.of("userType", UidamMetricsConstants.USER_TYPE_FEDERATED))
+                .build());
         return userResponseBase;
     }
 
