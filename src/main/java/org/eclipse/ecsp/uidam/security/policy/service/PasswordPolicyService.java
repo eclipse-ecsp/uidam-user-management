@@ -25,9 +25,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.JsonPatchException;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.uidam.common.metrics.MetricInfo;
-import org.eclipse.ecsp.uidam.common.metrics.UidamMetrics;
-import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.security.policy.exception.PasswordPolicyException;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
@@ -84,7 +81,6 @@ public class PasswordPolicyService {
     private final PasswordPolicyRepository passwordPolicyRepository;
     private final ObjectMapper objectMapper;
     private final UsersService usersService;
-    private final UidamMetricsService uidamMetricsService;
 
     /**
      * Constructor for PasswordPolicyService.
@@ -95,12 +91,10 @@ public class PasswordPolicyService {
      */
     public PasswordPolicyService(PasswordPolicyRepository passwordPolicyRepository, 
             ObjectMapper objectMapper,
-            UsersService usersService,
-            UidamMetricsService uidamMetricsService) {
+            UsersService usersService) {
         this.passwordPolicyRepository = passwordPolicyRepository;
         this.objectMapper = objectMapper;
         this.usersService = usersService;
-        this.uidamMetricsService = uidamMetricsService;
     }
 
     /**
@@ -180,9 +174,6 @@ public class PasswordPolicyService {
         });
         passwordPolicyRepository.saveAll(updatedPolicies);
         log.info("Updated password policies successfully.");
-        uidamMetricsService.incrementCounter(MetricInfo.builder()
-                .uidamMetrics(UidamMetrics.TOTAL_RESET_PASSWORD_BY_USER)
-                .build());
         return updatedPolicies;
     }
 
