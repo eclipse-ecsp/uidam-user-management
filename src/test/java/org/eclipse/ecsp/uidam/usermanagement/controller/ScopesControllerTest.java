@@ -27,6 +27,7 @@ import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsException;
 import org.eclipse.ecsp.uidam.usermanagement.service.ScopesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ResponseMessage;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ScopeListRepresentation;
 import org.junit.jupiter.api.AfterEach;
@@ -59,6 +60,9 @@ class ScopesControllerTest {
 
     @MockBean
     private ScopesService scopeService;
+
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private MockMvc mockMvc;

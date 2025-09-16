@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.usermanagement.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.notification.NotificationManager;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NonRegisteredUserData;
@@ -39,7 +38,6 @@ import java.util.Map;
 @Slf4j
 public class EmailNotificationService {
     private static final String NOTIFICATION_VERSION = "1.0";
-    private ApplicationProperties applicationProperties;
 
     @Autowired
     private NotificationManager notificationManager;

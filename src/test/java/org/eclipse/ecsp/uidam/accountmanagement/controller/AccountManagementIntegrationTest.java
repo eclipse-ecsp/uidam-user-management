@@ -33,12 +33,14 @@ import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SortOrder;
 import org.eclipse.ecsp.uidam.usermanagement.exception.handler.UnifiedErrorDetails;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAccountRoleMappingRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.RolesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -153,6 +155,12 @@ class AccountManagementIntegrationTest {
     @MockBean
     PasswordValidationService passwordValidationService;
 
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
+    
+    @MockBean
+    private UserManagementTenantProperties tenantProperties;
+
     @BeforeEach
     public void init() {
         CollectorRegistry.defaultRegistry.clear();
@@ -243,13 +251,25 @@ class AccountManagementIntegrationTest {
 
     @Test
     void testUserAssociatedDeleteAccount() {
+        // Mock tenant configuration to return the default account name
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
+        
+        // Create the default account that would be used for comparison
+        AccountEntity defaultAccountEntity = new AccountEntity();
+        defaultAccountEntity.setId(new BigInteger("999999999999999999999999999999999"));
+        defaultAccountEntity.setAccountName("userdefaultaccount");
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(defaultAccountEntity));
+        
+        // Create the test account entity that will be deleted
         AccountEntity accountEntity = addAccountIntoDb("Test Account Name",
                 AccountStatus.ACTIVE, BigInteger.ONE, ACCOUNT_ID_VALUE, null);
         when(accountRepository.findByIdAndStatusNot(ACCOUNT_ID_VALUE, AccountStatus.DELETED)).thenReturn(
-                Optional.of(accountEntity));
-        when(userAccountRoleMappingRepository.existsByAccountId(accountEntity.getId())).thenReturn(true);
-        webTestClient
-                .delete().uri(uriBuilder -> uriBuilder.path("/v1/accounts/{account_id}").build(accountEntity.getId()))
+                Optional.of(defaultAccountEntity));
+        when(userAccountRoleMappingRepository.existsByAccountId(defaultAccountEntity.getId())).thenReturn(true);
+        
+        webTestClient.delete()
+                .uri(uriBuilder -> uriBuilder.path("/v1/accounts/{account_id}").build(defaultAccountEntity.getId()))
                 .headers(http -> {
                     http.add("Content-Type", "application/json");
                     http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());

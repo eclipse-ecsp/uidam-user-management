@@ -188,11 +188,17 @@ public class PasswordValidationService {
     }
 
     /**
-     * Represents the result of a password validation check.
+     * Result of password validation indicating whether the password is valid and any error message.
      *
-     * @param isValid Indicates whether the password is valid.
-     * @param errorMessage Contains an error message if the password is invalid, null otherwise.
+     * @param isValid true if the password is valid, false otherwise
+     * @param errorMessage the error message if validation failed, null otherwise
      */
     public record ValidationResult(boolean isValid, String errorMessage) {
+    }
+
+    /**
+     * Input class for password validation, containing the username, password, and last update time.
+     */
+    public record PasswordValidationInput(String username, String password, Timestamp lastUpdateTime) {
     }
 }

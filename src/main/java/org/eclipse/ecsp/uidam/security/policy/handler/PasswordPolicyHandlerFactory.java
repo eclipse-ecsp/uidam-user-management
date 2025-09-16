@@ -1,6 +1,12 @@
 /*
  * Copyright (c) 2023 - 2024 Harman International
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache Lice        COMPLEXITY("complexity") {
+            @Override
+            PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
+                    TenantConfigurationService tenantConfigurationService) {
+                return new PasswordComplexityPolicyHandler(rules);
+            }
+        },rsion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -19,8 +25,8 @@
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -35,20 +41,20 @@ import java.util.stream.Stream;
 public class PasswordPolicyHandlerFactory {
 
     private final PasswordHistoryRepository passwordHistoryRepository;
-    private final ApplicationProperties applicationProperties;
+    private final TenantConfigurationService tenantConfigurationService;
 
     /**
      * Constructor for PasswordPolicyHandlerFactory.
      *
      * @param passwordHistoryRepository Repository for password history.
-     * @param applicationProperties Application properties.
+     * @param tenantConfigurationService Tenant configuration service.
      */
     public PasswordPolicyHandlerFactory(PasswordHistoryRepository passwordHistoryRepository,
-            ApplicationProperties applicationProperties) {
+            TenantConfigurationService tenantConfigurationService) {
         this.passwordHistoryRepository = Objects.requireNonNull(passwordHistoryRepository,
                 "passwordHistoryRepository must not be null");
-        this.applicationProperties = Objects.requireNonNull(applicationProperties,
-                "applicationProperties must not be null");
+        this.tenantConfigurationService = Objects.requireNonNull(tenantConfigurationService,
+                "tenantConfigurationService must not be null");
     }
     
     /**
@@ -63,7 +69,7 @@ public class PasswordPolicyHandlerFactory {
         Map<String, Object> rules = policy.getValidationRules();
 
         return Stream.of(PolicyType.values()).filter(type -> type.key.equals(policy.getKey())).findFirst()
-                .map(type -> type.createHandler(rules, passwordHistoryRepository, applicationProperties))
+                .map(type -> type.createHandler(rules, passwordHistoryRepository, tenantConfigurationService))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown policy key: " + policy.getKey()));
     }
 
@@ -75,49 +81,50 @@ public class PasswordPolicyHandlerFactory {
         SIZE("size") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
+                    TenantConfigurationService tenantConfigurationService) {
                 return new SizePolicyHandler(rules);
             }
         },
         SPECIAL_CHARS("specialChars") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
+                    TenantConfigurationService tenantConfigurationService) {
                 return new SpecialCharacterPolicyHandler(rules);
             }
         },
         COMPLEXITY("complexity") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
+                    TenantConfigurationService tenantConfigurationService) {
                 return new ComplexityPolicyHandler(rules);
             }
         },
         EXPIRATION("expiration") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
-                return new ExpirationPolicyHandler(rules, repository, properties.getPasswordEncoder());
+                    TenantConfigurationService tenantConfigurationService) {
+                return new ExpirationPolicyHandler(rules, repository,
+                        tenantConfigurationService.getTenantProperties().getPasswordEncoder());
             }
         },
         USERNAME_SEQUENCE_EXCLUSION("usernameSequenceExclusion") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
+                    TenantConfigurationService tenantConfigurationService) {
                 return new UsernameExclusionPolicyHandler(rules);
             }
         },
         PASSWORD_LAST_UPDATE_VALIDATION("passwordLastUpdateValidation") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
+                    TenantConfigurationService tenantConfigurationService) {
                 return new LastUpdateValidationPolicyHandler(rules);
             }
         },
         COMPROMISED_PASSWORD("CompromisedPassword") {
             @Override
             PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                    ApplicationProperties properties) {
+                    TenantConfigurationService tenantConfigurationService) {
                 return new CompromisedPasswordPolicyHandler(rules);
             }
         };
@@ -129,6 +136,6 @@ public class PasswordPolicyHandlerFactory {
         }
 
         abstract PasswordPolicyHandler createHandler(Map<String, Object> rules, PasswordHistoryRepository repository,
-                ApplicationProperties properties);
+                TenantConfigurationService tenantConfigurationService);
     }
 }

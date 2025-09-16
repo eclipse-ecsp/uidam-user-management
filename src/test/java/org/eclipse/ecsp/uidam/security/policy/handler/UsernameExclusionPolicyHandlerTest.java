@@ -49,9 +49,9 @@ class UsernameExclusionPolicyHandlerTest {
         assertTrue(handler.doHandle(getHandlerInput("ab", "securePassword123", null)));
     }
 
-    private PasswordValidationInput getHandlerInput(String username, String password,
+    private PasswordValidationService.PasswordValidationInput getHandlerInput(String username, String password,
             Timestamp lastUpdateTime) {
-        return new PasswordValidationInput(username, password, lastUpdateTime);
+        return new PasswordValidationService.PasswordValidationInput(username, password, lastUpdateTime);
     }
 
     @Test

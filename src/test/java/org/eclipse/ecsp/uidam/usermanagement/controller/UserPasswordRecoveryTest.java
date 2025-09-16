@@ -25,7 +25,7 @@ import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
 import org.eclipse.ecsp.uidam.usermanagement.cache.CacheTokenService;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserRecoverySecret;
@@ -37,6 +37,7 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.UserRecoverySecretReposi
 import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.AuthorizationServerClient;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailNotificationService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UidamAuthTokenGenerator;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserUpdatePasswordDto;
 import org.junit.jupiter.api.AfterEach;
@@ -59,9 +60,6 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
-import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.INTERVAL_FOR_LAST_PASSWORD_UPDATE;
-import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.MAX_PASSWORD_LENGTH;
-import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.MIN_PASSWORD_LENGTH;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.PASSWORD_ENCODER;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.RECOVERY_SECRET_EXPIRE_IN_MINUTES;
 import static org.mockito.ArgumentMatchers.any;
@@ -107,7 +105,9 @@ class UserPasswordRecoveryTest {
     @MockBean
     CloudProfilesRepository cloudProfilesRepository;
     @MockBean
-    ApplicationProperties applicationProperties;
+    TenantConfigurationService tenantConfigurationService;
+    @MockBean
+    UserManagementTenantProperties tenantProperties;
     @MockBean
     AccountRepository accountRepository;
 
@@ -138,8 +138,9 @@ class UserPasswordRecoveryTest {
                 .thenReturn(userRecoverySecret);
         when(usersRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(), UserStatus.DELETED))
                 .thenReturn(getUserEntity());
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
         when(tokenCache.getAccessToken()).thenReturn("testtoken");
         BaseResponseFromAuthorization authResponse = new BaseResponseFromAuthorization();
         authResponse.setHttpStatus(HttpStatus.OK);
@@ -166,8 +167,9 @@ class UserPasswordRecoveryTest {
         when(userRecoverySecretRepository.findUserRecoverySecretDetailsByRecoverySecret(secret))
                 .thenReturn(userRecoverySecret);
         when(usersRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(), UserStatus.DELETED)).thenReturn(null);
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
         webTestClient.post().uri("/v1/users/recovery/set-password").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -188,8 +190,9 @@ class UserPasswordRecoveryTest {
         when(userRecoverySecretRepository.findUserRecoverySecretDetailsByRecoverySecret(secret))
                 .thenReturn(userRecoverySecret);
         when(usersRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(), UserStatus.DELETED)).thenReturn(null);
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
         webTestClient.post().uri("/v1/users/recovery/set-password").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -210,8 +213,9 @@ class UserPasswordRecoveryTest {
         when(userRecoverySecretRepository.findUserRecoverySecretDetailsByRecoverySecret(secret))
                 .thenReturn(userRecoverySecret);
         when(usersRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(), UserStatus.DELETED)).thenReturn(null);
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
         webTestClient.post().uri("/v1/users/recovery/set-password").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -233,8 +237,9 @@ class UserPasswordRecoveryTest {
                 .thenReturn(userRecoverySecret);
         when(usersRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(), UserStatus.DELETED))
                 .thenReturn(getUserEntity());
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
         webTestClient.post().uri("/v1/users/recovery/set-password").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -246,9 +251,10 @@ class UserPasswordRecoveryTest {
         String userName = "username";
         when(usersRepository.findByUserNameIgnoreCaseAndStatusNot(userName, UserStatus.DELETED))
                 .thenReturn(getUserEntity());
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
-        when(applicationProperties.getAuthServerResetResponseUrl()).thenReturn("https://localhost:9443/recovery/reset");
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantProperties.getAuthServerResetResponseUrl()).thenReturn("https://localhost:9443/recovery/reset");
         webTestClient.post().uri("/v1/users/{userName}/recovery/forgotpassword", userName).headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
@@ -259,9 +265,10 @@ class UserPasswordRecoveryTest {
     @Test
     void testSendSelfPasswordRecoveryEmailNotification() {
         when(usersRepository.findByIdAndStatusNot(USER_ID_1, UserStatus.DELETED)).thenReturn(getUserEntity());
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
-        when(applicationProperties.getAuthServerResetResponseUrl()).thenReturn("https://localhost:9443/recovery/reset");
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantProperties.getAuthServerResetResponseUrl()).thenReturn("https://localhost:9443/recovery/reset");
         webTestClient.post().uri("/v1/users/self/recovery/resetpassword").headers(http -> {
             http.add("Content-Type", "application/json");
             http.add("user-id", USER_ID_1.toString());
@@ -273,8 +280,9 @@ class UserPasswordRecoveryTest {
     void testSendPasswordRecoveryEmailNotificationResourceNotFound() {
         String userName = "username";
         when(usersRepository.findByUserNameIgnoreCaseAndStatusNot(userName, UserStatus.DELETED)).thenReturn(null);
-        when(applicationProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);
         webTestClient.post().uri("/v1/users/{userName}/recovery/forgotpassword", userName).headers(http -> {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());

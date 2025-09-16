@@ -26,7 +26,6 @@
 
 package org.eclipse.ecsp.uidam.accountmanagement.service.impl;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto;
@@ -43,15 +42,16 @@ import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.accountmanagement.service.AccountService;
 import org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountSearchSpecification;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UserAccountRoleMappingRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.RolesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto.AccountFilterDtoEnum.ACCOUNT_NAMES;
@@ -111,12 +112,13 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Slf4j
 public class AccountServiceImpl implements AccountService {
 
-    @Autowired
     private AccountRepository accountRepository;
     private RolesService rolesService;
-    private BigInteger userDefaultAccountId;
+    
+    // Lazy loading cache for tenant-specific default account IDs
+    private final ConcurrentHashMap<String, BigInteger> tenantAccountCache = new ConcurrentHashMap<>();
 
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
 
     private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
 
@@ -125,29 +127,41 @@ public class AccountServiceImpl implements AccountService {
      *
      * @param accountRepository     accountRepository
      * @param rolesService          rolesService
-     * @param applicationProperties applicationProperties
+     * @param tenantConfigurationService tenantConfigurationService
      */
     public AccountServiceImpl(AccountRepository accountRepository, RolesService rolesService,
-            ApplicationProperties applicationProperties,
+            TenantConfigurationService tenantConfigurationService,
             UserAccountRoleMappingRepository userAccountRoleMappingRepository) {
         this.accountRepository = accountRepository;
         this.rolesService = rolesService;
-        this.applicationProperties = applicationProperties;
+        this.tenantConfigurationService = tenantConfigurationService;
         this.userAccountRoleMappingRepository = userAccountRoleMappingRepository;
     }
 
     /**
-     * AccountServiceImpl post constructor to set default accountId.
+     * Gets the default account ID for the current tenant using lazy loading cache.
+     * Tenant context is guaranteed to be available by the multi-tenant filter.
+     *
+     * @return The default account ID for the current tenant
+     * @throws AccountManagementException if default account cannot be found
      */
-    @PostConstruct
-    public void postConstruct() {
-        Optional<AccountEntity> defaultAccount = accountRepository
-                .findByAccountName(applicationProperties.getUserDefaultAccountName());
-        if (defaultAccount.isPresent()) {
-            AccountEntity accountEntity = defaultAccount.get();
-            applicationProperties.setUserDefaultAccountId(accountEntity.getId());
-            this.userDefaultAccountId = accountEntity.getId();
-        }
+    private BigInteger getUserDefaultAccountId() throws AccountManagementException {
+        UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
+        String currentTenant = TenantContext.getCurrentTenant();
+        String defaultAccountName = tenantProperties.getUserDefaultAccountName();
+        
+        // Use computeIfAbsent for thread-safe lazy loading
+        return tenantAccountCache.computeIfAbsent(currentTenant, key -> {
+            Optional<AccountEntity> defaultAccount = accountRepository.findByAccountName(defaultAccountName);
+            if (defaultAccount.isPresent()) {
+                log.debug("Cached default account ID for tenant {}: {}", currentTenant, defaultAccount.get().getId());
+                return defaultAccount.get().getId();
+            } else {
+                log.error("Default account '{}' not found for tenant '{}'", defaultAccountName, currentTenant);
+                throw new RuntimeException(
+                        "Default account '" + defaultAccountName + "' not found for tenant '" + currentTenant + "'");
+            }
+        });
     }
 
     /**
@@ -299,7 +313,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void deleteAccount(BigInteger loggedInUserId, BigInteger accountId) throws AccountManagementException {
         // 1. Check if this is default account
-        if (accountId.equals(userDefaultAccountId)) {
+        if (accountId.equals(getUserDefaultAccountId())) {
             throwException(CANNOT_DELETE_DEFAULT_ACCOUNT_MSG, CANNOT_DELETE_DEFAULT_ACCOUNT, ACCOUNT_ID,
                     String.valueOf(accountId), BAD_REQUEST);
         }
@@ -465,7 +479,7 @@ public class AccountServiceImpl implements AccountService {
     public void updateAccount(BigInteger id, UpdateAccountDto accountDto, BigInteger loggedInUserId)
             throws AccountManagementException {
         String accIdAsString = String.valueOf(id);
-        if (id.equals(userDefaultAccountId)) {
+        if (id.equals(getUserDefaultAccountId())) {
             throwException(CANNOT_UPDATE_DEFAULT_ACCOUNT_MSG, CANNOT_UPDATE_DEFAULT_ACCOUNT, ACCOUNT_ID, accIdAsString,
                     BAD_REQUEST);
         }

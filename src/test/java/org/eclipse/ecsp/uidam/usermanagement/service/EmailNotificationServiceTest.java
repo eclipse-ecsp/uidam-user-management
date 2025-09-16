@@ -19,8 +19,8 @@
 package org.eclipse.ecsp.uidam.usermanagement.service;
 
 import io.prometheus.client.CollectorRegistry;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
-import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfiguration;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.NotificationManager;
@@ -36,7 +36,11 @@ import java.util.Map;
 
 class EmailNotificationServiceTest {
     @Mock
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
+    @Mock
+    private UserManagementTenantProperties tenantProperties;
+    @Mock
+    private NotificationProperties notificationProperties;
     @InjectMocks
     private EmailNotificationService emailNotificationService;
 
@@ -51,10 +55,10 @@ class EmailNotificationServiceTest {
         MockitoAnnotations.openMocks(this);
 
         emailNotificationServiceSpy = Mockito.spy(emailNotificationService);
-        NotificationConfiguration notificationConfigurationMock = Mockito.mock(NotificationConfiguration.class);
-        Mockito.when(applicationProperties.getNotification()).thenReturn(notificationConfigurationMock);
-        Mockito.when(notificationConfigurationMock.getNotificationId()).thenReturn("testUserVerify");
-        Mockito.when(notificationConfigurationMock.getNotificationApiUrl())
+        Mockito.when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        Mockito.when(tenantProperties.getNotification()).thenReturn(notificationProperties);
+        Mockito.when(notificationProperties.getNotificationId()).thenReturn("testUserVerify");
+        Mockito.when(notificationProperties.getNotificationApiUrl())
             .thenReturn("https://api-gateway.eks-spring-auth.ic.aws.harmandev.com/v1/notifications/nonRegisteredUsers");
     }
 

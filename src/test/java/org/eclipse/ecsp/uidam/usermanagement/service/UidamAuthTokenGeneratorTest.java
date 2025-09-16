@@ -19,7 +19,8 @@
 package org.eclipse.ecsp.uidam.usermanagement.service;
 
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.AccessTokenDetails;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.AuthServerProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -43,7 +44,13 @@ class UidamAuthTokenGeneratorTest {
     private UidamAuthTokenGenerator uidamAuthTokenGenerator;
 
     @Mock
-    ApplicationProperties applicationProperties;
+    TenantConfigurationService tenantConfigurationService;
+
+    @Mock
+    UserManagementTenantProperties tenantProperties;
+
+    @Mock
+    AuthServerProperties authServerProperties;
 
     @Mock
     private WebClient webClientMock;
@@ -63,13 +70,15 @@ class UidamAuthTokenGeneratorTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getAuthServer()).thenReturn(authServerProperties);
     }
 
     @Test
     void fetchSpringAuthToken() {
-        when(applicationProperties.getAuthServerTokenUrl()).thenReturn("/token");
-        when(applicationProperties.getClientId()).thenReturn("dummyClient");
-        when(applicationProperties.getClientSecret()).thenReturn("dummySecret");
+        when(authServerProperties.getTokenUrl()).thenReturn("/token");
+        when(authServerProperties.getClientId()).thenReturn("dummyClient");
+        when(authServerProperties.getClientSecret()).thenReturn("dummySecret");
 
         when(webClientMock.method(any())).thenReturn(requestBodyUriSpecMock);
         when(requestBodyUriSpecMock.uri(anyString())).thenReturn(requestBodySpecMock);

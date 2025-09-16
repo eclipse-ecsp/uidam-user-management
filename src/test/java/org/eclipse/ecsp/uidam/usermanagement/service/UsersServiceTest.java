@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
@@ -37,7 +38,7 @@ import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateRespons
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.Scope;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
 import org.eclipse.ecsp.uidam.usermanagement.cache.CacheTokenService;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.dao.UserManagementDao;
@@ -210,7 +211,9 @@ class UsersServiceTest {
     @MockBean
     private UserEventRepository userEventRepository;
     @MockBean
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
+    @MockBean
+    private UserManagementTenantProperties tenantProperties;
     @MockBean
     private EntityManagerFactory entityManagerFactory;
     @MockBean
@@ -244,6 +247,9 @@ class UsersServiceTest {
     PasswordValidationService passwordValidationService;
     @MockBean
     PasswordPolicyRepository passwordPolicyRepository;
+
+    @MockBean
+    UidamMetricsService uidamMetricsService;
     
     private String passwordEncoder = "SHA-256";
 
@@ -273,6 +279,17 @@ class UsersServiceTest {
     @AfterEach
     public void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
+    }
+
+    @BeforeEach
+    public void setupTenantConfiguration() {
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        
+        // Mock default account for lazy loading cache
+        AccountEntity defaultAccount = new AccountEntity();
+        defaultAccount.setAccountName("userdefaultaccount");
+        defaultAccount.setId(ACCOUNT_ID_VALUE);
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(defaultAccount));
     }
 
     public static UserDtoV1 createUserPost(UserStatus status) {
@@ -492,8 +509,9 @@ class UsersServiceTest {
         userPost.setPassword("TEstj3@123");
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
         PasswordHistoryEntity phe1 = new PasswordHistoryEntity();
@@ -553,14 +571,14 @@ class UsersServiceTest {
             .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"));
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -594,9 +612,9 @@ class UsersServiceTest {
             .thenReturn(userEntity);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.empty());
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.empty());
         when(passwordValidationService.validatePassword(anyString(), anyString()))
                 .thenReturn(new ValidationResult(true, null));
         RolesEntity role = new RolesEntity();
@@ -623,14 +641,14 @@ class UsersServiceTest {
             .thenReturn(userEntity);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -658,16 +676,16 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class)))
             .thenReturn(userEntity);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
 
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -700,14 +718,14 @@ class UsersServiceTest {
         UsersService usersService1 = Mockito.spy(usersService);
         Mockito.doReturn(userResponse).when(usersService1)
             .getUser(any(BigInteger.class), eq(API_VERSION_1));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -815,14 +833,14 @@ class UsersServiceTest {
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(userAttributeValueEntities);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -851,17 +869,17 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
 
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(userAttributeValueEntities);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -890,17 +908,17 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -933,7 +951,7 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
 
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
@@ -943,12 +961,12 @@ class UsersServiceTest {
             .thenReturn(userEntity);
         when(userAttributeValueRepository
             .saveAll(anyList())).thenReturn(createUserAttributeValueData());
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -995,18 +1013,18 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
             .thenReturn(Optional.of(isClientAllowToManageUsersResponse()));
-        when(applicationProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
 
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -1076,11 +1094,11 @@ class UsersServiceTest {
             BigInteger.valueOf(anyInt())))
             .thenReturn(userAttributeValueEntity);
         when(userAttributeValueEntity.getValue()).thenReturn("true");
-        when(applicationProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
+        when(tenantProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
         when(userEventRepository.findUserEventsByUserIdAndEventType(any(BigInteger.class), any(String.class),
             any(Integer.class))).thenReturn(userEventEntity);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
-        when(applicationProperties.getCaptchaEnforceAfterNoOfFailures())
+        when(tenantProperties.getCaptchaEnforceAfterNoOfFailures())
             .thenReturn(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES_VALUE);
         UserDetailsResponse result = usersService.getUserByUserName(USER_NAME_VALUE);
         assertEquals(userEntity.getUserName(), result.getUserName());
@@ -1116,11 +1134,11 @@ class UsersServiceTest {
         when(userAttributeValueRepository.findByUserIdAndAttributeId(any(BigInteger.class),
             BigInteger.valueOf(anyInt())))
             .thenReturn(null);
-        when(applicationProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
+        when(tenantProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
         when(userEventRepository.findUserEventsByUserIdAndEventType(any(BigInteger.class), any(String.class),
             any(Integer.class))).thenReturn(userEventEntity);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
-        when(applicationProperties.getCaptchaEnforceAfterNoOfFailures()).thenReturn(null);
+        when(tenantProperties.getCaptchaEnforceAfterNoOfFailures()).thenReturn(null);
         UserDetailsResponse result = usersService.getUserByUserName(USER_NAME_VALUE);
         assertEquals(userEntity.getUserName(), result.getUserName());
         assertEquals(String.valueOf(userEntity.getId()), result.getId());
@@ -1154,11 +1172,11 @@ class UsersServiceTest {
         when(userAttributeValueRepository.findByUserIdAndAttributeId(any(BigInteger.class),
             BigInteger.valueOf(anyInt())))
             .thenReturn(null);
-        when(applicationProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
+        when(tenantProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
         when(userEventRepository.findUserEventsByUserIdAndEventType(any(BigInteger.class), any(String.class),
             any(Integer.class))).thenReturn(userEventEntity);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
-        when(applicationProperties.getCaptchaEnforceAfterNoOfFailures()).thenReturn(null);
+        when(tenantProperties.getCaptchaEnforceAfterNoOfFailures()).thenReturn(null);
         UserDetailsResponse result = usersService.getUserByUserName(USER_NAME_VALUE);
         assertEquals(userEntity.getUserName(), result.getUserName());
         assertEquals(String.valueOf(userEntity.getId()), result.getId());
@@ -1837,7 +1855,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(false);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(false);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
         when(userRepository.save(any())).thenReturn(userEntity);
 
@@ -1873,7 +1891,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         when(cacheTokenService.getAccessToken()).thenReturn("dummyToken");
 
         BaseResponseFromAuthorization baseResponseFromAuthorization = new BaseResponseFromAuthorization();
@@ -1901,7 +1919,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         when(cacheTokenService.getAccessToken()).thenReturn("dummyToken");
 
         BaseResponseFromAuthorization baseResponseFromAuthorization = new BaseResponseFromAuthorization();
@@ -1929,7 +1947,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(null);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(null);
         when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
         when(userRepository.save(any()))
             .thenReturn(userEntity);
@@ -1950,7 +1968,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         when(cacheTokenService.getAccessToken()).thenReturn("dummyToken");
 
         BaseResponseFromAuthorization baseResponseFromAuthorization = new BaseResponseFromAuthorization();
@@ -1978,7 +1996,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         when(cacheTokenService.getAccessToken())
             .thenThrow(new ApplicationRuntimeException("error while fetching token from authorization-server",
                 INTERNAL_SERVER_ERROR));
@@ -2004,7 +2022,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         BaseResponseFromAuthorization baseResponseFromAuthorization = new BaseResponseFromAuthorization();
         baseResponseFromAuthorization.setHttpStatus(OK);
 
@@ -2033,7 +2051,7 @@ class UsersServiceTest {
 
         when(userRepository.findAllByIdInAndStatusNot(anySet(), any()))
             .thenReturn(List.of(userEntity));
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         when(cacheTokenService.getAccessToken()).thenReturn(null);
 
         BaseResponseFromAuthorization baseResponseFromAuthorization = new BaseResponseFromAuthorization();
@@ -2081,7 +2099,7 @@ class UsersServiceTest {
     @Test
     void testAddExternalUserWithInvalidRole() throws ResourceNotFoundException {
         UserDtoV1 externalUserPost = createExternalUserPost(UserStatus.ACTIVE);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(INVALID_ROLE_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(INVALID_ROLE_VALUE);
         try {
             usersService.addExternalUser(externalUserPost, null);
         } catch (ApplicationRuntimeException e) {
@@ -2124,14 +2142,14 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
 
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -2161,15 +2179,15 @@ class UsersServiceTest {
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
 
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn(null);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn(null);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_VALUE);
         role.setId(ROLE_ID_1);
@@ -2190,8 +2208,8 @@ class UsersServiceTest {
         externalUserPost.setRoles(Collections.singleton("INVALID_ROLE"));
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("INVALID_ROLE");
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("INVALID_ROLE");
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
         try {
             usersService.addExternalUser(externalUserPost, null);
         } catch (ApplicationRuntimeException exception) {
@@ -2208,8 +2226,8 @@ class UsersServiceTest {
         List<UserAttributeEntity> userAttributeEntities = createUserAttributeMetaData();
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
         try {
             usersService.addExternalUser(userPost, null);
         } catch (ApplicationRuntimeException exception) {
@@ -2231,14 +2249,14 @@ class UsersServiceTest {
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(userAttributeValueEntities);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -2265,9 +2283,9 @@ class UsersServiceTest {
         List<UserAttributeEntity> userAttributeEntities = createUserAttributeMetaData();
         List<UserAttributeValueEntity> userAttributeValueEntities = createUserAttributeValueData();
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(userAttributeValueEntities);
@@ -2276,7 +2294,7 @@ class UsersServiceTest {
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -2307,14 +2325,14 @@ class UsersServiceTest {
         when(userAttributeValueRepository
             .findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -2345,15 +2363,15 @@ class UsersServiceTest {
         RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
 
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
-        when(applicationProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn(ROLE_VALUE);
+        when(tenantProperties.getExternalUserDefaultStatus()).thenReturn("PENDING");
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
         role.setId(ROLE_ID_2);
@@ -2418,16 +2436,16 @@ class UsersServiceTest {
         userResponse.setRoles(federatedUserPost.getRoles());
         RoleListRepresentation roleListDto = createSingleRoleListDtoRepresentation();
 
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(false);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(false);
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
 
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
@@ -2460,16 +2478,16 @@ class UsersServiceTest {
         RoleListRepresentation roleListDto = createSingleRoleListDtoRepresentation();
         when(userRepository.findByUserName(anyString())).thenReturn(List.of(userEntity));
 
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(false);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(false);
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
 
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
@@ -2506,16 +2524,16 @@ class UsersServiceTest {
         userResponse.setRoles(federatedUserPost.getRoles());
         RoleListRepresentation roleListDto = createSingleRoleListDtoRepresentation();
 
-        when(applicationProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
+        when(tenantProperties.getIsUserStatusLifeCycleEnabled()).thenReturn(true);
         when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
 
         AccountEntity a = new AccountEntity();
         a.setAccountName("TestAccount");
         a.setId(ACCOUNT_ID_VALUE);
         when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(a));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(a));
+        when(accountRepository.findByAccountName("userdefaultaccount")).thenReturn(Optional.of(a));
 
         RolesEntity role = new RolesEntity();
         role.setName(ROLE_2);
@@ -2653,7 +2671,7 @@ class UsersServiceTest {
         List<ResponseMessage> messages = new ArrayList<>();
         roleRepresentation.setMessages(messages);
         when(rolesService.getRoleById(Set.of(ROLE_ID_1))).thenReturn(roleRepresentation);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN1");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN1");
         ObjectMapper objectMapper = new ObjectMapper();
         String decryptValue = "[{\"op\":\"replace\",\"path\":\"/firstName\",\"value\":\"JohnSEorro\"},"
             + "{\"op\":\"add\",\"path\":\"/roles\",\"value\":[\"BUSINESS_ADMIN\"]},"
@@ -2707,14 +2725,14 @@ class UsersServiceTest {
         List<ResponseMessage> messages = new ArrayList<>();
         roleRepresentation.setMessages(messages);
         when(rolesService.getRoleById(Set.of(ROLE_ID_1))).thenReturn(roleRepresentation);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
         List<UserAttributeValueEntity> attributeValueList = new ArrayList<>();
         when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
             .thenReturn(attributeValueList);
         when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
             Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
             .thenReturn(getAdminUserRole());
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         ObjectMapper objectMapper = new ObjectMapper();
         String decryptValue = "[{\"op\":\"replace\",\"path\":\"/firstName\",\"value\":\"JohnSEorro\"},"
             + "{\"op\":\"add\",\"path\":\"/roles\",\"value\":[\"BUSINESS_ADMIN\"]},"
@@ -2771,14 +2789,14 @@ class UsersServiceTest {
         List<ResponseMessage> messages = new ArrayList<>();
         roleRepresentation.setMessages(messages);
         when(rolesService.getRoleById(Set.of(ROLE_ID_1))).thenReturn(roleRepresentation);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
         List<UserAttributeValueEntity> attributeValueList = new ArrayList<>();
         when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
             .thenReturn(attributeValueList);
         when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
             Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
             .thenReturn(getAdminUserRole());
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         UserEntity updatedUserEntity = userEntity;
         updatedUserEntity.setFirstName("JohnSEorro");
         updatedUserEntity.getUserAddresses().get(0).setAddress1("HELLWORLD2");
@@ -2850,14 +2868,14 @@ class UsersServiceTest {
         List<ResponseMessage> messages = new ArrayList<>();
         roleRepresentation.setMessages(messages);
         when(rolesService.getRoleById(Set.of(ROLE_ID_1))).thenReturn(roleRepresentation);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
         List<UserAttributeValueEntity> attributeValueList = new ArrayList<>();
         when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
             .thenReturn(attributeValueList);
         when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
             Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
             .thenReturn(getAdminUserRole());
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         List<UserAttributeEntity> userAttributeEntityList = getUserAttributeDetails();
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntityList);
         when(userAttributeRepository.findAllById(any())).thenReturn(userAttributeEntityList);
@@ -2913,14 +2931,14 @@ class UsersServiceTest {
         List<ResponseMessage> messages = new ArrayList<>();
         roleRepresentation.setMessages(messages);
         when(rolesService.getRoleById(Set.of(ROLE_ID_1))).thenReturn(roleRepresentation);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
         List<UserAttributeValueEntity> attributeValueList = new ArrayList<>();
         when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
             .thenReturn(attributeValueList);
         when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
             Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
             .thenReturn(getAdminUserRole());
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         List<UserAttributeEntity> userAttributeEntityList = getUserAttributeDetails();
         userAttributeEntityList.get(0).setReadOnly(true);
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntityList);
@@ -2979,14 +2997,14 @@ class UsersServiceTest {
         List<ResponseMessage> messages = new ArrayList<>();
         roleRepresentation.setMessages(messages);
         when(rolesService.getRoleById(Set.of(ROLE_ID_1))).thenReturn(roleRepresentation);
-        when(applicationProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
         List<UserAttributeValueEntity> attributeValueList = new ArrayList<>();
         when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
             .thenReturn(attributeValueList);
         when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
             Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
             .thenReturn(getAdminUserRole());
-        when(applicationProperties.getUserDefaultAccountId()).thenReturn(ACCOUNT_ID_VALUE_1);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
         UserEntity updatedUserEntity = userEntity;
         updatedUserEntity.setFirstName("JohnSEorro");
         updatedUserEntity.getUserAddresses().get(0).setAddress1("HELLWORLD2");
@@ -3080,8 +3098,7 @@ class UsersServiceTest {
 
 
     @Test
-    void editUserV2Success()
-        throws IOException, UserAccountRoleMappingException, ResourceNotFoundException {
+    void editUserV2Success() throws IOException, UserAccountRoleMappingException, ResourceNotFoundException {
         List<RolesEntity> commonRolesEntities = List.of(
                 RoleAssociationUtilities.addRoles("Bussiness_admin", "BUSSINESS_ADMIN", INDEX_1),
                 RoleAssociationUtilities.addRoles("Guest", "GUEST", INDEX_2),
@@ -3095,43 +3112,41 @@ class UsersServiceTest {
 
         List<AccountEntity> accountEntities = List.of(
                 RoleAssociationUtilities.addAccount("Ignite_Account", AccountStatus.ACTIVE,
-                        Set.of(commonRolesEntities.get(INDEX_0).getId(),
-                               commonRolesEntities.get(INDEX_2).getId()), INDEX_1),
+                        Set.of(commonRolesEntities.get(INDEX_0).getId(), commonRolesEntities.get(INDEX_2).getId()),
+                        INDEX_1),
                 RoleAssociationUtilities.addAccount("UIDAM_Account", AccountStatus.ACTIVE,
-                        Set.of(commonRolesEntities.get(INDEX_0).getId(),
-                               commonRolesEntities.get(INDEX_1).getId(),
-                               commonRolesEntities.get(INDEX_2).getId()), INDEX_2),
+                        Set.of(commonRolesEntities.get(INDEX_0).getId(), commonRolesEntities.get(INDEX_1).getId(),
+                                commonRolesEntities.get(INDEX_2).getId()),
+                        INDEX_2),
                 RoleAssociationUtilities.addAccount("AiLabs_Account", AccountStatus.ACTIVE,
-                        Set.of(commonRolesEntities.get(INDEX_1).getId(),
-                               commonRolesEntities.get(INDEX_3).getId()), INDEX_3),
-                RoleAssociationUtilities.addAccount("Analytics_Account", AccountStatus.DELETED,
-                        Set.of(commonRolesEntities.get(INDEX_0).getId(),
-                               commonRolesEntities.get(INDEX_3).getId(),
-                               commonRolesEntities.get(INDEX_4).getId()), INDEX_4));
+                        Set.of(commonRolesEntities.get(INDEX_1).getId(), commonRolesEntities.get(INDEX_3).getId()),
+                        INDEX_3),
+                RoleAssociationUtilities.addAccount(
+                        "Analytics_Account", AccountStatus.DELETED, Set.of(commonRolesEntities.get(INDEX_0).getId(),
+                                commonRolesEntities.get(INDEX_3).getId(), commonRolesEntities.get(INDEX_4).getId()),
+                        INDEX_4));
 
         when(accountRepository.findByAccountIdInAndStatusNot(anySet(), any(AccountStatus.class)))
-            .thenReturn(List.of(accountEntities.get(INDEX_0)));
-        when(accountRepository.findById(any(BigInteger.class))).thenReturn(Optional.of(accountEntities.get(INDEX_0)));
+                .thenReturn(List.of(accountEntities.get(INDEX_0)));
+        when(accountRepository.findByAccountName("userdefaultaccount"))
+                .thenReturn(Optional.of(accountEntities.get(INDEX_0)));
 
         List<UserAccountRoleMappingEntity> userRoleMappingEntityList = new ArrayList<>();
-        userRoleMappingEntityList.add(
-               RoleAssociationUtilities.addUserRoleMappingEntity(USER_ID_VALUE, accountEntities.get(INDEX_0).getId(),
-                        commonRolesEntities.get(INDEX_1).getId(), new BigInteger(ONE)));
-        userRoleMappingEntityList.add(
-               RoleAssociationUtilities.addUserRoleMappingEntity(USER_ID_VALUE, accountEntities.get(INDEX_1).getId(),
-                        commonRolesEntities.get(INDEX_1).getId(), new BigInteger(TWO)));
+        userRoleMappingEntityList.add(RoleAssociationUtilities.addUserRoleMappingEntity(USER_ID_VALUE,
+                accountEntities.get(INDEX_0).getId(), commonRolesEntities.get(INDEX_1).getId(), new BigInteger(ONE)));
+        userRoleMappingEntityList.add(RoleAssociationUtilities.addUserRoleMappingEntity(USER_ID_VALUE,
+                accountEntities.get(INDEX_1).getId(), commonRolesEntities.get(INDEX_1).getId(), new BigInteger(TWO)));
 
-        UserEntity loggedInuserEntity = RoleAssociationUtilities.createUser(
-                "Ignite_User", "Ignite_Password", "ignite_admin@harman.com");
+        UserEntity loggedInuserEntity = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password",
+                "ignite_admin@harman.com");
         loggedInuserEntity.setId(LOGGED_IN_USER_ID_VALUE);
         loggedInuserEntity.setUserAddresses(new ArrayList<>());
         loggedInuserEntity.setAccountRoleMapping(userRoleMappingEntityList);
 
         when(rolesService.getRoleById(anySet()))
-            .thenReturn(RoleAssociationUtilities.createRoleListDtoRepresentation(
-                    commonRolesEntities, INDEX_4));
-        when(userRepository.findByIdAndStatusNot(LOGGED_IN_USER_ID_VALUE, UserStatus.DELETED)).thenReturn(
-                loggedInuserEntity);
+                .thenReturn(RoleAssociationUtilities.createRoleListDtoRepresentation(commonRolesEntities, INDEX_4));
+        when(userRepository.findByIdAndStatusNot(LOGGED_IN_USER_ID_VALUE, UserStatus.DELETED))
+                .thenReturn(loggedInuserEntity);
 
         when(userAttributeValueRepository.findAllByUserIdIn(any(List.class))).thenReturn(new ArrayList<>());
 

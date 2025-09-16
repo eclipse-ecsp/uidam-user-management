@@ -41,7 +41,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.util.List;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.EMAIL_VERIFICATION_TAG;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_EMAIL_VERIFICATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_EMAIL_VERIFICATION_GET;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_RESEND_EMAIL_VERIFICATION_PUT;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ID;
@@ -55,7 +54,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_
  * User Email Controller CRUD APIs to send, get and update email verification to unregistered user in UIDAM.
  */
 @RestController
-@RequestMapping(value = PATH_EMAIL_VERIFICATION)
+@RequestMapping(value = "/{tenantId}/v1/emailVerification")
 @Validated
 @AllArgsConstructor
 public class EmailVerificationController {
@@ -78,9 +77,11 @@ public class EmailVerificationController {
         })
     @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ViewUsers", "ManageUsers"})
     @GetMapping(PATH_EMAIL_VERIFICATION_GET)
-    public ResponseEntity<List<EmailVerificationResponse>> getIsEmailVerified(@PathVariable(PATH_USER_ID) @Parameter(
-        description = USER_ID_VARIABLE, required = true) @NotBlank String userId)
-        throws ResourceNotFoundException {
+    public ResponseEntity<List<EmailVerificationResponse>> getIsEmailVerified(
+            @PathVariable("tenantId") @Parameter(description = "Tenant ID", required = true) @NotBlank String tenantId,
+            @PathVariable(PATH_USER_ID) 
+            @Parameter(description = USER_ID_VARIABLE, required = true) @NotBlank String userId)
+            throws ResourceNotFoundException {
         LOGGER.info("isEmailVerified started for User with userId: {}", userId);
         return new ResponseEntity<>(emailVerificationService.getEmailVerificationByUserId(userId), HttpStatus.OK);
     }
@@ -99,9 +100,12 @@ public class EmailVerificationController {
             @ApiResponse(responseCode = "200", description = "Success")
         })
     @GetMapping(value = PATH_VALIDATE_EMAIL)
-    public void verifyEmail(@PathVariable(TOKEN) String emailVerificationToken, HttpServletResponse httpServletResponse)
-        throws IOException {
-        LOGGER.info("verifyEmail started for Token with token: {}", emailVerificationToken);
+    public void verifyEmail(
+            @PathVariable("tenantId") @Parameter(description = "Tenant ID", required = true) @NotBlank String tenantId,
+            @PathVariable(TOKEN) String emailVerificationToken, 
+            HttpServletResponse httpServletResponse)
+            throws IOException {
+        LOGGER.info("verifyEmail started");
         emailVerificationService.verifyEmail(emailVerificationToken, httpServletResponse);
     }
 
@@ -112,9 +116,11 @@ public class EmailVerificationController {
      * @throws ResourceNotFoundException if user id does not exist in system.
      */
     @PutMapping(value = PATH_RESEND_EMAIL_VERIFICATION_PUT)
-    public void resendEmailVerification(@PathVariable(USER_ID_VARIABLE) String userId)
-        throws ResourceNotFoundException {
-        LOGGER.info("resendEmailVerification started for user with userId: {}", userId);
+    public void resendEmailVerification(
+            @PathVariable("tenantId") @Parameter(description = "Tenant ID", required = true) @NotBlank String tenantId,
+            @PathVariable(USER_ID_VARIABLE) String userId)
+            throws ResourceNotFoundException {
+        LOGGER.info("resendEmailVerification started for and user");
         emailVerificationService.resendEmailVerification(userId);
     }
 

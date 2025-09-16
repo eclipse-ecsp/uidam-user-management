@@ -34,6 +34,7 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsExcept
 import org.eclipse.ecsp.uidam.usermanagement.exception.ScopeNotExists;
 import org.eclipse.ecsp.uidam.usermanagement.mapper.ScopeMapper;
 import org.eclipse.ecsp.uidam.usermanagement.service.RolesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ResponseMessage;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
 import org.junit.jupiter.api.AfterEach;
@@ -80,6 +81,10 @@ class RolesControllerTest {
     public static final int EXPECTED = 400;
     @MockBean
     private RolesService roleService;
+
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
+
     @InjectMocks
     RolesController rolesController;
 

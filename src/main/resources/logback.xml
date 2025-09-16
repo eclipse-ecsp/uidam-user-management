@@ -88,7 +88,7 @@
                     class="org.eclipse.ecsp.uidam.usermanagement.config.MaskingPatternLayout">
                 <patternsProperty>${PATTERN_PROPERTY}</patternsProperty>
                 <mask>${MASK}</mask>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{tenantId}] [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
             </layout>
         </encoder>
     </appender>
@@ -117,7 +117,7 @@
                     class="org.eclipse.ecsp.uidam.usermanagement.config.MaskingPatternLayout">
                 <patternsProperty>${PATTERN_PROPERTY}</patternsProperty>
                 <mask>${MASK}</mask>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %thread [%X{tenantId}] [%X{correlationId}] %-5level %logger{0} - %crlf(%msg){}%n</pattern>
             </layout>
         </encoder>
     </appender>

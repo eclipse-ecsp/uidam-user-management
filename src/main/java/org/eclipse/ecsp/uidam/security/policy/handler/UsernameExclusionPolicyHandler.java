@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
 
 import java.util.Map;
 
@@ -48,7 +49,7 @@ public class UsernameExclusionPolicyHandler extends PasswordPolicyHandler {
      * Validates the password against the username. It checks if the password contains a sequence of characters from the
      * username.
      *
-     * @param input The password validation input containing password and username.
+     * @param input The password validation input containing username, password, and last update time
      * @return true if the password is valid, false otherwise.
      */
     @Override

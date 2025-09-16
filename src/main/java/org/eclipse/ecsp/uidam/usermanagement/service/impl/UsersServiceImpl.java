@@ -33,6 +33,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.common.metrics.MetricInfo;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetrics;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsConstants;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
@@ -42,7 +46,7 @@ import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDe
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
 import org.eclipse.ecsp.uidam.usermanagement.cache.CacheTokenService;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.dao.UserManagementDao;
 import org.eclipse.ecsp.uidam.usermanagement.entity.CloudProfileEntity;
@@ -85,6 +89,7 @@ import org.eclipse.ecsp.uidam.usermanagement.service.AuthorizationServerClient;
 import org.eclipse.ecsp.uidam.usermanagement.service.ClientRegistration;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailNotificationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.RolesService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.AssociateAccountAndRolesDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.FederatedUserDto;
@@ -274,7 +279,7 @@ public class UsersServiceImpl implements UsersService {
         Map.entry("_abc", List.class), Map.entry("uuid", UUID.class), Map.entry("json", String.class),
         Map.entry("jsonb", JsonNode.class));
     @Autowired
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
     private UsersRepository userRepository;
     private UserAttributeRepository userAttributeRepository;
     private UserAttributeValueRepository userAttributeValueRepository;
@@ -315,6 +320,17 @@ public class UsersServiceImpl implements UsersService {
     private Map<BigInteger, String> accountIdToNameMapping = new HashMap<>();
     private Map<BigInteger, String> roleIdToNameMapping = new HashMap<>();
     private Map<String, BigInteger> roleNameToIdMapping = new HashMap<>();
+
+    private final UidamMetricsService uidamMetricsService;
+    
+    /**
+     * Helper method to get current tenant properties.
+     *
+     * @return UserManagementTenantProperties for current tenant
+     */
+    private UserManagementTenantProperties getTenantProperties() {
+        return tenantConfigurationService.getTenantProperties();
+    }
     
     /**
      * Method to create user profile in user management.
@@ -345,12 +361,12 @@ public class UsersServiceImpl implements UsersService {
             throw new RecordAlreadyExistsException(ApiConstants.USER);
         }
         List<UserAttributeEntity> userAttributeEntities = new ArrayList<>();
-        if (!isSelfAddUser || applicationProperties.isAdditionalAttrCheckEnabledForSignUp()) {
+        if (!isSelfAddUser || getTenantProperties().getAdditionalAttrCheckEnabledForSignUp()) {
             userAttributeEntities = validateMissingMandatoryAttributes(userDto.getAdditionalAttributes());
         }
         
-        if (applicationProperties.getIsUserStatusLifeCycleEnabled().booleanValue() 
-                || BooleanUtils.isTrue(applicationProperties.getIsEmailVerificationEnabled())) {
+        if (getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue() 
+                || BooleanUtils.isTrue(getTenantProperties().getIsEmailVerificationEnabled())) {
             userDto.setStatus(UserStatus.PENDING);
         } else {
             userDto.setStatus(UserStatus.ACTIVE);
@@ -359,7 +375,7 @@ public class UsersServiceImpl implements UsersService {
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(userDto);
         String passwordSalt = PasswordUtils.getSalt();
         String hashPassword = PasswordUtils.getSecurePassword(userDto.getPassword(), passwordSalt,
-            applicationProperties.getPasswordEncoder());
+            getTenantProperties().getPasswordEncoder());
         userEntity.setUserPassword(hashPassword);
         userEntity.setPasswordSalt(passwordSalt);
         userEntity.setAccountRoleMapping(mapToAccountsAndRoles(userDto, loggedInUserId));
@@ -378,10 +394,15 @@ public class UsersServiceImpl implements UsersService {
         });
 
         String version = (userDto instanceof UserDtoV1) ? VERSION_1 : VERSION_2;
-
+        String userType = isSelfAddUser ? UidamMetricsConstants.USER_TYPE_SELF : UidamMetricsConstants.USER_TYPE_ADMIN;
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .tags(Stream.of("version", version,
+                        "userType", userType))
+                .build());
         UserResponseBase userResponseBase = addRoleNamesAndMapToUserResponse(userEntity, version);
 
-        if ((!isSelfAddUser || applicationProperties.isAdditionalAttrCheckEnabledForSignUp())
+        if ((!isSelfAddUser || getTenantProperties().getAdditionalAttrCheckEnabledForSignUp())
             && !ObjectUtils.isEmpty(userDto.getAdditionalAttributes())
             && isValidAdditionalAttributes(userDto.getAdditionalAttributes(), userAttributeEntities, true)) {
             userResponseBase
@@ -465,21 +486,23 @@ public class UsersServiceImpl implements UsersService {
 
         Set<UserAccountsAndRoles> accounts = new HashSet<>();
         if (userDto instanceof UserDtoV1 userDtoV1) {
-            // Set default account
+            // Set default account using account name-based lookup
+            // Tenant context is guaranteed by the multi-tenant filter
             UserAccountsAndRoles ac = new UserAccountsAndRoles();
-            BigInteger defaultAccountId = applicationProperties.getUserDefaultAccountId();
-            String defaultAcName = null;
-            Optional<AccountEntity> defAccount = accountRepository.findById(defaultAccountId);
+            String defaultAccountName = getTenantProperties().getUserDefaultAccountName();
+            
+            Optional<AccountEntity> defAccount = accountRepository.findByAccountName(defaultAccountName);
             if (defAccount.isPresent()) {
-                defaultAcName = defAccount.get().getAccountName();
-                ac.setAccount(defaultAcName);
+                ac.setAccount(defaultAccountName);
                 LOGGER.debug("mapToAccountsAndRoles: Roles given in userDtoV1: {}", userDtoV1.getRoles());
                 ac.setRoles(userDtoV1.getRoles());
                 accounts.add(ac);
-                accountNameToIdMapping.put(defaultAcName, defaultAccountId);
-                accountIdToNameMapping.put(defaultAccountId, defaultAcName);
+                AccountEntity accountEntity = defAccount.get();
+                BigInteger defaultAccountId = accountEntity.getId();
+                accountNameToIdMapping.put(defaultAccountName, defaultAccountId);
+                accountIdToNameMapping.put(defaultAccountId, defaultAccountName);
             } else {
-                throw new ResourceNotFoundException("Account", "DefaultAccount", defaultAccountId.toString());
+                throw new ResourceNotFoundException("Account", "DefaultAccount", defaultAccountName);
             }
         } else {
             accounts = ((UserDtoV2) userDto).getAccounts();
@@ -838,10 +861,16 @@ public class UsersServiceImpl implements UsersService {
         RoleListRepresentation roleListDto = rolesService.getRoleById(roleIds);
         UserDetailsResponse userDetailsResponse = UserMapper.USER_MAPPER.mapToUserDetailsResponse(userEntity);
         userDetailsResponse.setScopes(RoleManagementUtils.getScopesFromRoles(roleListDto));
-        userDetailsResponse.setPasswordEncoder(applicationProperties.getPasswordEncoder());
+        userDetailsResponse.setPasswordEncoder(getTenantProperties().getPasswordEncoder());
         userDetailsResponse.setEmail(userEntity.getEmail());
-        // todo: Data to be extracted from tenant management
-        userDetailsResponse.setAccountId(applicationProperties.getAccountId());
+        // Use account name lookup for tenant account ID to maintain compatibility with external systems
+        String tenantAccountName = getTenantProperties().getUserDefaultAccountName();
+        if (tenantAccountName != null) {
+            Optional<AccountEntity> tenantAccount = accountRepository.findByAccountName(tenantAccountName);
+            if (tenantAccount.isPresent()) {
+                userDetailsResponse.setAccountId(tenantAccount.get().getId().toString());
+            }
+        }
         populateAdditionalAttributes(userDetailsResponse, userEntity);
         Map<String, Object> captcha = userDetailsResponse.getCaptcha();
         UserAttributeEntity userAttributeEntity = userAttributeRepository.findByName(CAPTCHA_REQUIRED_ATTRIBUTE);
@@ -854,9 +883,9 @@ public class UsersServiceImpl implements UsersService {
         } else {
             captcha.put(CAPTCHA_REQUIRED, null);
         }
-        captcha.put(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES, applicationProperties.getCaptchaEnforceAfterNoOfFailures());
+        captcha.put(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES, getTenantProperties().getCaptchaEnforceAfterNoOfFailures());
         int failedLoginAttempts = 0;
-        int allowedLoginAttempts = Integer.parseInt(applicationProperties.getMaxAllowedLoginAttempts());
+        int allowedLoginAttempts = Integer.parseInt(getTenantProperties().getMaxAllowedLoginAttempts());
         List<UserEvents> userEventList = userEventRepository.findUserEventsByUserIdAndEventType(userEntity.getId(),
             UserEventType.LOGIN_ATTEMPT.getValue(), allowedLoginAttempts);
         for (UserEvents e : userEventList) {
@@ -880,8 +909,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void populateAdditionalAttributes(UserDetailsResponse userDetailsResponse, UserEntity userEntity) {
         HashMap<String, Object> additionalAttributes = new HashMap<>();
-        additionalAttributes.put(ACCOUNT_NAME, applicationProperties.getAccountName());
-        additionalAttributes.put(ACCOUNT_TYPE, applicationProperties.getAccountType());
+        additionalAttributes.put(ACCOUNT_NAME, getTenantProperties().getAccountName());
+        additionalAttributes.put(ACCOUNT_TYPE, getTenantProperties().getAccountType());
         additionalAttributes.put(ORIGINAL_USERNAME, userEntity.getUserName());
         additionalAttributes.put(FIRSTNAME, userEntity.getFirstName());
         additionalAttributes.put(LASTNAME, userEntity.getLastName());
@@ -954,7 +983,6 @@ public class UsersServiceImpl implements UsersService {
         if (isExternalUser) {
             validateIsExternalUser(user.getIsExternalUser());
         }
-
         Set<String> userRoleNames = getUserRoleNames(user);
         try {
             List<UserAttributeEntity> userAttributeEntities = userAttributeRepository.findAll();
@@ -999,17 +1027,19 @@ public class UsersServiceImpl implements UsersService {
                 acRoleMaps = validateAndCreateAccountRoleMappings(loggedInUserId,
                     user, accountOperations, objectMapper);
             }
-
             UserEntity userEntity = applyPatchToUser(JsonPatch.fromJson(objectMapper.valueToTree(operations)), user);
             UserEntity savedUser = updateUserEntity(userRoleNames, userAttributeEntities, attributeIds,
                 additionalAttributes, userAttributeEntitiesMap, objectMapper, addressOperations, userEntity,
                 loggedInUserId, isExternalUser, acRoleMaps);
+            addUpdatedUserMetrics();
             userResponse = buildUserResponse(userId, userRoleNames, savedUser, apiVersion);
         } catch (JsonPatchException | IOException e) {
             throw new ApplicationRuntimeException(FIELD_DATA_IS_INVALID, BAD_REQUEST, String.valueOf(e.getMessage()));
         }
         return userResponse;
     }
+
+
 
     private void handleAttributes(UserAttributeEntity userAttributeEntity, List<BigInteger> attributeIds,
             Map<String, Object> additionalAttributes, JsonNode operation, String key) {
@@ -1116,7 +1146,14 @@ public class UsersServiceImpl implements UsersService {
                 if (newAccountRoleMappingList.stream().noneMatch(a -> a.getRoleId().equals(r))) {
                     UserAccountRoleMappingEntity urm = new UserAccountRoleMappingEntity();
                     urm.setRoleId(r);
-                    urm.setAccountId(applicationProperties.getUserDefaultAccountId());
+                    // Use account name lookup for default account ID
+                    String defaultAccountName = getTenantProperties().getUserDefaultAccountName();
+                    Optional<AccountEntity> defaultAccount = accountRepository.findByAccountName(defaultAccountName);
+                    if (defaultAccount.isPresent()) {
+                        urm.setAccountId(defaultAccount.get().getId());
+                    } else {
+                        throw new RuntimeException("Default account '" + defaultAccountName + "' not found");
+                    }
                     urm.setUpdateBy(SYSTEM);
                     urm.setUserId(userEntity.getId());
                     newAccountRoleMappingList.add(urm);
@@ -1296,6 +1333,11 @@ public class UsersServiceImpl implements UsersService {
             }
         });
         List<UserEntity> updatedUserEntities = userRepository.saveAll(savedUserEntities);
+        Optional.of(updatedUserEntities).ifPresent(entities ->
+                entities.forEach(entity -> uidamMetricsService.incrementCounter(MetricInfo.builder()
+                        .uidamMetrics(UidamMetrics.TOTAL_DELETED_USERS)
+                        .build()))
+        );
         Map<BigInteger, Map<String, Object>> additionalAttributes = findAdditionalAttributeData(
             updatedUserEntities.stream().map(UserEntity::getId).toList());
         return updatedUserEntities.stream().map(updatedUserEntity -> {
@@ -1952,7 +1994,7 @@ public class UsersServiceImpl implements UsersService {
      */
     @Override
     public void addUserEvent(UserEventsDto userEventsDto, String userId) {
-        int allowedLoginAttempts = Integer.parseInt(applicationProperties.getMaxAllowedLoginAttempts());
+        int allowedLoginAttempts = Integer.parseInt(getTenantProperties().getMaxAllowedLoginAttempts());
         if (Optional.ofNullable(userEventsDto).isPresent()
             && Optional.ofNullable(userEventsDto.getEventType()).isPresent()
             && Optional.ofNullable(userEventsDto.getEventMessage()).isPresent()
@@ -1979,6 +2021,8 @@ public class UsersServiceImpl implements UsersService {
                         UserEntity userEntityObject = userEntity.get();
                         userEntityObject.setStatus(UserStatus.BLOCKED);
                         userRepository.save(userEntityObject);
+                        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                                .uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT).build());
                         LOGGER.info("user status updated to BLOCKED for userId {}", userId);
                     }
                 }
@@ -2004,7 +2048,7 @@ public class UsersServiceImpl implements UsersService {
         LOGGER.debug("updating password for userId {} with recovery secret {}", userRecoverySecret.getUserId(),
                 userRecoverySecret.getRecoverySecret());
         if (UserRecoverySecretStatus.GENERATED.name().equals(userRecoverySecret.getRecoverySecretStatus())) {
-            long minutes = applicationProperties.getRecoverySecretExpiresInMinutes();
+            long minutes = getTenantProperties().getRecoverySecretExpiresInMinutes();
             if (userRecoverySecret.getSecretGeneratedAt().plus(minutes, ChronoUnit.MINUTES).isAfter(Instant.now())) {
                 UserEntity userEntity = userRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(),
                         UserStatus.DELETED);
@@ -2042,7 +2086,7 @@ public class UsersServiceImpl implements UsersService {
         if (result.isValid()) {
             String passwordSalt = PasswordUtils.getSalt();
             String hashPassword = PasswordUtils.getSecurePassword(userUpdatePasswordDto.getPassword(),
-                    passwordSalt, applicationProperties.getPasswordEncoder());
+                    passwordSalt, getTenantProperties().getPasswordEncoder());
             userEntity.setUserPassword(hashPassword);
             userEntity.setPasswordSalt(passwordSalt);
             userEntity.setPwdChangedtime(Timestamp.from(Instant.now()));
@@ -2053,6 +2097,9 @@ public class UsersServiceImpl implements UsersService {
             historyEntity.setCreatedBy("system");
             passwordHistoryRepository.save(historyEntity);
             revokeUserTokens(userEntity.getUserName());
+            uidamMetricsService.incrementCounter(MetricInfo.builder()
+                    .uidamMetrics(UidamMetrics.TOTAL_RESET_PASSWORD_BY_USER)
+                    .build());
         } else {
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.error("Password does not match the password policy for user {} with error {}",
@@ -2104,12 +2151,15 @@ public class UsersServiceImpl implements UsersService {
         userRecoverySecret.setRecoverySecret(recoverySecret);
         userRecoverySecret.setUserId(userEntity.getId());
         userRecoverySecretRepository.save(userRecoverySecret);
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_FORGOT_PASSWORD_BY_USER)
+                .build());
 
         String params = ApiConstants.USER_PASSWORD_RECOVERY_SECRET + recoverySecret;
         String encodedParams = Base64.getEncoder().encodeToString(params.getBytes(StandardCharsets.UTF_8));
 
         Map<String, Object> notificationData = new HashMap<>();
-        URL changePasswordUrl = new URL(applicationProperties.getAuthServerResetResponseUrl() + encodedParams);
+        URL changePasswordUrl = new URL(getTenantProperties().getAuthServerResetResponseUrl() + encodedParams);
         notificationData.put("changePasswordUrl", changePasswordUrl.toString());
         String email = userEntity.getEmail();
         notificationData.put("email", email);
@@ -2128,7 +2178,7 @@ public class UsersServiceImpl implements UsersService {
             notificationData.put(ApiConstants.EMAIL_TO_NAME, name.trim());
         }
         emailNotificationService.sendNotification(userDetailsMap,
-                applicationProperties.getPasswordRecoveryNotificationId(), notificationData);
+                getTenantProperties().getPasswordRecoveryNotificationId(), notificationData);
     }
 
     /**
@@ -2216,7 +2266,7 @@ public class UsersServiceImpl implements UsersService {
                 LOGGER.debug("For user id :{}, status will update to {} from {}", user.getId(), newStatus,
                     currentStatus);
 
-                if (BooleanUtils.isTrue(applicationProperties.getIsUserStatusLifeCycleEnabled())
+                if (BooleanUtils.isTrue(getTenantProperties().getIsUserStatusLifeCycleEnabled())
                     && !userChangeStatusRequest.isApproved() && !currentStatus.equals(newStatus)) {
                     LOGGER.debug("Revoke user token process initiated for user :{}", user.getUserName());
                     revokeUserTokens(user.getUserName());
@@ -2280,7 +2330,7 @@ public class UsersServiceImpl implements UsersService {
      * @param roles external user's roles
      */
     private void validateRolePermitted(Set<String> roles) {
-        List<String> permittedRoles = Arrays.stream(applicationProperties.getExternalUserPermittedRoles().split(","))
+        List<String> permittedRoles = Arrays.stream(getTenantProperties().getExternalUserPermittedRoles().split(","))
             .map(String::trim).toList();
         for (String role : roles) {
             if (!permittedRoles.contains(role)) {
@@ -2323,9 +2373,9 @@ public class UsersServiceImpl implements UsersService {
         validateRolePermitted(((UserDtoV1) externalUserDto).getRoles());
         validateUserPermissions(externalUserDto, loggedInUserId);
 
-        String externalUserStatus = (StringUtils.isEmpty(applicationProperties.getExternalUserDefaultStatus()))
+        String externalUserStatus = (StringUtils.isEmpty(getTenantProperties().getExternalUserDefaultStatus()))
             ? UserStatus.ACTIVE.name()
-            : applicationProperties.getExternalUserDefaultStatus();
+            : getTenantProperties().getExternalUserDefaultStatus();
         externalUserDto.setStatus(UserStatus.valueOf(externalUserStatus));
 
         RoleListRepresentation roleListDto = rolesService.filterRoles(((UserDtoV1) externalUserDto).getRoles(),
@@ -2360,6 +2410,10 @@ public class UsersServiceImpl implements UsersService {
                 persistAdditionalAttributes(externalUserDto, savedUser).get(savedUser.getId()));
         }
         LOGGER.debug("##Add external user end for user :{}", userResponseBase.getUserName());
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .tags(Stream.of("userType", UidamMetricsConstants.USER_TYPE_EXTERNAL))
+                .build());
         return userResponseBase;
     }
 
@@ -2597,7 +2651,7 @@ public class UsersServiceImpl implements UsersService {
 
         LOGGER.debug("Updating the generated username : {}", generatedUserName);
         federatedUserDto.setUserName(generatedUserName);
-        federatedUserDto.setStatus(applicationProperties.getIsUserStatusLifeCycleEnabled().booleanValue()
+        federatedUserDto.setStatus(getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue()
             ? UserStatus.PENDING : UserStatus.ACTIVE);
 
         validateRoles(federatedUserDto.getRoles());
@@ -2632,6 +2686,10 @@ public class UsersServiceImpl implements UsersService {
                 .get(savedUser.getId()));
         }
         LOGGER.debug("Add federated user end for user :{}", userResponseBase.getUserName());
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
+                .tags(Stream.of("userType", UidamMetricsConstants.USER_TYPE_FEDERATED))
+                .build());
         return userResponseBase;
     }
 
@@ -2666,5 +2724,10 @@ public class UsersServiceImpl implements UsersService {
         LOGGER.debug("Creating Password Policy Response");
         List<PasswordPolicy> policies = passwordPolicyRepository.findAll();
         return PasswordPolicyResponse.fromEntities(policies);
+    }
+
+    private void addUpdatedUserMetrics() {
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_UPDATED_USERS).build());
     }
 }

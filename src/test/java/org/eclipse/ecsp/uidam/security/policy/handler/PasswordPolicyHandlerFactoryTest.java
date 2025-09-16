@@ -19,8 +19,9 @@
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -43,14 +44,18 @@ class PasswordPolicyHandlerFactoryTest {
     private PasswordHistoryRepository passwordHistoryRepository;
 
     @Mock
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
+
+    @Mock
+    private UserManagementTenantProperties tenantProperties;
 
     private PasswordPolicyHandlerFactory factory;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        factory = new PasswordPolicyHandlerFactory(passwordHistoryRepository, applicationProperties);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        factory = new PasswordPolicyHandlerFactory(passwordHistoryRepository, tenantConfigurationService);
     }
 
     @Test
@@ -94,7 +99,7 @@ class PasswordPolicyHandlerFactoryTest {
         PasswordPolicy policy = mock(PasswordPolicy.class);
         when(policy.getKey()).thenReturn("expiration");
         when(policy.getValidationRules()).thenReturn(new HashMap<>());
-        when(applicationProperties.getPasswordEncoder()).thenReturn("SHA-256");
+        when(tenantProperties.getPasswordEncoder()).thenReturn("SHA-256");
 
         PasswordPolicyHandler handler = factory.createHandler(policy);
 

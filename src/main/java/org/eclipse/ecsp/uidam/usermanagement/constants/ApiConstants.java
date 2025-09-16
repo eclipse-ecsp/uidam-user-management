@@ -216,7 +216,8 @@ public final class ApiConstants {
 
     public static final String PATH_IS_EMAIL_VERIFIED = "isEmailVerified";
 
-    public static final String PATH_EMAIL_VERIFICATION = VERSION_V1 + "/emailVerification";
+    // New tenant-first email verification path
+    public static final String PATH_EMAIL_VERIFICATION_TENANT = "/{tenantId}" + VERSION_V1 + "/emailVerification";
     public static final String PATH_EMAIL_VERIFICATION_GET = "/{" + PATH_USER_ID + "}/" + PATH_IS_EMAIL_VERIFIED;
 
     public static final String USERID_IS_NULL = "UserID is null";
@@ -226,6 +227,7 @@ public final class ApiConstants {
     public static final String LASTNAME = "lastName";
     public static final String SCOPES = "scopes";
     public static final String USER_ID_VARIABLE = "userId";
+    public static final String TENANT_ID_VARIABLE = "tenantId";
     public static final String TOKEN = "token";
     public static final String UPDATE_TIME = "updateTime";
     public static final String IS_VERIFIED = "isVerified";

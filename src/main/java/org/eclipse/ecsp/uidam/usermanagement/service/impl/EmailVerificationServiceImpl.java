@@ -23,7 +23,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.entity.EmailVerificationEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
@@ -34,6 +33,7 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.EmailVerificationReposit
 import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailNotificationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRequest;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
@@ -74,7 +74,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
     private EmailVerificationRepository emailVerificationRepository;
     private UsersRepository usersRepository;
-    private ApplicationProperties applicationProperties;
+    private TenantConfigurationService tenantConfigurationService;
     private EmailNotificationService emailNotificationService;
     private UsersService usersService;
 
@@ -115,26 +115,29 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Transactional
     @Override
     public void verifyEmail(String emailVerificationToken, HttpServletResponse httpServletResponse) throws IOException {
+        
         validateTokenFormat(emailVerificationToken, httpServletResponse);
         try {
             String redirectUrl;
             Optional<EmailVerificationEntity> emailVerificationEntityOptional = emailVerificationRepository
-                .findByToken(emailVerificationToken);
+                    .findByToken(emailVerificationToken);
             if (emailVerificationEntityOptional.isEmpty()) {
-                LOGGER.error("Email Verification Failed! Email data not found for token: {}", emailVerificationToken);
-                redirectUrl = applicationProperties.getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
+                LOGGER.error("Email Verification Failed! Email data not found for token");
+                redirectUrl = tenantConfigurationService.getTenantProperties()
+                        .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
                 httpServletResponse.sendRedirect(redirectUrl);
                 return;
             }
             EmailVerificationEntity emailVerificationEntity = emailVerificationEntityOptional.get();
             LocalDateTime currentDateTime = LocalDateTime.now();
             LocalDateTime lastUpdatedTokenTime = emailVerificationEntity.getUpdateDate().toLocalDateTime();
-            if (lastUpdatedTokenTime.plusDays(
-                    applicationProperties.getEmailVerificationExpDays()).isBefore(currentDateTime)) {
-                LOGGER.error("Email verification Failed, Token is expired! token: {} currentDateTime: {} "
-                                 + "lastUpdateDateTime: {}", emailVerificationToken, currentDateTime,
-                             lastUpdatedTokenTime);
-                redirectUrl = applicationProperties.getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
+            if (lastUpdatedTokenTime
+                    .plusDays(tenantConfigurationService.getTenantProperties().getEmailVerificationExpDays())
+                    .isBefore(currentDateTime)) {
+                LOGGER.error("Email verification Failed, Token is expired! currentDateTime: {} lastUpdateDateTime: {}",
+                        currentDateTime, lastUpdatedTokenTime);
+                redirectUrl = tenantConfigurationService.getTenantProperties()
+                        .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
                 httpServletResponse.sendRedirect(redirectUrl);
                 return;
             }
@@ -142,23 +145,23 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             emailVerificationEntity.setUpdateDate(Timestamp.valueOf(currentDateTime));
             EmailVerificationEntity savedEmailVerification = emailVerificationRepository.save(emailVerificationEntity);
             LOGGER.debug("Email Verification updated with verified flag value as: {} updated on: {}",
-                         savedEmailVerification.getIsVerified(), Timestamp.valueOf(currentDateTime));
-            if (!applicationProperties.getIsUserStatusLifeCycleEnabled().booleanValue()) {
+                    savedEmailVerification.getIsVerified(), Timestamp.valueOf(currentDateTime));
+            if (!tenantConfigurationService.getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue()) {
                 LOGGER.debug("Email Verification completed and updating user status for user {}",
-                         savedEmailVerification.getUserId());
+                        savedEmailVerification.getUserId());
 
                 UserChangeStatusRequest userChangeStatusRequest = new UserChangeStatusRequest();
                 userChangeStatusRequest.setApproved(true);
                 userChangeStatusRequest.setIds(Set.of(savedEmailVerification.getUserId()));
-                
+
                 usersService.changeUserStatus(userChangeStatusRequest, savedEmailVerification.getUserId());
             }
-            
-            redirectUrl = applicationProperties.getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_SUCCESS;
+            redirectUrl = tenantConfigurationService.getTenantProperties().getAuthServerEmailVerificationResponseUrl()
+                    + EMAIL_VERIFY_SUCCESS;
             httpServletResponse.sendRedirect(redirectUrl);
         } catch (Exception exception) {
-            String redirectUrl = applicationProperties.getAuthServerEmailVerificationResponseUrl()
-                + EMAIL_VERIFY_ERROR;
+            String redirectUrl = tenantConfigurationService.getTenantProperties()
+                    .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_ERROR;
             httpServletResponse.sendRedirect(redirectUrl);
             throw exception;
         }
@@ -170,15 +173,15 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
      * @param emailVerificationToken incoming token as part of verify email request.
      */
     public void validateTokenFormat(String emailVerificationToken, HttpServletResponse httpServletResponse)
-        throws IOException {
+            throws IOException {
         try {
             ObjectConverter.stringToUuid(emailVerificationToken);
         } catch (IllegalArgumentException illegalArgumentException) {
-            String redirectUrl = applicationProperties.getAuthServerEmailVerificationResponseUrl()
-                + EMAIL_VERIFY_FAILED;
+            String redirectUrl = tenantConfigurationService.getTenantProperties()
+                    .getAuthServerEmailVerificationResponseUrl() + EMAIL_VERIFY_FAILED;
             httpServletResponse.sendRedirect(redirectUrl);
-            throw new DataIntegrityViolationException("Token format is incorrect expecting UUID format: "
-                                                          + emailVerificationToken);
+            throw new DataIntegrityViolationException(
+                    "Token format is incorrect expecting UUID format");
         }
     }
 
@@ -190,7 +193,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
      */
     @Override
     public void resendEmailVerification(String userId) throws ResourceNotFoundException {
-        if (BooleanUtils.isFalse(applicationProperties.getIsEmailVerificationEnabled())) {
+        if (BooleanUtils.isFalse(tenantConfigurationService.getTenantProperties().getIsEmailVerificationEnabled())) {
             LOGGER.info("Email verification is disabled, skipping user {} verification", userId);
             return;
         }
@@ -212,12 +215,12 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
      */
     @Override
     public Boolean resendEmailVerification(UserResponseBase userResponse) {
-        if (BooleanUtils.isFalse(applicationProperties.getIsEmailVerificationEnabled())) {
+        if (BooleanUtils.isFalse(tenantConfigurationService.getTenantProperties().getIsEmailVerificationEnabled())) {
             LOGGER.info("Email verification is disabled, skip sending email verification..");
             return Boolean.FALSE;
         }
 
-        List<String> emailPatternList = applicationProperties.getEmailRegexPatternExclude();
+        List<String> emailPatternList = tenantConfigurationService.getTenantProperties().getEmailRegexPatternExclude();
         boolean excludeSendEmail = emailPatternList.stream().anyMatch((e -> Pattern.compile(e).matcher(
             userResponse.getEmail()).matches()));
         if (excludeSendEmail) {
@@ -268,14 +271,15 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         }
         map.put(ApiConstants.EMAIL_TO_NAME, name.trim());
         map.put(ApiConstants.EMAIL_ADDRESS, userResponse.getEmail());
-        String verifyEmailUrl = String.format(applicationProperties.getEmailVerificationUrl(), token);
+        String verifyEmailUrl = String
+                .format(tenantConfigurationService.getTenantProperties().getEmailVerificationUrl(), token);
         Map<String, Object> notificationData = new HashMap<>();
         notificationData.put("emailLink", verifyEmailUrl);
         if (!StringUtils.isEmpty(name)) {
             notificationData.put(ApiConstants.EMAIL_TO_NAME, name.trim());
         }
         emailNotificationService.sendNotification(map,
-                applicationProperties.getEmailVerificationNotificationId(),
+                tenantConfigurationService.getTenantProperties().getEmailVerificationNotificationId(),
                 notificationData);
     }
 

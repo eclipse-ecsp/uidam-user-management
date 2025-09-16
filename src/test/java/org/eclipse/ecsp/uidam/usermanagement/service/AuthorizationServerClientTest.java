@@ -19,7 +19,8 @@
 package org.eclipse.ecsp.uidam.usermanagement.service;
 
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.BaseResponseFromAuthorization;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.AuthServerProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -43,7 +44,13 @@ class AuthorizationServerClientTest {
     private WebClient webClientMock;
 
     @Mock
-    ApplicationProperties applicationProperties;
+    TenantConfigurationService tenantConfigurationService;
+
+    @Mock 
+    UserManagementTenantProperties tenantProperties;
+
+    @Mock
+    AuthServerProperties authServerProperties;
 
     @Mock
     private WebClient.RequestBodyUriSpec requestBodyUriSpecMock;
@@ -63,11 +70,13 @@ class AuthorizationServerClientTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+        when(tenantProperties.getAuthServer()).thenReturn(authServerProperties);
     }
 
     @Test
     void revokeTokenByAdmin() {
-        when(applicationProperties.getAuthServerRevokeTokenUrl()).thenReturn("/mockRevokeUri");
+        when(authServerProperties.getRevokeTokenUrl()).thenReturn("/mockRevokeUri");
         when(webClientMock.method(any())).thenReturn(requestBodyUriSpecMock);
         when(requestBodySpecMock.contentType(any())).thenReturn(requestBodySpecMock);
         when(requestBodyUriSpecMock.uri(anyString())).thenReturn(requestBodySpecMock);

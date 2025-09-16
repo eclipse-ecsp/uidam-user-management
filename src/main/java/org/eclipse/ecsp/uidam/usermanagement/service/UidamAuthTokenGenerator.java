@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.usermanagement.service;
 
 import org.apache.http.entity.ContentType;
 import org.eclipse.ecsp.uidam.usermanagement.authorization.dto.AccessTokenDetails;
-import org.eclipse.ecsp.uidam.usermanagement.config.ApplicationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +50,7 @@ import static org.springframework.http.HttpMethod.POST;
 public class UidamAuthTokenGenerator {
 
     @Autowired
-    ApplicationProperties applicationProperties;
+    TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private WebClient webClient;
@@ -73,12 +72,13 @@ public class UidamAuthTokenGenerator {
         MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
         map.add(GRANT_TYPE_KEY, UIDAM_AUTH_CLIENT_CREDENTIALS);
         map.add(SCOPE_KEY, UIDAM_AUTH_SCOPE_VALUE);
-        map.add(UIDAM_AUTH_CLIENT_ID, applicationProperties.getClientId());
-        map.add(UIDAM_AUTH_CLIENT_SECRET, applicationProperties.getClientSecret());
+        map.add(UIDAM_AUTH_CLIENT_ID, tenantConfigurationService.getTenantProperties().getAuthServer().getClientId());
+        map.add(UIDAM_AUTH_CLIENT_SECRET,
+                tenantConfigurationService.getTenantProperties().getAuthServer().getClientSecret());
 
         try {
             AccessTokenDetails response = webClient.method(POST)
-                .uri(applicationProperties.getAuthServerTokenUrl())
+                .uri(tenantConfigurationService.getTenantProperties().getAuthServer().getTokenUrl())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                 .body(BodyInserters.fromFormData(map))
                 .retrieve()

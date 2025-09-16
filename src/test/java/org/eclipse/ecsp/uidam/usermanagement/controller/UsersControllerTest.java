@@ -29,6 +29,7 @@ import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.ExternalUserDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.FederatedUserDto;
@@ -147,6 +148,9 @@ public class UsersControllerTest {
 
     @MockBean
     private EmailVerificationService emailVerificationService;
+
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private ApplicationContext applicationContext;
