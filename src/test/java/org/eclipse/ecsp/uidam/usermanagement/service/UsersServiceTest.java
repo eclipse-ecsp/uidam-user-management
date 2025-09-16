@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
+import org.eclipse.ecsp.uidam.common.metrics.UidamMetricsService;
 import org.eclipse.ecsp.uidam.common.utils.RoleManagementUtils;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.ValidationResult;
@@ -246,6 +247,9 @@ class UsersServiceTest {
     PasswordValidationService passwordValidationService;
     @MockBean
     PasswordPolicyRepository passwordPolicyRepository;
+
+    @MockBean
+    UidamMetricsService uidamMetricsService;
     
     private String passwordEncoder = "SHA-256";
 
