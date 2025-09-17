@@ -52,6 +52,8 @@ public class UserManagementTenantProperties {
     private Long emailVerificationExpDays;
     private List<String> emailRegexPatternExclude;
     private String authServerEmailVerificationResponseUrl;
+    private String emailLogoPath;
+    private String emailCopyright;
     
     // Password Recovery Properties
     private Long recoverySecretExpiresInMinutes;
