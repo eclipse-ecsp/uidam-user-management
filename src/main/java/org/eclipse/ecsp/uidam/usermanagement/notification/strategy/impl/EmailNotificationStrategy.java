@@ -27,6 +27,7 @@ import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.notification.strategy.NotificationStrategy;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -47,6 +48,7 @@ public class EmailNotificationStrategy implements NotificationStrategy {
     private final EmailNotificationProvider emailNotificationProvider;
     private final NotificationConfigResolver notificationConfigResolver;
     private final TemplateParser templateParser;
+    private TenantConfigurationService tenantConfigurationService;
 
     /**
      * Initialize {@link EmailNotificationStrategy}.
@@ -57,10 +59,12 @@ public class EmailNotificationStrategy implements NotificationStrategy {
      */
     public EmailNotificationStrategy(final EmailNotificationProvider emailNotificationProvider,
                                      final NotificationConfigResolver notificationConfigResolver,
-                                     final TemplateParser templateParser) {
+                                     final TemplateParser templateParser,
+                                     TenantConfigurationService tenantConfigurationService) {
         this.emailNotificationProvider = emailNotificationProvider;
         this.notificationConfigResolver = notificationConfigResolver;
         this.templateParser = templateParser;
+        this.tenantConfigurationService = tenantConfigurationService;
     }
 
     @Override
@@ -89,6 +93,13 @@ public class EmailNotificationStrategy implements NotificationStrategy {
                     parsedEmailBodyMap.put("subject",
                             this.templateParser.parseText(template.getSubject(), recipient.getData()));
                 }
+                String tenantLogoPath = tenantConfigurationService.getTenantProperties().getEmailLogoPath();
+                String tenantCopyRight = tenantConfigurationService.getTenantProperties().getEmailCopyright();
+                if (!StringUtils.isEmpty(tenantLogoPath)) {
+                    parsedEmailBodyMap.put("Image-hdr_brand", tenantLogoPath);
+                }
+                parsedEmailBodyMap.put("copyright", tenantCopyRight);
+
                 recipient.getData().put(UIDAM, parsedEmailBodyMap);
             } else {
                 log.error("Template not found for email notification: {}, cannot proceed further..",
