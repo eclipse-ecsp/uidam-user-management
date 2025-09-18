@@ -96,9 +96,9 @@ public class EmailNotificationStrategy implements NotificationStrategy {
                 String tenantLogoPath = tenantConfigurationService.getTenantProperties().getEmailLogoPath();
                 String tenantCopyRight = tenantConfigurationService.getTenantProperties().getEmailCopyright();
                 if (!StringUtils.isEmpty(tenantLogoPath)) {
-                	parsedEmailBodyMap.put("Image-hdr_brand", tenantLogoPath);
+                    parsedEmailBodyMap.put("Image-hdr_brand", tenantLogoPath);
                 }
-               	parsedEmailBodyMap.put("copyright", tenantCopyRight);
+                parsedEmailBodyMap.put("copyright", tenantCopyRight);
 
                 recipient.getData().put(UIDAM, parsedEmailBodyMap);
             } else {
