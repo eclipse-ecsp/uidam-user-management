@@ -65,7 +65,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <spring.version>3.5.0</spring.version>
+        <spring.version>3.5.6</spring.version>
         <microservice.name>uidam-user-management</microservice.name>
         <microservice.version>${project.version}</microservice.version>
         <sql.dao.version>1.1.2</sql.dao.version>
