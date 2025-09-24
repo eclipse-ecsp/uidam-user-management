@@ -224,4 +224,51 @@ class TenantResolutionFilterTest {
         assertEquals(expectedTenant, TenantContext.getCurrentTenant());
         verify(filterChain).doFilter(request, response);
     }
+
+    @Test
+    void testDefaultTenantUsedWhenMultiTenantDisabled() throws Exception {
+        // Arrange
+        // Use reflection to set multiTenantEnabled=false and defaultTenant="default_tenant"
+        java.lang.reflect.Field multiTenantField = TenantResolutionFilter.class.getDeclaredField("multiTenantEnabled");
+        multiTenantField.setAccessible(true);
+        multiTenantField.set(tenantResolutionFilter, false);
+        java.lang.reflect.Field defaultTenantField = TenantResolutionFilter.class.getDeclaredField("defaultTenant");
+        defaultTenantField.setAccessible(true);
+        defaultTenantField.set(tenantResolutionFilter, "default_tenant");
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(tenantConfigurationService.tenantExists("default_tenant")).thenReturn(true);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        assertEquals("ecsp", TenantContext.getCurrentTenant());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testErrorWhenNoTenantAndMultiTenantEnabled() throws Exception {
+        // Arrange
+        // Use reflection to set multiTenantEnabled=true
+        java.lang.reflect.Field multiTenantField = TenantResolutionFilter.class.getDeclaredField("multiTenantEnabled");
+        multiTenantField.setAccessible(true);
+        multiTenantField.set(tenantResolutionFilter, true);
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute("RESOLVED_TENANT_ID")).thenReturn(null);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+        verify(response).setContentType("application/json");
+        verify(printWriter).write(anyString());
+        verify(printWriter).flush();
+    }
 }

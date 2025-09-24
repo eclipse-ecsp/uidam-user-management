@@ -33,6 +33,7 @@ import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -68,6 +69,12 @@ public class TenantResolutionFilter implements Filter {
 
     private static final String TENANT_HEADER = "tenantId";
     private static final String TENANT_SESSION_KEY = "RESOLVED_TENANT_ID";
+
+    @Value("${tenant.multitenant.enabled}")
+    private boolean multiTenantEnabled;
+
+    @Value("${tenant.default}")
+    private String defaultTenant;
 
     /**
      * Constructor to inject dependencies.
@@ -105,26 +112,32 @@ public class TenantResolutionFilter implements Filter {
         LOGGER.debug("Processing tenant resolution for User Management request: {}", requestUri);
 
         try {
-            // Try to resolve tenant from request header only
+            // Try to resolve tenant from request (header or path)
             tenantId = resolveTenantFromRequest(httpRequest);
             if (StringUtils.hasText(tenantId)) {
-                LOGGER.debug("Tenant resolved from header: {}", tenantId);
+                LOGGER.debug("Tenant resolved from request: {}", tenantId);
             } else {
                 // Fallback: try to get tenant from session
                 tenantId = getTenantFromSession(httpRequest);
                 if (StringUtils.hasText(tenantId)) {
                     LOGGER.debug("Tenant resolved from session: {}", tenantId);
-                } else {
+                } else if (multiTenantEnabled) {
                     // No tenant could be resolved - throw exception
                     LOGGER.error("No tenant could be resolved for User Management request: {}", requestUri);
                     throw TenantResolutionException.tenantNotFoundInRequest(requestUri);
                 }
             }
 
+            // Additional validation: if multitenant is disabled, set tenantId to default
+            if (!StringUtils.hasText(tenantId) && !multiTenantEnabled) {
+                tenantId = defaultTenant;
+                LOGGER.debug("Multitenant disabled, setting tenantId to default: {}", tenantId);
+            }
+
             // Validate that the resolved tenant actually exists in configuration
             if (!isValidConfiguredTenant(tenantId)) {
-                LOGGER.error("Tenant '{}' is not configured in User Management system for request: {}", tenantId,
-                        requestUri);
+                LOGGER.error("Tenant '{}' is not configured in User Management system for request: {}",
+                    tenantId, requestUri);
                 throw TenantResolutionException.invalidTenant(tenantId, requestUri);
             }
             
