@@ -192,16 +192,7 @@
                     <groupId>org.eclipse.jetty</groupId>
                     <artifactId>jetty-util</artifactId>
                 </exclusion>
-                <exclusion>
-		            <groupId>org.postgresql</groupId>
-		            <artifactId>postgresql</artifactId>
-                </exclusion>				
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.7.7</version>
         </dependency>
         <!--External Dependencies -->
         <dependency>
@@ -390,6 +381,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
+			<version>3.5.0</version>
         </dependency>
     </dependencies>
 
