@@ -1,6 +1,6 @@
-# name: License Compliance
-#
-# on:
+ name: License Compliance
+
+ on:
 #   push:
 #     branches: [ "*" ]
 #     paths-ignore:
@@ -8,17 +8,17 @@
 #       - '**/*.txt'
 #   pull_request:
 #     branches: [ "*" ]
-#   workflow_dispatch:
-#
-# permissions:
-#   pull-requests: read
-#   contents: write
-#
-# jobs:
-#   check_licences:
-#     uses: eclipse-ecsp/.github/.github/workflows/workflow-licences-analysis.yml@main
-#     name: Analyse Licences
-#     with:
-#       create-review: true
-#     secrets:
-#       token: ${{ secrets.GITLAB_API_TOKEN }}
+   workflow_dispatch:
+
+ permissions:
+   pull-requests: read
+   contents: write
+
+ jobs:
+   check_licences:
+     uses: eclipse-ecsp/.github/.github/workflows/workflow-licences-analysis.yml@main
+     name: Analyse Licences
+     with:
+       create-review: true
+     secrets:
+       token: ${{ secrets.GITLAB_API_TOKEN }}
