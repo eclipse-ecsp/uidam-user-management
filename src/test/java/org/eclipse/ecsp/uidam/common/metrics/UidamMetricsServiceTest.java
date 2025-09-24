@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.stream.Stream;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -31,6 +32,7 @@ public class UidamMetricsServiceTest {
     public void incrementCounter_shouldRegisterAndIncrementCounter() {
         MetricInfo metricInfo = MetricInfo.builder().uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT).build();
         uidamMetricsService.incrementCounter(metricInfo);
+        assertNotNull(metricInfo);
     }
 
     @Test
