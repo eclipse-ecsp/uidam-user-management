@@ -124,7 +124,11 @@ public class PasswordValidationService {
         lock.readLock().lock();
         LOGGER.info("Validating password for new user: " + username);
         try {
-            if (handlers.isEmpty()) {
+            if (handlers == null) {
+                refreshPolicies(); // Ensure policies are loaded
+            }
+
+            if (handlers == null || handlers.isEmpty()) {
                 return new ValidationResult(true, null); // No policies to validate
             }
             return handlers.stream()
