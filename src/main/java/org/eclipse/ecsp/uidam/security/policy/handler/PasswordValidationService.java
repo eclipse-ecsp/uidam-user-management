@@ -30,7 +30,6 @@ import java.sql.Timestamp;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Service for validating passwords against a set of policies. This service loads password policies from the database
@@ -59,8 +58,6 @@ public class PasswordValidationService {
         this.lastUpdateDate = null; // Initialize with null to ensure the first refresh happens
     }
 
-    // Use a read-write lock to allow concurrent reads and exclusive writes
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
      * Initializes the password validation service by loading the policies from the database.
@@ -75,7 +72,6 @@ public class PasswordValidationService {
      * application startup and can also be called manually to refresh policies.
      */
     public void refreshPolicies() {
-        lock.writeLock().lock();
         LOGGER.debug("Refreshing password policies from the database.");
         try {
             Optional<List<PasswordPolicy>> policies = passwordPolicyRepository
@@ -95,7 +91,6 @@ public class PasswordValidationService {
         } finally {
             // Always unlock the write lock in a finally block to ensure it gets released
             LOGGER.debug("Password policies refreshed successfully,with " + handlers.size() + " handlers loaded.");
-            lock.writeLock().unlock();
         }
     }
 
@@ -121,26 +116,20 @@ public class PasswordValidationService {
      */
     public ValidationResult validatePassword(String password, String username) {
         // Password validation for new user.
-        lock.readLock().lock();
         LOGGER.info("Validating password for new user: " + username);
-        try {
-            if (handlers == null) {
-                refreshPolicies(); // Ensure policies are loaded
-            }
-
-            if (handlers == null || handlers.isEmpty()) {
-                return new ValidationResult(true, null); // No policies to validate
-            }
-            return handlers.stream()
-                    .filter(handler -> !(handler instanceof ExpirationPolicyHandler)
-                            && !(handler instanceof LastUpdateValidationPolicyHandler))
-                    .filter(handler -> !handler.handle(new PasswordValidationInput(username, password, null)))
-                    .findFirst().map(handler -> new ValidationResult(false, handler.getErrorMessage()))
-                    .orElse(new ValidationResult(true, null)); // All handlers passed
-
-        } finally {
-            lock.readLock().unlock();
+        if (handlers == null) {
+            refreshPolicies(); // Ensure policies are loaded
         }
+
+        if (handlers == null || handlers.isEmpty()) {
+            return new ValidationResult(true, null); // No policies to validate
+        }
+        return handlers.stream()
+                .filter(handler -> !(handler instanceof ExpirationPolicyHandler)
+                        && !(handler instanceof LastUpdateValidationPolicyHandler))
+                .filter(handler -> !handler.handle(new PasswordValidationInput(username, password, null)))
+                .findFirst().map(handler -> new ValidationResult(false, handler.getErrorMessage()))
+                .orElse(new ValidationResult(true, null)); // All handlers passed
     }
 
     /**
@@ -153,20 +142,14 @@ public class PasswordValidationService {
      */
     public ValidationResult validatePassword(String password, String username, Timestamp lastUpdateTime) {
         // Password validation for existing user.(update password)
-        lock.readLock().lock();
         LOGGER.info("Validating password for existing user: " + username);
-        try {
-            if (handlers.isEmpty()) {
-                return new ValidationResult(true, null); // No policies to validate
-            }
-            return handlers.stream()
-                    .filter(handler -> !handler.handle(new PasswordValidationInput(username, password, lastUpdateTime)))
-                    .findFirst().map(handler -> new ValidationResult(false, handler.getErrorMessage()))
-                    .orElse(new ValidationResult(true, null)); // All handlers passed
-
-        } finally {
-            lock.readLock().unlock();
+        if (handlers.isEmpty()) {
+            return new ValidationResult(true, null); // No policies to validate
         }
+        return handlers.stream()
+                .filter(handler -> !handler.handle(new PasswordValidationInput(username, password, lastUpdateTime)))
+                .findFirst().map(handler -> new ValidationResult(false, handler.getErrorMessage()))
+                .orElse(new ValidationResult(true, null)); // All handlers passed
     }
 
     /**
@@ -176,19 +159,14 @@ public class PasswordValidationService {
      * @return ValidationResult indicating whether the password is valid and any error message.
      */
     public ValidationResult validateUserPasswordExpiry(String username) {
-        lock.readLock().lock();
         LOGGER.info("Validating password expiry for user: " + username);
-        try {
-            if (handlers.isEmpty()) {
-                return new ValidationResult(true, null); // No policies to validate
-            }
-            return handlers.stream().filter(ExpirationPolicyHandler.class::isInstance)
-                    .filter(handler -> !handler.handle(new PasswordValidationInput(username, null, null))).findFirst()
-                    .map(handler -> new ValidationResult(false, handler.getErrorMessage()))
-                    .orElse(new ValidationResult(true, null)); // All handlers passed
-        } finally {
-            lock.readLock().unlock();
+        if (handlers.isEmpty()) {
+            return new ValidationResult(true, null); // No policies to validate
         }
+        return handlers.stream().filter(ExpirationPolicyHandler.class::isInstance)
+                .filter(handler -> !handler.handle(new PasswordValidationInput(username, null, null))).findFirst()
+                .map(handler -> new ValidationResult(false, handler.getErrorMessage()))
+                .orElse(new ValidationResult(true, null)); // All handlers passed
     }
 
     /**
