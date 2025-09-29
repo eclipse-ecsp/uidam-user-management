@@ -22,7 +22,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.eclipse.ecsp</groupId>
     <artifactId>uidam-user-management</artifactId>
-    <version>1.2.0-M1-SNAPSHOT</version>
+    <version>1.2.3-SNAPSHOT</version>
     <name>uidam-user-management</name>
     <description>Spring auth solution for user-management</description>
     <url>https://github.com/eclipse-ecsp/uidam-user-management</url>
