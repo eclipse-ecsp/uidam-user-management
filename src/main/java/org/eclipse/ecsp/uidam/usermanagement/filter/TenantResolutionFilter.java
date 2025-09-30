@@ -118,7 +118,7 @@ public class TenantResolutionFilter implements Filter {
                 LOGGER.debug("Tenant resolved from request: {}", tenantId);
             } else {
                 // Fallback: try to get tenant from session
-                tenantId = getTenantFromSession(httpRequest);
+                //tenantId = getTenantFromSession(httpRequest);
                 if (StringUtils.hasText(tenantId)) {
                     LOGGER.debug("Tenant resolved from session: {}", tenantId);
                 } else if (multiTenantEnabled) {
