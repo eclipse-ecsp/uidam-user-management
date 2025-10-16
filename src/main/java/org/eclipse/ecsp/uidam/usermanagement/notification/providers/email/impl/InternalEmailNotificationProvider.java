@@ -28,6 +28,7 @@ import org.eclipse.ecsp.uidam.usermanagement.config.TenantAwareJavaMailSenderFac
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.NotificationException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
+import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParserFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
@@ -61,21 +62,21 @@ public class InternalEmailNotificationProvider implements EmailNotificationProvi
     
     private final TenantAwareJavaMailSenderFactory mailSenderFactory;
     private final NotificationConfigResolver configResolver;
-    private final TemplateParser templateParser;
+    private final TemplateParserFactory templateParserFactory;
 
     /**
      * Constructor for InternalEmailNotificationProvider.
      *
      * @param mailSenderFactory factory for creating tenant-specific JavaMailSender instances
      * @param configResolver resolver for notification configuration
-     * @param templateParser parser for email templates
+     * @param templateParserFactory factory for selecting tenant-specific template parser
      */
     public InternalEmailNotificationProvider(TenantAwareJavaMailSenderFactory mailSenderFactory,
                                             NotificationConfigResolver configResolver,
-                                            TemplateParser templateParser) {
+                                            TemplateParserFactory templateParserFactory) {
         this.mailSenderFactory = mailSenderFactory;
         this.configResolver = configResolver;
-        this.templateParser = templateParser;
+        this.templateParserFactory = templateParserFactory;
     }
 
     //prepare AWS notification objects and send email notification
@@ -95,6 +96,7 @@ public class InternalEmailNotificationProvider implements EmailNotificationProvi
                 EmailNotificationTemplateConfig template = emailTemplate.get();
                 Map<String, Object> parsedEmailBodyMap = (Map<String, Object>) recipient.getData().get("uidam");
                 String parseEmailBody = null;
+                TemplateParser templateParser = templateParserFactory.getParser();
                 if (!StringUtils.isEmpty(template.getReferenceHtml())) {
                     parseEmailBody = templateParser.parseTemplate(
                             template.getReferenceHtml(), recipient.getData());

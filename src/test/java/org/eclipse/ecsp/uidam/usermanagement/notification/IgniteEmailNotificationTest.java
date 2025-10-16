@@ -125,6 +125,27 @@ class IgniteEmailNotificationTest {
         emailProviderProperties.setProvider("ignite");
         notificationProperties.setEmail(emailProviderProperties);
         
+        // Configure template engine to use Mustache (for Ignite compatibility)
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateEngineProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .TemplateEngineProperties();
+        templateEngineProperties.setEngine("mustache");
+        templateEngineProperties.setFormat("HTML");
+        templateEngineProperties.setResolver("CLASSPATH");
+        templateEngineProperties.setPrefix("/notification/");
+        templateEngineProperties.setSuffix(".html");
+        notificationProperties.setTemplate(templateEngineProperties);
+        
+        // Configure notification config
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .NotificationConfigProperties notificationConfigProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .NotificationConfigProperties();
+        notificationConfigProperties.setResolver("internal");
+        notificationConfigProperties.setPath("classpath:/notification/uidam-notification-config.json");
+        notificationProperties.setConfig(notificationConfigProperties);
+        
         tenantProperties.setNotification(notificationProperties);
         
         org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);

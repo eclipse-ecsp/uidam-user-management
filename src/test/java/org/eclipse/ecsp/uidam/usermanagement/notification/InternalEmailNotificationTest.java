@@ -118,11 +118,30 @@ class InternalEmailNotificationTest {
         emailProps.setUsername("test@test.com");
         emailProps.setPassword("testpass");
         
+        // Configure template engine properties
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.TemplateEngineProperties();
+        templateProps.setEngine("thymeleaf");
+        templateProps.setFormat("HTML");
+        templateProps.setResolver("CLASSPATH");
+        templateProps.setPrefix("/notification/");
+        templateProps.setSuffix(".html");
+        
+        // Configure notification config properties
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .NotificationConfigProperties configProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.NotificationConfigProperties();
+        configProps.setResolver("internal");
+        configProps.setPath("classpath:/notification/uidam-notification-config.json");
+        
         // Configure notification properties
         final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
             notifProps = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
             .NotificationProperties();
         notifProps.setEmail(emailProps);
+        notifProps.setTemplate(templateProps);
+        notifProps.setConfig(configProps);
         
         // Configure tenant properties
         final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
