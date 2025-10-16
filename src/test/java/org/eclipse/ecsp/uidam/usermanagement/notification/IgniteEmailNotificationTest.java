@@ -107,13 +107,44 @@ class IgniteEmailNotificationTest {
         mockRestServiceServer = MockRestServiceServer.bindTo(restTemplate).build();
         
         // Configure the mock TenantConfigurationService
-        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties tenantProperties = 
-            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties();
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties
+            tenantProperties = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+                .UserManagementTenantProperties();
         
-        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties notificationProperties = 
-            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties();
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notificationProperties = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+                .NotificationProperties();
         notificationProperties.setNotificationApiUrl("http://test-notification-api:8080/v1/notifications/nonRegisteredUsers");
         notificationProperties.setNotificationId("TEST_NOTIFICATION_ID");
+        
+        // Configure email provider to use Ignite
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .EmailProviderProperties emailProviderProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .EmailProviderProperties();
+        emailProviderProperties.setProvider("ignite");
+        notificationProperties.setEmail(emailProviderProperties);
+        
+        // Configure template engine to use Mustache (for Ignite compatibility)
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateEngineProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .TemplateEngineProperties();
+        templateEngineProperties.setEngine("mustache");
+        templateEngineProperties.setFormat("HTML");
+        templateEngineProperties.setResolver("CLASSPATH");
+        templateEngineProperties.setPrefix("/notification/");
+        templateEngineProperties.setSuffix(".html");
+        notificationProperties.setTemplate(templateEngineProperties);
+        
+        // Configure notification config
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .NotificationConfigProperties notificationConfigProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .NotificationConfigProperties();
+        notificationConfigProperties.setResolver("internal");
+        notificationConfigProperties.setPath("classpath:/notification/uidam-notification-config.json");
+        notificationProperties.setConfig(notificationConfigProperties);
         
         tenantProperties.setNotification(notificationProperties);
         
