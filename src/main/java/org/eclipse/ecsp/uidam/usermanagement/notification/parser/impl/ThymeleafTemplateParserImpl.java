@@ -19,14 +19,13 @@
 package org.eclipse.ecsp.uidam.usermanagement.notification.parser.impl;
 
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.uidam.usermanagement.config.NotificationTemplateConfig;
-import org.eclipse.ecsp.uidam.usermanagement.config.NotificationTemplateConfig.Format;
-import org.eclipse.ecsp.uidam.usermanagement.config.NotificationTemplateConfig.Resolver;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties.TemplateEngineProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateManagerException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateProcessingException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -40,121 +39,161 @@ import org.thymeleaf.templateresolver.FileTemplateResolver;
 import org.thymeleaf.templateresolver.StringTemplateResolver;
 import org.thymeleaf.templateresolver.UrlTemplateResolver;
 import java.io.FileNotFoundException;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * thymeleaf template engine to parse notification templates.
+ * thymeleaf template engine to parse notification templates with tenant-specific configuration.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "template.engine", havingValue = "thymeleaf")
 public class ThymeleafTemplateParserImpl implements TemplateParser {
     public static final String TEXT = "TEXT";
     public static final String CUSTOM = "CUSTOM";
-    private ResourceLoader resourceLoader;
-    protected Map<String, TemplateEngine> templateEngines = new HashMap<>();
-    private String prefix;
+    
+    private final ResourceLoader resourceLoader;
+    private final TenantConfigurationService tenantConfigurationService;
+    private final TemplateEngine textTemplateEngine;
+    
+    // Cache of tenant-specific template engines: key = tenantId, value = Map<engineType, TemplateEngine>
+    private final Map<String, Map<String, TemplateEngine>> tenantTemplateEngines = new ConcurrentHashMap<>();
 
     /**
-     * Initialize thymeleaf template engines.
+     * Initialize thymeleaf template parser with tenant configuration service.
      *
-     * @param templateConfig template configuration
-     * @param resourceLoader resource load for loading files
+     * @param tenantConfigurationService service to get tenant-specific configuration
+     * @param resourceLoader resource loader for loading files
      */
-    public ThymeleafTemplateParserImpl(NotificationTemplateConfig templateConfig, ResourceLoader resourceLoader) {
-        log.info("Initializing ThymeleafTemplateManager");
-        Objects.requireNonNull(templateConfig.getResolver(), "template resolver should not be null");
-        Objects.requireNonNull(templateConfig.getFormat(), "template format should not be null");
+    public ThymeleafTemplateParserImpl(TenantConfigurationService tenantConfigurationService, 
+                                       ResourceLoader resourceLoader) {
+        log.info("Initializing ThymeleafTemplateParser with tenant-specific configuration support");
+        this.tenantConfigurationService = tenantConfigurationService;
         this.resourceLoader = resourceLoader;
-        TemplateEngine templateEngine = new TemplateEngine();
+        
+        // Initialize the text template engine (shared across all tenants for inline text parsing)
+        this.textTemplateEngine = new TemplateEngine();
         StringTemplateResolver stringTemplateResolver = new StringTemplateResolver();
         stringTemplateResolver.setTemplateMode(TemplateMode.HTML);
-        templateEngine.setTemplateResolver(stringTemplateResolver);
-        templateEngines.put(TEXT, templateEngine);
-
-        AbstractConfigurableTemplateResolver templateResolver = getTemplateResolver(templateConfig);
-
-        if (null != templateResolver) {
-            TemplateEngine templateEngineWithResolver = new TemplateEngine();
-            templateEngineWithResolver.setTemplateResolver(templateResolver);
-            setSuffixAndPrefix(templateResolver, templateConfig);
-            templateResolver.setCharacterEncoding(templateConfig.getEncoding());
-            if (!templateConfig.getPrefix().isEmpty()) {
-                templateResolver.setPrefix(templateConfig.getPrefix());
-                if (prefix != null) {
-                    prefix += templateConfig.getPrefix();
-                }
-            }
-
-            templateEngines.put(CUSTOM, templateEngineWithResolver);
-        }
-        log.info("Initialization ThymeleafTemplateManager completed");
+        this.textTemplateEngine.setTemplateResolver(stringTemplateResolver);
+        
+        log.info("ThymeleafTemplateParser initialization completed");
     }
 
-    private AbstractConfigurableTemplateResolver getTemplateResolver(NotificationTemplateConfig templateConfig) {
+    /**
+     * Get or create template engines for the current tenant.
+     *
+     * @param tenantId tenant identifier
+     * @return map of template engines for the tenant
+     */
+    private Map<String, TemplateEngine> getOrCreateTemplateEngines(String tenantId) {
+        return tenantTemplateEngines.computeIfAbsent(tenantId, tid -> {
+            log.info("Creating Thymeleaf template engines for tenant '{}'", tid);
+            Map<String, TemplateEngine> engines = new ConcurrentHashMap<>();
+            
+            // Get tenant-specific template configuration
+            TemplateEngineProperties templateConfig = tenantConfigurationService
+                    .getTenantProperties().getNotification().getTemplate();
+            
+            // TEXT engine is shared
+            engines.put(TEXT, textTemplateEngine);
+            
+            // Create custom template engine with tenant-specific configuration
+            AbstractConfigurableTemplateResolver templateResolver = getTemplateResolver(templateConfig);
+            if (null != templateResolver) {
+                TemplateEngine customEngine = new TemplateEngine();
+                customEngine.setTemplateResolver(templateResolver);
+                setSuffixAndPrefix(templateResolver, templateConfig);
+                
+                // Set character encoding (always UTF-8)
+                templateResolver.setCharacterEncoding("UTF-8");
+                
+                // Set prefix
+                String prefix = templateConfig.getPrefix();
+                if (prefix != null && !prefix.isEmpty()) {
+                    templateResolver.setPrefix(prefix);
+                }
+                
+                engines.put(CUSTOM, customEngine);
+                log.debug("Created custom Thymeleaf engine for tenant '{}' with resolver: {}, format: {}, prefix: {}", 
+                         tid, templateConfig.getResolver(), templateConfig.getFormat(), prefix);
+            }
+            
+            return engines;
+        });
+    }
+
+    private AbstractConfigurableTemplateResolver getTemplateResolver(TemplateEngineProperties templateConfig) {
         AbstractConfigurableTemplateResolver templateResolver = null;
-        if (Resolver.FILE.equals(templateConfig.getResolver())) {
+        String resolver = templateConfig.getResolver();
+        
+        if ("FILE".equalsIgnoreCase(resolver)) {
             templateResolver = new FileTemplateResolver();
-            prefix = "file:";
-        }
-
-        if (Resolver.CLASSPATH.equals(templateConfig.getResolver())) {
+        } else if ("CLASSPATH".equalsIgnoreCase(resolver)) {
             templateResolver = new ClassLoaderTemplateResolver();
-            prefix = "classpath:";
-        }
-
-        if (Resolver.URL.equals(templateConfig.getResolver())) {
+        } else if ("URL".equalsIgnoreCase(resolver)) {
             templateResolver = new UrlTemplateResolver();
         }
+        
         return templateResolver;
     }
 
     private void setSuffixAndPrefix(AbstractConfigurableTemplateResolver templateResolver,
-                                    NotificationTemplateConfig templateConfig) {
-        if (Format.HTML.equals(templateConfig.getFormat())) {
+                                    TemplateEngineProperties templateConfig) {
+        String format = templateConfig.getFormat();
+        String suffix = templateConfig.getSuffix();
+        
+        if ("HTML".equalsIgnoreCase(format)) {
             templateResolver.setTemplateMode(TemplateMode.HTML);
-            if (null != templateConfig.getSuffix()) {
-                templateResolver.setSuffix("." + templateConfig.getSuffix());
-            } else {
-                templateResolver.setSuffix(".html");
-            }
-        } else if (Format.XML.equals(templateConfig.getFormat())) {
+            templateResolver.setSuffix((suffix != null && !suffix.isEmpty()) ? suffix : ".html");
+        } else if ("XML".equalsIgnoreCase(format)) {
             templateResolver.setTemplateMode(TemplateMode.XML);
-            if (null != templateConfig.getSuffix()) {
-                templateResolver.setSuffix("." + templateConfig.getSuffix());
-            } else {
-                templateResolver.setSuffix(".html");
-            }
-        } else if (Format.TEXT.equals(templateConfig.getFormat())) {
+            templateResolver.setSuffix((suffix != null && !suffix.isEmpty()) ? suffix : ".xml");
+        } else if ("TEXT".equalsIgnoreCase(format)) {
             templateResolver.setTemplateMode(TemplateMode.TEXT);
-            if (null != templateConfig.getSuffix()) {
-                templateResolver.setSuffix("." + templateConfig.getSuffix());
-            } else {
-                templateResolver.setSuffix(".txt");
-            }
+            templateResolver.setSuffix((suffix != null && !suffix.isEmpty()) ? suffix : ".txt");
         } else {
-            throw new IllegalArgumentException("Template format "
-                    + templateConfig.getFormat() + " is not support with resolver "
-                    + templateConfig.getResolver());
+            throw new IllegalArgumentException("Template format " + format 
+                    + " is not supported with resolver " + templateConfig.getResolver());
         }
     }
 
     @Override
     public String parseText(String template, Map<String, Object> placeholderValues) {
-        return parseTemplateUsingProvidedEngine(templateEngines.get(TEXT), template, placeholderValues).trim();
+        // Text parsing uses the shared text template engine
+        return parseTemplateUsingProvidedEngine(textTemplateEngine, template, placeholderValues).trim();
     }
 
     @Override
     public String parseTemplate(String template, Map<String, Object> placeholderValues) {
-        return parseTemplateUsingProvidedEngine(templateEngines.get(CUSTOM), template, placeholderValues);
+        // Get tenant-specific template engines
+        String tenantId = TenantContext.getCurrentTenant();
+        Map<String, TemplateEngine> engines = getOrCreateTemplateEngines(tenantId);
+        TemplateEngine customEngine = engines.get(CUSTOM);
+        
+        if (customEngine == null) {
+            throw new TemplateManagerException("Custom template engine not configured for tenant: " + tenantId, null);
+        }
+        
+        return parseTemplateUsingProvidedEngine(customEngine, template, placeholderValues);
     }
 
     @Override
     public Resource getFile(String path) {
-        path = null != prefix ? prefix + path : path;
-        Resource resource = resourceLoader.getResource(path);
+        TemplateEngineProperties templateConfig = tenantConfigurationService
+                .getTenantProperties().getNotification().getTemplate();
+        
+        String resolver = templateConfig.getResolver();
+        String prefix = templateConfig.getPrefix();
+        
+        // Build resource path
+        String resourcePath = path;
+        if ("FILE".equalsIgnoreCase(resolver)) {
+            resourcePath = "file:" + (prefix != null ? prefix : "") + path;
+        } else if ("CLASSPATH".equalsIgnoreCase(resolver)) {
+            resourcePath = "classpath:" + (prefix != null ? prefix : "") + path;
+        }
+        
+        Resource resource = resourceLoader.getResource(resourcePath);
         if (resource.exists()) {
             return resource;
         }
