@@ -107,13 +107,23 @@ class IgniteEmailNotificationTest {
         mockRestServiceServer = MockRestServiceServer.bindTo(restTemplate).build();
         
         // Configure the mock TenantConfigurationService
-        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties tenantProperties = 
-            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties();
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties
+            tenantProperties = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+                .UserManagementTenantProperties();
         
-        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties notificationProperties = 
-            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties();
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notificationProperties = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+                .NotificationProperties();
         notificationProperties.setNotificationApiUrl("http://test-notification-api:8080/v1/notifications/nonRegisteredUsers");
         notificationProperties.setNotificationId("TEST_NOTIFICATION_ID");
+        
+        // Configure email provider to use Ignite
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .EmailProviderProperties emailProviderProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .EmailProviderProperties();
+        emailProviderProperties.setProvider("ignite");
+        notificationProperties.setEmail(emailProviderProperties);
         
         tenantProperties.setNotification(notificationProperties);
         

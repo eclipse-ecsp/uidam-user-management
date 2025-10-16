@@ -25,11 +25,11 @@ import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
+import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.notification.strategy.NotificationStrategy;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import java.util.HashMap;
@@ -39,13 +39,14 @@ import java.util.Optional;
 
 /**
  * Stategy for email notification.
+ * Uses EmailNotificationProviderFactory to select the appropriate provider at runtime
+ * based on tenant configuration (internal vs ignite).
  */
 @Slf4j
 @Component(NotificationConstants.EMAIL)
-@ConditionalOnProperty("notification.email.provider")
 public class EmailNotificationStrategy implements NotificationStrategy {
     public static final String UIDAM = "uidam";
-    private final EmailNotificationProvider emailNotificationProvider;
+    private final EmailNotificationProviderFactory emailNotificationProviderFactory;
     private final NotificationConfigResolver notificationConfigResolver;
     private final TemplateParser templateParser;
     private TenantConfigurationService tenantConfigurationService;
@@ -53,15 +54,16 @@ public class EmailNotificationStrategy implements NotificationStrategy {
     /**
      * Initialize {@link EmailNotificationStrategy}.
      *
-     * @param emailNotificationProvider  email notification provider implementation
+     * @param emailNotificationProviderFactory factory for selecting email notification provider
      * @param notificationConfigResolver notification config resolver
      * @param templateParser             parse notification template
+     * @param tenantConfigurationService tenant configuration service
      */
-    public EmailNotificationStrategy(final EmailNotificationProvider emailNotificationProvider,
+    public EmailNotificationStrategy(final EmailNotificationProviderFactory emailNotificationProviderFactory,
                                      final NotificationConfigResolver notificationConfigResolver,
                                      final TemplateParser templateParser,
                                      TenantConfigurationService tenantConfigurationService) {
-        this.emailNotificationProvider = emailNotificationProvider;
+        this.emailNotificationProviderFactory = emailNotificationProviderFactory;
         this.notificationConfigResolver = notificationConfigResolver;
         this.templateParser = templateParser;
         this.tenantConfigurationService = tenantConfigurationService;
@@ -108,8 +110,9 @@ public class EmailNotificationStrategy implements NotificationStrategy {
                         request.getNotificationId()));
             }
         });
-        // call notification provider
-        return this.emailNotificationProvider.sendEmailNotification(request);
+        // Get tenant-specific provider and call notification provider
+        EmailNotificationProvider provider = this.emailNotificationProviderFactory.getProvider();
+        return provider.sendEmailNotification(request);
     }
 
     @Override

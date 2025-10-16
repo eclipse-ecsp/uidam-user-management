@@ -25,7 +25,9 @@ import jakarta.mail.internet.MimeMessage;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantAwareJavaMailSenderFactory;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NonRegisteredUserData;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.junit.jupiter.api.AfterEach;
@@ -43,7 +45,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,13 @@ class InternalEmailNotificationTest {
     private NotificationManager notificationManager;
 
     @MockBean
+    private TenantAwareJavaMailSenderFactory tenantAwareJavaMailSenderFactory;
+    
+    @MockBean
     private JavaMailSender javaMailSender;
+    
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
     
     @MockBean
     PasswordValidationService passwordValidationService;
@@ -91,9 +98,44 @@ class InternalEmailNotificationTest {
         CollectorRegistry.defaultRegistry.clear();
     }
 
-    @Test
-    void testSuccess() throws MessagingException, IOException {
+    @BeforeEach
+    public void setup() {
+        // Mock the factory to return our mocked JavaMailSender
+        org.mockito.Mockito.when(tenantAwareJavaMailSenderFactory.getMailSender())
+            .thenReturn(javaMailSender);
+        
+        // Mock JavaMailSender to prevent actual email sending
         doReturn(new MimeMessage((Session) null)).when(javaMailSender).createMimeMessage();
+        
+        // Configure email provider to use Internal
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .EmailProviderProperties emailProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.EmailProviderProperties();
+        emailProps.setProvider("internal");
+        emailProps.setHost("smtp.test.com");
+        final int smtpPort = 587;
+        emailProps.setPort(smtpPort);
+        emailProps.setUsername("test@test.com");
+        emailProps.setPassword("testpass");
+        
+        // Configure notification properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notifProps = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .NotificationProperties();
+        notifProps.setEmail(emailProps);
+        
+        // Configure tenant properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .UserManagementTenantProperties tenantProps = new org.eclipse.ecsp.uidam.usermanagement
+            .config.tenantproperties.UserManagementTenantProperties();
+        tenantProps.setNotification(notifProps);
+        
+        org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties())
+            .thenReturn(tenantProps);
+    }
+
+    @Test
+    void testSuccess() throws MessagingException {
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());
@@ -123,7 +165,6 @@ class InternalEmailNotificationTest {
 
     @Test
     void testDefaultLocale() throws MessagingException {
-        doReturn(new MimeMessage((Session) null)).when(javaMailSender).createMimeMessage();
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());

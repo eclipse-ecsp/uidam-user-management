@@ -24,14 +24,13 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantAwareJavaMailSenderFactory;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.NotificationException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -43,24 +42,40 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants.NOTIFICATION_EMAIL_PROVIDER;
 
 /**
- * sending email notification using spring mail.
+ * Email notification provider using Spring Mail (JavaMailSender).
+ * 
+ * <p>This provider sends emails directly using SMTP configuration.
+ * It is tenant-aware and retrieves SMTP settings from tenant-specific configuration.
+ * 
+ * <p><b>Note:</b> This provider is no longer conditionally created based on global properties.
+ * It's always available and selected at runtime via EmailNotificationProviderFactory
+ * based on tenant configuration: tenant.tenants.{tenantId}.notification.email.provider=internal
+ *
+ * @see org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory
  */
-@ConditionalOnProperty(name = NOTIFICATION_EMAIL_PROVIDER, havingValue = "internal", matchIfMissing = true)
-@Component
+@Component("internalEmailNotificationProvider")
 @Slf4j
 public class InternalEmailNotificationProvider implements EmailNotificationProvider {
-    private final JavaMailSender javaMailSender;
-    @Autowired
-    private NotificationConfigResolver configResolver;
+    
+    private final TenantAwareJavaMailSenderFactory mailSenderFactory;
+    private final NotificationConfigResolver configResolver;
+    private final TemplateParser templateParser;
 
-    @Autowired
-    private TemplateParser templateParser;
-
-    public InternalEmailNotificationProvider(JavaMailSender javaMailSender) {
-        this.javaMailSender = javaMailSender;
+    /**
+     * Constructor for InternalEmailNotificationProvider.
+     *
+     * @param mailSenderFactory factory for creating tenant-specific JavaMailSender instances
+     * @param configResolver resolver for notification configuration
+     * @param templateParser parser for email templates
+     */
+    public InternalEmailNotificationProvider(TenantAwareJavaMailSenderFactory mailSenderFactory,
+                                            NotificationConfigResolver configResolver,
+                                            TemplateParser templateParser) {
+        this.mailSenderFactory = mailSenderFactory;
+        this.configResolver = configResolver;
+        this.templateParser = templateParser;
     }
 
     //prepare AWS notification objects and send email notification
@@ -121,6 +136,9 @@ public class InternalEmailNotificationProvider implements EmailNotificationProvi
                               String body,
                               Map<String, Resource> images) {
         try {
+            // Get tenant-specific JavaMailSender
+            JavaMailSender javaMailSender = mailSenderFactory.getMailSender();
+            
             MimeMessage mimeMsg = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMsg, MimeMessageHelper.MULTIPART_MODE_MIXED, "UTF-8");
             helper.setFrom(new InternetAddress(fromEmail));
