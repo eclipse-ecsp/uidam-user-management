@@ -26,7 +26,6 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeExcepti
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -38,14 +37,21 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import java.util.UUID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.REQUEST_ID;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants.NOTIFICATION_EMAIL_PROVIDER;
 
 /**
- * EmailNotificationProvider is responsible for sending email using notification center.
+ * Email notification provider using Ignite Notification Center.
+ * 
+ * <p>This provider delegates email sending to an external notification service.
+ * It is tenant-aware and retrieves notification API URL from tenant-specific configuration.
+ * 
+ * <p><b>Note:</b> This provider is no longer conditionally created based on global properties.
+ * It's always available and selected at runtime via EmailNotificationProviderFactory
+ * based on tenant configuration: tenant.tenants.{tenantId}.notification.email.provider=ignite
+ *
+ * @see org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory
  */
 @Slf4j
-@Component
-@ConditionalOnProperty(name = NOTIFICATION_EMAIL_PROVIDER, havingValue = "ignite")
+@Component("igniteEmailNotificationProvider")
 public class IgniteEmailNotificationProvider implements EmailNotificationProvider {
     private static final String LOG_PATTERN =
             "request method: {}, request URI: {}, request headers: {}, request body: {}";

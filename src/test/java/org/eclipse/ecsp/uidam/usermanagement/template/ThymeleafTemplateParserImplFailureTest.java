@@ -22,11 +22,14 @@ import io.prometheus.client.CollectorRegistry;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -52,6 +55,7 @@ class ThymeleafTemplateParserImplFailureTest {
      * template parser instance.
      */
     @Autowired
+    @Qualifier("thymeleafTemplateParserImpl")
     private TemplateParser templateManager;
     
     @MockBean
@@ -61,6 +65,9 @@ class ThymeleafTemplateParserImplFailureTest {
      */
     @MockBean
     PasswordPolicyService passwordPolicyService;
+    
+    @MockBean
+    TenantConfigurationService tenantConfigurationService;
     
     /**
      * app test config.
@@ -74,6 +81,38 @@ class ThymeleafTemplateParserImplFailureTest {
     @AfterEach
     public void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
+    }
+    
+    @BeforeEach
+    public void setup() {
+        // Set up tenant context
+        TenantContext.setCurrentTenant("ecsp");
+        
+        // Configure template engine properties for Thymeleaf with file resolver
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.TemplateEngineProperties();
+        templateProps.setEngine("thymeleaf");
+        templateProps.setFormat("HTML");
+        templateProps.setResolver("FILE");
+        templateProps.setPrefix("./src/test/resources/templates/");
+        templateProps.setSuffix(".html");
+        
+        // Configure notification properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notifProps = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .NotificationProperties();
+        notifProps.setTemplate(templateProps);
+        
+        // Configure tenant properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .UserManagementTenantProperties tenantProps = new org.eclipse.ecsp.uidam.usermanagement
+            .config.tenantproperties.UserManagementTenantProperties();
+        tenantProps.setNotification(notifProps);
+        
+        // Mock tenant configuration service
+        org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties())
+            .thenReturn(tenantProps);
     }
 
     @Test
