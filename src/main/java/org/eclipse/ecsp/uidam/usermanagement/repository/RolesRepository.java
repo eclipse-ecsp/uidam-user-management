@@ -86,6 +86,15 @@ public interface RolesRepository extends JpaRepository<RolesEntity, BigInteger>,
     List<RolesEntity> findByNameInAndIsDeleted(Set<String> roleNames, boolean deleted);
 
     /**
+     * Fetches all RolesEntity objects with pagination and is deleted flag.
+     *
+     * @param pageable The pagination information.
+     * @param deleted  Flag based fetch, if role is deleted or not.
+     * @return The list of RolesEntity objects.
+     */
+    List<RolesEntity> findByIsDeleted(Pageable pageable, boolean deleted);
+
+    /**
      * Fetches a list of RolesEntity objects where the id attribute matches any of the provided parameters.
      *
      * @param roleIds The set of role ids.
