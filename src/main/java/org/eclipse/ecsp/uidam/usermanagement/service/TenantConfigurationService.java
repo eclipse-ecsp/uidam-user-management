@@ -90,22 +90,4 @@ public class TenantConfigurationService {
     public Set<String> getAllTenantIds() {
         return multiTenantProperties.getAllTenantIds();
     }
-    
-    /**
-     * Get the default tenant ID.
-     *
-     * @return default tenant ID
-     */
-    public String getDefaultTenantId() {
-        return multiTenantProperties.getDefaultTenantId();
-    }
-    
-    /**
-     * Get the default tenant properties.
-     *
-     * @return UserManagementTenantProperties for the default tenant
-     */
-    public UserManagementTenantProperties getDefaultTenantProperties() {
-        return multiTenantProperties.getDefaultTenantProperties();
-    }
 }

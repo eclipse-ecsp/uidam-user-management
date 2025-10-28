@@ -31,6 +31,7 @@ import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParserFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolverFactory;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -61,21 +62,21 @@ import java.util.stream.Collectors;
 public class InternalEmailNotificationProvider implements EmailNotificationProvider {
     
     private final TenantAwareJavaMailSenderFactory mailSenderFactory;
-    private final NotificationConfigResolver configResolver;
+    private final NotificationConfigResolverFactory configResolverFactory;
     private final TemplateParserFactory templateParserFactory;
 
     /**
      * Constructor for InternalEmailNotificationProvider.
      *
      * @param mailSenderFactory factory for creating tenant-specific JavaMailSender instances
-     * @param configResolver resolver for notification configuration
+     * @param configResolverFactory factory for selecting tenant-specific notification config resolver
      * @param templateParserFactory factory for selecting tenant-specific template parser
      */
     public InternalEmailNotificationProvider(TenantAwareJavaMailSenderFactory mailSenderFactory,
-                                            NotificationConfigResolver configResolver,
+                                            NotificationConfigResolverFactory configResolverFactory,
                                             TemplateParserFactory templateParserFactory) {
         this.mailSenderFactory = mailSenderFactory;
-        this.configResolver = configResolver;
+        this.configResolverFactory = configResolverFactory;
         this.templateParserFactory = templateParserFactory;
     }
 
@@ -87,6 +88,10 @@ public class InternalEmailNotificationProvider implements EmailNotificationProvi
         Objects.requireNonNull(request, "Notification Request should not be null");
         Objects.requireNonNull(request.getRecipients(),
                 "recipient list should not be null, at least one recipient should be provided");
+        
+        // Get the appropriate config resolver for the current tenant
+        NotificationConfigResolver configResolver = configResolverFactory.getResolver();
+        
         request.getRecipients().forEach(recipient -> {
             Optional<EmailNotificationTemplateConfig> emailTemplate = configResolver.getEmailTemplate(
                     request.getNotificationId(),

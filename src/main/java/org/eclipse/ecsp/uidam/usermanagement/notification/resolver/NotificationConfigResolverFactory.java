@@ -16,33 +16,33 @@
  *
  */
 
-package org.eclipse.ecsp.uidam.usermanagement.notification.parser;
+package org.eclipse.ecsp.uidam.usermanagement.notification.resolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
-import org.eclipse.ecsp.uidam.usermanagement.notification.parser.impl.MustacheTemplateParserImpl;
-import org.eclipse.ecsp.uidam.usermanagement.notification.parser.impl.ThymeleafTemplateParserImpl;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl.IgniteNotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl.InternalNotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.springframework.stereotype.Component;
 
 /**
- * Factory for selecting the appropriate template parser based on tenant configuration.
- * Supports runtime selection between Thymeleaf and Mustache template engines.
+ * Factory for selecting the appropriate notification config resolver based on tenant configuration.
+ * Supports runtime selection between Internal (file-based) and Ignite (API-based) resolvers.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class TemplateParserFactory {
+public class NotificationConfigResolverFactory {
 
     private final TenantConfigurationService tenantConfigurationService;
-    private final ThymeleafTemplateParserImpl thymeleafParser;
-    private final MustacheTemplateParserImpl mustacheParser;
+    private final InternalNotificationConfigResolver internalResolver;
+    private final IgniteNotificationConfigResolver igniteResolver;
 
     /**
-     * Gets the appropriate template parser based on tenant configuration.
+     * Gets the appropriate notification config resolver based on tenant configuration.
      * 
      * <p>Relies on TenantResolutionFilter to set the correct tenant in TenantContext.
      * The filter handles both multi-tenancy modes:
@@ -51,10 +51,10 @@ public class TemplateParserFactory {
      *   <li>Multi-tenancy disabled: TenantContext contains default tenant</li>
      * </ul>
      *
-     * @return the configured template parser for the current tenant
+     * @return the configured notification config resolver for the current tenant
      * @throws IllegalStateException if tenant properties are not found
      */
-    public TemplateParser getParser() {
+    public NotificationConfigResolver getResolver() {
         String tenantId = TenantContext.getCurrentTenant();
         
         if (tenantId == null) {
@@ -68,31 +68,31 @@ public class TemplateParserFactory {
                 + ". Tenant must be configured in application properties.");
         }
         
-        NotificationProperties.TemplateEngineProperties templateConfig =
-            tenantProperties.getNotification().getTemplate();
+        NotificationProperties.NotificationConfigProperties configProps = 
+            tenantProperties.getNotification().getConfig();
 
-        if (templateConfig == null || templateConfig.getEngine() == null) {
-            log.warn("Template engine configuration not found for tenant '{}', defaulting to Mustache",
+        if (configProps == null || configProps.getResolver() == null) {
+            log.warn("Notification config resolver not found for tenant '{}', defaulting to internal",
                 tenantId);
-            return mustacheParser;
+            return internalResolver;
         }
 
-        String engine = templateConfig.getEngine().toLowerCase();
-        log.debug("Selecting template parser '{}' for tenant '{}'", engine, tenantId);
+        String resolver = configProps.getResolver().toLowerCase();
+        log.debug("Selecting notification config resolver '{}' for tenant '{}'", resolver, tenantId);
 
-        return switch (engine) {
-            case "thymeleaf" -> {
-                log.info("Using ThymeleafTemplateParser for tenant '{}'", tenantId);
-                yield thymeleafParser;
+        return switch (resolver) {
+            case "internal" -> {
+                log.info("Using InternalNotificationConfigResolver for tenant '{}'", tenantId);
+                yield internalResolver;
             }
-            case "mustache" -> {
-                log.info("Using MustacheTemplateParser for tenant '{}'", tenantId);
-                yield mustacheParser;
+            case "ignite" -> {
+                log.info("Using IgniteNotificationConfigResolver for tenant '{}'", tenantId);
+                yield igniteResolver;
             }
             default -> {
-                log.warn("Unknown template engine '{}' for tenant '{}', defaulting to Mustache",
-                    engine, tenantId);
-                yield mustacheParser;
+                log.warn("Unknown notification config resolver '{}' for tenant '{}', defaulting to internal",
+                    resolver, tenantId);
+                yield internalResolver;
             }
         };
     }

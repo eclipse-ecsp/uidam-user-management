@@ -38,8 +38,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>This factory is used by InternalEmailNotificationProvider to get tenant-specific
  * SMTP configurations. It's always created (no conditional) to support multi-tenant
  * provider selection where different tenants can use different email providers.
+ * 
+ * <p>Relies on TenantResolutionFilter to set the correct tenant in TenantContext:
+ * <ul>
+ *   <li>Multi-tenancy enabled: TenantContext contains tenant from request</li>
+ *   <li>Multi-tenancy disabled: TenantContext contains default tenant from tenant.default property</li>
+ * </ul>
  *
  * @see org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory
+ * @see org.eclipse.ecsp.uidam.usermanagement.filter.TenantResolutionFilter
  */
 @Slf4j
 @Component
@@ -54,23 +61,24 @@ public class TenantAwareJavaMailSenderFactory {
 
     /**
      * Get or create a JavaMailSender for the current tenant.
+     * 
+     * <p>Tenant ID is retrieved from TenantContext, which is already set by TenantResolutionFilter
+     * based on multi-tenancy configuration (either from request or default tenant).
      *
      * @return JavaMailSender configured for the current tenant
+     * @throws IllegalStateException if tenant properties are not found for the current tenant
      */
     public JavaMailSender getMailSender() {
         String tenantId = TenantContext.getCurrentTenant();
         UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
         
         if (tenantProperties == null) {
-            log.warn("No tenant properties found for tenant: {}, using default tenant", tenantId);
-            tenantId = tenantConfigurationService.getDefaultTenantId();
-            tenantProperties = tenantConfigurationService.getDefaultTenantProperties();
+            throw new IllegalStateException(
+                "No tenant properties found for tenant: " + tenantId 
+                + ". Tenant must be configured in application properties.");
         }
 
-        final String finalTenantId = tenantId;
-        final UserManagementTenantProperties finalTenantProperties = tenantProperties;
-        
-        return mailSenderCache.computeIfAbsent(finalTenantId, key -> createMailSender(finalTenantProperties));
+        return mailSenderCache.computeIfAbsent(tenantId, key -> createMailSender(tenantProperties));
     }
 
     /**

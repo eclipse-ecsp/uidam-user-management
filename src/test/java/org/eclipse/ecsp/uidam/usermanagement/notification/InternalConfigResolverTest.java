@@ -26,12 +26,14 @@ import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateCon
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl.InternalNotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -62,6 +64,7 @@ import static org.mockito.Mockito.when;
 class InternalConfigResolverTest {
 
     @Autowired
+    @Qualifier("internalNotificationConfigResolver")
     private NotificationConfigResolver notificationConfigResolver;
 
     @MockBean

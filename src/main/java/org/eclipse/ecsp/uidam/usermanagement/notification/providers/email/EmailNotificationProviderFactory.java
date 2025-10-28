@@ -80,12 +80,6 @@ public class EmailNotificationProviderFactory {
         UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
 
         if (tenantProperties == null) {
-            log.warn("No tenant properties found for tenant: {}, using default tenant", tenantId);
-            tenantId = tenantConfigurationService.getDefaultTenantId();
-            tenantProperties = tenantConfigurationService.getDefaultTenantProperties();
-        }
-
-        if (tenantProperties == null) {
             throw new ApplicationRuntimeException(
                     "Unable to retrieve tenant properties for tenant: " + tenantId);
         }

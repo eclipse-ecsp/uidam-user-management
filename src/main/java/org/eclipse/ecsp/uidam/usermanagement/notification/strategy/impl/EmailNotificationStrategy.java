@@ -28,6 +28,7 @@ import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParserF
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolverFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.strategy.NotificationStrategy;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
@@ -39,33 +40,34 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Stategy for email notification.
+ * Strategy for email notification.
  * Uses EmailNotificationProviderFactory to select the appropriate provider at runtime
  * based on tenant configuration (internal vs ignite).
+ * Uses NotificationConfigResolverFactory to select the appropriate config resolver per tenant.
  */
 @Slf4j
 @Component(NotificationConstants.EMAIL)
 public class EmailNotificationStrategy implements NotificationStrategy {
     public static final String UIDAM = "uidam";
     private final EmailNotificationProviderFactory emailNotificationProviderFactory;
-    private final NotificationConfigResolver notificationConfigResolver;
+    private final NotificationConfigResolverFactory notificationConfigResolverFactory;
     private final TemplateParserFactory templateParserFactory;
-    private TenantConfigurationService tenantConfigurationService;
+    private final TenantConfigurationService tenantConfigurationService;
 
     /**
      * Initialize {@link EmailNotificationStrategy}.
      *
      * @param emailNotificationProviderFactory factory for selecting email notification provider
-     * @param notificationConfigResolver notification config resolver
+     * @param notificationConfigResolverFactory factory for selecting notification config resolver
      * @param templateParserFactory      factory for selecting template parser
      * @param tenantConfigurationService tenant configuration service
      */
     public EmailNotificationStrategy(final EmailNotificationProviderFactory emailNotificationProviderFactory,
-                                     final NotificationConfigResolver notificationConfigResolver,
+                                     final NotificationConfigResolverFactory notificationConfigResolverFactory,
                                      final TemplateParserFactory templateParserFactory,
                                      TenantConfigurationService tenantConfigurationService) {
         this.emailNotificationProviderFactory = emailNotificationProviderFactory;
-        this.notificationConfigResolver = notificationConfigResolver;
+        this.notificationConfigResolverFactory = notificationConfigResolverFactory;
         this.templateParserFactory = templateParserFactory;
         this.tenantConfigurationService = tenantConfigurationService;
     }
@@ -76,9 +78,13 @@ public class EmailNotificationStrategy implements NotificationStrategy {
         Objects.requireNonNull(request, "Notification Request should not be null");
         Objects.requireNonNull(request.getRecipients(),
                 "recipient list should not be null, at least one recipient should be provided");
+        
+        // Get the appropriate config resolver for the current tenant
+        NotificationConfigResolver notificationConfigResolver = notificationConfigResolverFactory.getResolver();
+        
         request.getRecipients().forEach(recipient -> {
             Optional<EmailNotificationTemplateConfig> emailTemplate =
-                    this.notificationConfigResolver.getEmailTemplate(request.getNotificationId(),
+                    notificationConfigResolver.getEmailTemplate(request.getNotificationId(),
                             recipient.getLocale());
             //process template
             if (emailTemplate.isPresent()) {

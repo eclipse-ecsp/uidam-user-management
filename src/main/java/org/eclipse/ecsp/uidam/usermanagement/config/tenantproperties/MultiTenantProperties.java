@@ -48,12 +48,6 @@ public class MultiTenantProperties {
     private Map<String, UserManagementTenantProperties> tenants = new HashMap<>();
     
     /**
-     * Default tenant ID to use when tenant context is not set.
-     * Defaults to "ecsp" for backward compatibility.
-     */
-    private String defaultTenantId = "ecsp";
-    
-    /**
      * Get tenant properties for a specific tenant ID.
      *
      * @param tenantId the tenant ID
@@ -80,14 +74,5 @@ public class MultiTenantProperties {
      */
     public boolean hasTenant(String tenantId) {
         return tenants.containsKey(tenantId);
-    }
-    
-    /**
-     * Get the default tenant properties.
-     *
-     * @return UserManagementTenantProperties for the default tenant
-     */
-    public UserManagementTenantProperties getDefaultTenantProperties() {
-        return getTenantProperties(defaultTenantId);
     }
 }
