@@ -1015,8 +1015,3 @@ Found an issue or want to improve this guide?
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
-
-**Last Updated:** October 2025  
-**Version:** 1.9-MT (Multi-Tenant)
-
-
