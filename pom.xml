@@ -75,7 +75,7 @@
         <sonar-maven-plugin.version>5.1.0.4751</sonar-maven-plugin.version>
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
         <maven-jacoco-plugin.version>0.8.10</maven-jacoco-plugin.version>
-        <org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
+        <org.mapstruct.version>1.6.3</org.mapstruct.version>
         <org.projectlombok.version>1.18.20</org.projectlombok.version>
         <springdoc-openapi-starter-webmvc-ui.version>2.8.5</springdoc-openapi-starter-webmvc-ui.version>
         <security-logging-logback.version>1.1.7</security-logging-logback.version>
