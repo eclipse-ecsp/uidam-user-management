@@ -19,12 +19,12 @@
 package org.eclipse.ecsp.uidam.usermanagement.notification;
 
 import io.prometheus.client.CollectorRegistry;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl.InternalNotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;

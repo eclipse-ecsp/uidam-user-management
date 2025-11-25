@@ -25,6 +25,7 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeExcepti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ import static org.springframework.http.HttpMethod.POST;
  * Class to make uidam authorization server microservice api calls.
  */
 @Service
+@Lazy
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthorizationServerClient {
     @Autowired
@@ -69,8 +71,13 @@ public class AuthorizationServerClient {
         map.add(USERNAME2, username);
         String token = BEARER + authorization;
         try {
+            // Get tenant-specific auth server properties TODO need to revert previous changes
+            String baseUrl = tenantConfigurationService.getTenantProperties().getAuthServer().getHostName();
+            String revokePath = tenantConfigurationService.getTenantProperties().getAuthServer().getRevokeTokenUrl();
+            String fullUrl = baseUrl + revokePath;
+            
             return webClient.method(POST)
-                .uri(tenantConfigurationService.getTenantProperties().getAuthServer().getRevokeTokenUrl())
+                .uri(fullUrl)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .headers(httpHeaders -> httpHeaders.add(HttpHeaders.AUTHORIZATION, token))
                 .body(BodyInserters.fromFormData(map))

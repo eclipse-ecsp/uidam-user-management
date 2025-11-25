@@ -1,6 +1,7 @@
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
 import liquibase.integration.spring.SpringLiquibase;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.slf4j.Logger;
@@ -55,7 +56,7 @@ public class LiquibaseConfig  {
      * @param dataSource            the multi-tenant DataSource
      * @param multiTenantProperties the multi-tenant properties
      */
-    public LiquibaseConfig(@Qualifier("multiTenantDataSource") DataSource dataSource,
+    public LiquibaseConfig(DataSource dataSource,
                           MultiTenantProperties multiTenantProperties) {
         this.dataSource = dataSource;
         this.multiTenantProperties = multiTenantProperties;
@@ -70,8 +71,8 @@ public class LiquibaseConfig  {
      */
     @Bean
     @Primary
+    @DependsOn({"multitenancySystemPropertyConfig", "tenantAwareDataSource"})
     @ConditionalOnProperty(name = "spring.liquibase.enabled", havingValue = "true")
-    @DependsOn("multiTenantDataSource")
     // Bean creation will be skipped when spring.liquibase.enabled=false (e.g., in tests)
     public SpringLiquibase createSchemaForTenant() {
         SpringLiquibase liquibase = new SpringLiquibase();

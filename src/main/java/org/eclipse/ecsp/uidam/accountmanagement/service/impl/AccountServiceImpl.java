@@ -28,6 +28,7 @@ package org.eclipse.ecsp.uidam.accountmanagement.service.impl;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.CreateAccountDto;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.UpdateAccountDto;
@@ -42,7 +43,6 @@ import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.accountmanagement.service.AccountService;
 import org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountSearchSpecification;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
