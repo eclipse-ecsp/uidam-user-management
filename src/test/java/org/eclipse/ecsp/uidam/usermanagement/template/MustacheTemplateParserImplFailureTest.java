@@ -49,6 +49,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestPropertySource(properties = {"template.resolver=file", "template.prefix=./src/test/resources/templates/"},
         locations = "classpath:application-mustache.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class MustacheTemplateParserImplFailureTest {
 
     /**

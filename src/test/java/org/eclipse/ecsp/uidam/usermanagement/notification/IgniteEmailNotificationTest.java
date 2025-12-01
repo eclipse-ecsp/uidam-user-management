@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.usermanagement.notification;
 
 import io.prometheus.client.CollectorRegistry;
 import jakarta.mail.MessagingException;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
@@ -67,6 +68,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestPropertySource(properties = "notification.email.provider=ignite")
 @TestPropertySource("classpath:application-notification.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class IgniteEmailNotificationTest {
 
     @Autowired
@@ -97,13 +103,12 @@ class IgniteEmailNotificationTest {
     }
 
     @BeforeEach
-    @AfterEach
-    public void cleanup() {
-        CollectorRegistry.defaultRegistry.clear();
-    }
-
-    @BeforeEach
     public void setup() {
+        // Clear and set up tenant context for all tests
+        TenantContext.clear();
+        CollectorRegistry.defaultRegistry.clear();
+        TenantContext.setCurrentTenant("ecsp");
+        
         mockRestServiceServer = MockRestServiceServer.bindTo(restTemplate).build();
         
         // Configure the mock TenantConfigurationService
@@ -149,6 +154,12 @@ class IgniteEmailNotificationTest {
         tenantProperties.setNotification(notificationProperties);
         
         org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+    }
+
+    @AfterEach
+    public void cleanup() {
+        CollectorRegistry.defaultRegistry.clear();
+        TenantContext.clear();
     }
 
     @Test

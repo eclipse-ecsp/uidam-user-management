@@ -43,6 +43,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -68,7 +69,10 @@ import static org.mockito.Mockito.when;
 @TestPropertySource("classpath:application-test.properties")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient(timeout = "3600000")
-@Import(TestDataSourceConfig.class)
+@Import({TestDataSourceConfig.class, org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class})
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 class EmailVerificationServiceTest {
 
     private static final long LONG_7L = 7L;

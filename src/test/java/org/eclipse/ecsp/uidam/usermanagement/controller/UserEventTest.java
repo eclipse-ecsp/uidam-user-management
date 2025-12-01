@@ -56,6 +56,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -87,6 +88,10 @@ import static org.mockito.Mockito.when;
 @TestPropertySource("classpath:application-test.properties")
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient(timeout = "3600000")
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class UserEventTest {
     @MockBean
     UsersRepository usersRepository;
@@ -122,6 +127,14 @@ class UserEventTest {
     PasswordPolicyService passwordPolicyService;
     
     private static final long ROLE_ID = 2L;
+
+    @BeforeEach
+    public void setup() {
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
+    }
 
     @BeforeEach
     @AfterEach

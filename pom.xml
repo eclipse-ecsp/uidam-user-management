@@ -490,6 +490,9 @@
                         <include>**/*IT.java</include>
                         <threadCount>1</threadCount>
                     </includes>
+                    <systemPropertyVariables>
+                        <tenant.default>ecsp</tenant.default>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <!-- Jacoco Plugin for Code Coverage -->

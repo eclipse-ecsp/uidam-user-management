@@ -61,6 +61,11 @@ import static org.mockito.Mockito.when;
 @TestPropertySource(properties = "notification.config.resolver=internal")
 @TestPropertySource("classpath:application-notification.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class InternalConfigResolverTest {
 
     @Autowired

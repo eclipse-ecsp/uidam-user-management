@@ -33,6 +33,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -68,6 +69,10 @@ import static org.mockito.Mockito.when;
 @ComponentScan(basePackages = { "org.eclipse.ecsp" })
 @EntityScan("org.eclipse.ecsp")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class UsersControllerIntegrationTest {
 
     private Logger logger = LoggerFactory.getLogger(UsersControllerIntegrationTest.class);
@@ -123,6 +128,11 @@ class UsersControllerIntegrationTest {
     @BeforeAll
     public void init() {
         CollectorRegistry.defaultRegistry.clear();
+        
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
 
         rolesEntities = List.of(addRoles("Bussiness_admin", "BUSSINESS_ADMIN", INDEX_1),
                 addRoles("Guest", "GUEST", INDEX_2), addRoles("Tenant", "TENANT", INDEX_3),

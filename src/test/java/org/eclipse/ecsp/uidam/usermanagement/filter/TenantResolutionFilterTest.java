@@ -84,7 +84,21 @@ class TenantResolutionFilterTest {
     @BeforeEach
     void setUp() throws Exception {
         tenantResolutionFilter = new TenantResolutionFilter(tenantConfigurationService, objectMapper);
+        
+        // Set default multiTenantEnabled=true and defaultTenant="ecsp" for all tests via reflection
+        java.lang.reflect.Field multiTenantField = TenantResolutionFilter.class.getDeclaredField("multiTenantEnabled");
+        multiTenantField.setAccessible(true);
+        multiTenantField.set(tenantResolutionFilter, true);
+        
+        java.lang.reflect.Field defaultTenantField = TenantResolutionFilter.class.getDeclaredField("defaultTenant");
+        defaultTenantField.setAccessible(true);
+        defaultTenantField.set(tenantResolutionFilter, "ecsp");
+        
         TenantContext.clear();
+        // Set a default tenant context for the test setup phase
+        // This will be cleared and reset by each test as needed
+        TenantContext.setCurrentTenant("ecsp");
+        
         // Mock session for all tests - handle both getSession(false) and getSession(true)
         when(request.getSession(false)).thenReturn(session);
         when(request.getSession(true)).thenReturn(session);
@@ -109,11 +123,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(expectedTenant);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -126,11 +147,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(null);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -168,11 +196,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(headerTenant);
         when(tenantConfigurationService.tenantExists(pathTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(pathTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(pathTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -223,11 +258,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(null);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -246,11 +288,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(null);
         when(tenantConfigurationService.tenantExists("default_tenant")).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals("ecsp", TenantContext.getCurrentTenant());
+        // Assert - When multitenancy is disabled, default tenant should be set
+        assertEquals("default_tenant", capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -352,11 +401,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("Authorization")).thenReturn(authHeader);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -379,11 +435,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
         when(tenantConfigurationService.tenantExists(headerTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
         // Assert - should use tenantId header, not Authorization
-        assertEquals(headerTenant, TenantContext.getCurrentTenant());
+        assertEquals(headerTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -407,11 +470,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
         when(tenantConfigurationService.tenantExists(pathTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
         // Assert - should use path tenant, not Authorization
-        assertEquals(pathTenant, TenantContext.getCurrentTenant());
+        assertEquals(pathTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 

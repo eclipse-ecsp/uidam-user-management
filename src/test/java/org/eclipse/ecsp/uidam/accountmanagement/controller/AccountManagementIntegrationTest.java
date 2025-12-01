@@ -61,6 +61,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import java.io.IOException;
@@ -121,6 +122,10 @@ import static org.mockito.Mockito.when;
 @ComponentScan(basePackages = { "org.eclipse.ecsp" })
 @EntityScan("org.eclipse.ecsp")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class AccountManagementIntegrationTest {
 
     private static final int INDEX_0 = 0;
@@ -164,6 +169,10 @@ class AccountManagementIntegrationTest {
     @BeforeEach
     public void init() {
         CollectorRegistry.defaultRegistry.clear();
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
     }
 
     @BeforeAll

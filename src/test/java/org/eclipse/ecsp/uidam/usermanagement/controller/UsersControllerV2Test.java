@@ -73,6 +73,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -143,6 +144,10 @@ import static org.mockito.Mockito.when;
 @EnableJpaRepositories(basePackages = "org.eclipse.ecsp")
 @ComponentScan(basePackages = { "org.eclipse.ecsp" })
 @EntityScan("org.eclipse.ecsp")
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class UsersControllerV2Test {
 
     private static final int HOUR_IN_MS = 3600000;
@@ -202,6 +207,10 @@ class UsersControllerV2Test {
     public void init() {
         MockitoAnnotations.openMocks(this);
         CollectorRegistry.defaultRegistry.clear();
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
         addRolesIntoDb();
     }
 
