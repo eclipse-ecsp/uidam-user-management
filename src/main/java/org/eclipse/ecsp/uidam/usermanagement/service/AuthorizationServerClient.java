@@ -71,7 +71,7 @@ public class AuthorizationServerClient {
         map.add(USERNAME2, username);
         String token = BEARER + authorization;
         try {
-            // Get tenant-specific auth server properties TODO need to revert previous changes
+            // Get tenant-specific auth server properties DOTO need to revert previous changes
             String baseUrl = tenantConfigurationService.getTenantProperties().getAuthServer().getHostName();
             String revokePath = tenantConfigurationService.getTenantProperties().getAuthServer().getRevokeTokenUrl();
             String fullUrl = baseUrl + revokePath;

@@ -37,6 +37,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LiquibaseConfigTest {
 
+    // Static initializer to set system property before tests run
+    static {
+        System.setProperty("multitenancy.enabled", "true");
+        System.setProperty("tenant.default", "ecsp");
+    }
+
     @AfterEach
     void tearDown() {
         TenantContext.clear();

@@ -23,6 +23,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
+import org.eclipse.ecsp.uidam.usermanagement.config.TestDataSourceConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.entity.EmailVerificationEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAddressEntity;
@@ -39,6 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -66,6 +68,7 @@ import static org.mockito.Mockito.when;
 @TestPropertySource("classpath:application-test.properties")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient(timeout = "3600000")
+@Import(TestDataSourceConfig.class)
 class EmailVerificationServiceTest {
 
     private static final long LONG_7L = 7L;
@@ -81,9 +84,7 @@ class EmailVerificationServiceTest {
     @MockBean
     private EmailNotificationService emailNotificationService;
     @MockBean
-    UidamAuthTokenGenerator uidamAuthTokenGenerator;
-    @MockBean
-    AuthorizationServerClient authorizationServerClient;
+    UidamAuthTokenGenerator authorizationServerClient;
 
     @MockBean
     AccountRepository accountRepository;

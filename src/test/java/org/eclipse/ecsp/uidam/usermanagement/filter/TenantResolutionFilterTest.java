@@ -52,6 +52,12 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("test")
 class TenantResolutionFilterTest {
 
+    // Static initializer to set system property before tests run
+    static {
+        System.setProperty("multitenancy.enabled", "true");
+        System.setProperty("tenant.default", "ecsp");
+    }
+
     @Mock
     private TenantConfigurationService tenantConfigurationService;
 

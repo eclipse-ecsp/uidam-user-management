@@ -52,7 +52,7 @@ import java.util.Properties;
  * Each tenant requires: - postgres.jdbc.url: JDBC connection URL - postgres.username: Database username -
  * postgres.password: Database password - postgres.driver.class.name: JDBC driver (defaults to PostgreSQL)
  */
-//@Configuration TODO to be removed after testing
+//@Configuration DOTO to be removed after testing
 @Profile("!test")
 public class MultiTenantDatabaseConfig {
 

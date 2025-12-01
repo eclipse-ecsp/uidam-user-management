@@ -138,7 +138,7 @@ public abstract class BaseApplication {
         } catch (SSLException e) {
             LOGGER.error("Error encountered ", e);
         }
-        //TODO need revert previous changes
+        //DOTO need revert previous changes
         // Don't set baseUrl here - it will be set per-request in the services
         // This avoids tenant context access during bean initialization
         return WebClient.builder()
