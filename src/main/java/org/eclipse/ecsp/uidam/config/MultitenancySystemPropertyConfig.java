@@ -30,38 +30,45 @@
 
 package org.eclipse.ecsp.uidam.config;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.ConfigurableEnvironment;
-
+import javax.annotation.PostConstruct;
 /**
- * Environment post-processor to bridge Spring application properties to System properties
+ * Configuration class to bridge Spring application properties to System properties
  * for multitenancy support.
  * This is necessary because the sql-dao library reads multitenancy.enabled from
  * System properties, while the application defines it in application.properties.
- * This class implements EnvironmentPostProcessor to ensure it runs very early in the
- * Spring Boot lifecycle, before any @Configuration classes are loaded, including
- * database configurations from the sql-dao library.
- * Note: This class must be registered in META-INF/spring.factories to be discovered
- * by Spring Boot.
  */
+
 @Configuration
-public class MultitenancySystemPropertyConfig implements EnvironmentPostProcessor {
+public class MultitenancySystemPropertyConfig {
 
-    private static final String MULTITENANCY_ENABLED_PROPERTY = "multitenancy.enabled";
-    private static final String DEFAULT_VALUE = "false";
+    @Value("${multitenancy.enabled:true}")
+    private boolean sqlMultitenancyEnabled;
 
-    @Override
-    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        // Read the property from Spring Environment (application.properties, etc.)
-        String multitenancyEnabled = environment.getProperty(MULTITENANCY_ENABLED_PROPERTY, DEFAULT_VALUE);
-        
-        // Set it as a System property so sql-dao library can read it
-        System.setProperty(MULTITENANCY_ENABLED_PROPERTY, multitenancyEnabled);
-        
-        // Log the initialization (optional, but helpful for debugging)
-        System.out.println("MultitenancySystemPropertyConfig: Set system property " 
-            + MULTITENANCY_ENABLED_PROPERTY + "=" + multitenancyEnabled);
+    @Value("${tenant.multitenant.enabled:false}")
+    private boolean tenantMultitenancyEnabled;
+
+    @Value("${tenant.ids:}")
+    private String tenantIds;
+
+    @Value("${tenant.default:default}")
+    private String defaultTenantId;
+
+    /**
+     * Initializes system properties for multitenancy configuration.
+     * This method is called after dependency injection to set system properties
+     * that are read by the sql-dao library for tenant-based data source routing.
+     * Sets multi.tenant.ids based on whether multitenancy is enabled or disabled.
+     */
+    @PostConstruct
+    public void init() {
+        // Set the system property so that sql-dao's TenantRoutingDataSource can read it
+        System.setProperty("multitenancy.enabled", String.valueOf(sqlMultitenancyEnabled));
+        if (tenantMultitenancyEnabled) {
+            System.setProperty("multi.tenant.ids", tenantIds);
+        } else {
+            System.setProperty("multi.tenant.ids", defaultTenantId);
+        }
     }
 }
