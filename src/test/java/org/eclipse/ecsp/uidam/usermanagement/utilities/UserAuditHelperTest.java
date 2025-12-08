@@ -149,7 +149,8 @@ class UserAuditHelperTest {
     @Test
     void testLogUserCreatedAudit_AdminCreation() {
         // When
-        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false, accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false,
+                                           accountIdToNameMapping, roleIdToNameMapping);
 
         // Then
         verify(auditLogger, times(1)).logWithStateChange(
@@ -174,15 +175,19 @@ class UserAuditHelperTest {
     @Test
     void testLogUserCreatedAudit_ExceptionHandling() {
         // Given
-        doThrow(new RuntimeException("Test exception")).when(auditLogger).logWithStateChange(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
-        );
+        doThrow(new RuntimeException("Test exception"))
+            .when(auditLogger)
+            .logWithStateChange(any(), any(), any(), any(), any(), any(), any(),
+                              any(), any(), any(), any());
 
         // When - should not throw exception
-        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false, accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false,
+                                           accountIdToNameMapping, roleIdToNameMapping);
 
         // Then - exception is logged, not thrown
-        verify(auditLogger, times(1)).logWithStateChange(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(auditLogger, times(1)).logWithStateChange(any(), any(), any(), any(),
+                                                         any(), any(), any(), any(),
+                                                         any(), any(), any());
     }
 
     @Test
@@ -191,7 +196,8 @@ class UserAuditHelperTest {
         String beforeValue = "{\"status\":\"ACTIVE\"}";
 
         // When
-        userAuditHelper.logUserUpdatedAudit(testUser, testUser.getId(), beforeValue, true, accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logUserUpdatedAudit(testUser, testUser.getId(), beforeValue, true,
+                                           accountIdToNameMapping, roleIdToNameMapping);
 
         // Then
         verify(auditLogger, times(1)).logWithStateChange(
@@ -218,7 +224,8 @@ class UserAuditHelperTest {
         String beforeValue = "{\"status\":\"ACTIVE\"}";
 
         // When
-        userAuditHelper.logUserUpdatedAudit(testUser, loggedInUserId, beforeValue, false, accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logUserUpdatedAudit(testUser, loggedInUserId, beforeValue, false,
+                                           accountIdToNameMapping, roleIdToNameMapping);
 
         // Then
         verify(auditLogger, times(1)).logWithStateChange(
@@ -292,7 +299,8 @@ class UserAuditHelperTest {
         UserStatus newStatus = UserStatus.DEACTIVATED;
 
         // When
-        userAuditHelper.logUserStatusChangedAudit(testUser, loggedInUserId, oldStatus, newStatus, accountIdToNameMapping);
+        userAuditHelper.logUserStatusChangedAudit(testUser, loggedInUserId, oldStatus,
+                                                 newStatus, accountIdToNameMapping);
 
         // Then
         ArgumentCaptor<String> beforeValueCaptor = ArgumentCaptor.forClass(String.class);
@@ -418,7 +426,8 @@ class UserAuditHelperTest {
         RequestContextHolder.resetRequestAttributes();
 
         // When - should still work without HTTP request
-        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false, accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false,
+                                           accountIdToNameMapping, roleIdToNameMapping);
 
         // Then
         verify(auditLogger, times(1)).logWithStateChange(
@@ -438,7 +447,8 @@ class UserAuditHelperTest {
         roleIdToNameMapping.put(new BigInteger("201"), "Second Role");
 
         // When
-        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false, accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logUserCreatedAudit(testUser, loggedInUserId, false,
+                                           accountIdToNameMapping, roleIdToNameMapping);
 
         // Then
         ArgumentCaptor<String> afterValueCaptor = ArgumentCaptor.forClass(String.class);
