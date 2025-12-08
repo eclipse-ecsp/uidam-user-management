@@ -131,6 +131,9 @@ class AccountServiceTest {
 
     @MockBean
     private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
+    
+    @MockBean
+    private org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
 
     private static final String USER_DEFAULT_ACCOUNTID = "112313385530649019824702444100150";
 
@@ -147,7 +150,7 @@ class AccountServiceTest {
         when(accountRepository.findByAccountName(USER_DEFAULT_ACCOUNT)).thenReturn(Optional.of(accountEntity));
         
         accountsService = new AccountServiceImpl(accountRepository, rolesService, tenantConfigurationService,
-                userAccountRoleMappingRepository);
+                userAccountRoleMappingRepository, accountAuditHelper);
         // Note: postConstruct() method was replaced with lazy loading cache
         // No need to call postConstruct() anymore as account ID is resolved on-demand
     }

@@ -42,6 +42,9 @@ class DeleteAccountControllerTest {
 
     @MockBean
     private AccountService accountService;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
 
     @BeforeEach
     @AfterEach

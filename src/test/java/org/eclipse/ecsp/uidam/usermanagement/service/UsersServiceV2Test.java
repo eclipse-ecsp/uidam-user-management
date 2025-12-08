@@ -174,6 +174,9 @@ class UsersServiceV2Test {
     
     @MockBean
     PasswordPolicyRepository passwordPolicyRepository;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @MockBean
     UidamMetricsService uidamMetricsService;

@@ -84,6 +84,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @MockBean(JpaMetamodelMappingContext.class)
 class AccountControllerTest {
 
+    @MockBean
+    org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
+
     private static final BigInteger ACCOUNT_ID_VALUE = new BigInteger("145911385530649019822702644100150");
 
     @Autowired

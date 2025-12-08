@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 - 2024 Harman International
+ * Copyright (c) 2024 - 2025 Harman International
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,26 +13,27 @@
  * limitations under the License.
  *
  * SPDX-License-Identifier: Apache-2.0
- *
  */
 
-package org.eclipse.ecsp.uidam.usermanagement.auth.request.dto;
+package org.eclipse.ecsp.audit.context;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotEmpty;
-import lombok.Getter;
-import lombok.Setter;
-import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
-import java.util.Set;
+import java.util.Map;
 
 /**
- * pojo class for scope filter request.
+ * Actor Context - Contains information about the entity performing the action.
+ * Implementations should return JSON-serializable data.
+ * PII fields will be automatically masked before database storage.
+ *
+ * @version 2.0.0
+ * @since 1.2.0
  */
-@Getter
-@Setter
-public class ScopesFilterRequest {
-
-    @JsonProperty("scopes")
-    private Set<String> scopes;
-
+public interface ActorContext {
+    
+    /**
+     * Get actor context as a map for JSON serialization.
+     * PII fields in this map will be automatically masked.
+     *
+     * @return map of actor context data
+     */
+    Map<String, Object> toMap();
 }

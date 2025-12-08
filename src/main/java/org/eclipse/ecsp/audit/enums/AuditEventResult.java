@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 - 2024 Harman International
+ * Copyright (c) 2024 - 2025 Harman International
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,26 +13,24 @@
  * limitations under the License.
  *
  * SPDX-License-Identifier: Apache-2.0
- *
  */
 
-package org.eclipse.ecsp.uidam.usermanagement.auth.request.dto;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotEmpty;
-import lombok.Getter;
-import lombok.Setter;
-import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
-import java.util.Set;
+package org.eclipse.ecsp.audit.enums;
 
 /**
- * pojo class for scope filter request.
+ * Audit Event Result - Indicates the outcome of the audited event.
+ *
+ * @version 2.0.0
+ * @since 1.2.0
  */
-@Getter
-@Setter
-public class ScopesFilterRequest {
-
-    @JsonProperty("scopes")
-    private Set<String> scopes;
-
+public enum AuditEventResult {
+    
+    /** Event completed successfully. */
+    SUCCESS,
+    
+    /** Event failed. */
+    FAILURE,
+    
+    /** Event partially succeeded (some operations failed). */
+    PARTIAL_SUCCESS
 }
