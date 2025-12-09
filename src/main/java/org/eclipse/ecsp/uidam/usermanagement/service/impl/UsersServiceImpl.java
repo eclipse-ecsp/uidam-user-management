@@ -2153,6 +2153,10 @@ public class UsersServiceImpl implements UsersService {
         userRecoverySecret.setRecoverySecret(recoverySecret);
         userRecoverySecret.setUserId(userEntity.getId());
         userRecoverySecretRepository.save(userRecoverySecret);
+        
+        // Audit log: Self-service password reset requested
+        userAuditHelper.logPasswordResetRequestedAudit(userEntity, recoverySecret, accountIdToNameMapping);
+        
         uidamMetricsService.incrementCounter(MetricInfo.builder()
                 .uidamMetrics(UidamMetrics.TOTAL_FORGOT_PASSWORD_BY_USER)
                 .build());

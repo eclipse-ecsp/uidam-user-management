@@ -462,4 +462,68 @@ class UserAuditHelperTest {
         assertThat(afterValue).contains("Test Account");
         assertThat(afterValue).contains("Second Account");
     }
+
+    @Test
+    void testLogPasswordResetRequestedAudit_Success() {
+        // Given
+        String recoverySecret = "test-recovery-secret-uuid";
+
+        // When
+        userAuditHelper.logPasswordResetRequestedAudit(testUser, recoverySecret, accountIdToNameMapping);
+
+        // Then
+        verify(auditLogger, times(1)).logWithStateChange(
+            eventTypeCaptor.capture(),
+            componentCaptor.capture(),
+            eq(SUCCESS),
+            descriptionCaptor.capture(),
+            any(), // actorContext
+            any(), // targetContext
+            any(), // requestContext
+            eq(null), // beforeState
+            eq(null), // beforeValue
+            any(), // afterValue
+            eq(null) // additionalInfo
+        );
+
+        assertThat(eventTypeCaptor.getValue())
+            .isEqualTo(AuditEventType.SELF_PASSWORD_RESET_REQUESTED.getType());
+        assertThat(componentCaptor.getValue()).isEqualTo(ApiConstants.COMPONENT_NAME);
+        assertThat(descriptionCaptor.getValue())
+            .isEqualTo(AuditEventType.SELF_PASSWORD_RESET_REQUESTED.getDescription());
+    }
+
+    @Test
+    void testLogPasswordResetRequestedAudit_CapturesAfterValue() {
+        // Given
+        String recoverySecret = "test-secret";
+
+        // When
+        userAuditHelper.logPasswordResetRequestedAudit(testUser, recoverySecret, accountIdToNameMapping);
+
+        // Then
+        ArgumentCaptor<String> afterValueCaptor = ArgumentCaptor.forClass(String.class);
+        verify(auditLogger).logWithStateChange(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), afterValueCaptor.capture(), any()
+        );
+
+        String afterValue = afterValueCaptor.getValue();
+        assertThat(afterValue).contains("\"recoverySecretGenerated\":true");
+        assertThat(afterValue).contains("\"email\":\"test@example.com\"");
+    }
+
+    @Test
+    void testLogPasswordResetRequestedAudit_HandlesException() {
+        // Given
+        doThrow(new RuntimeException("Test exception"))
+            .when(auditLogger).logWithStateChange(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        // When - should not throw exception
+        userAuditHelper.logPasswordResetRequestedAudit(testUser, "secret", accountIdToNameMapping);
+
+        // Then
+        verify(auditLogger, times(1)).logWithStateChange(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
 }

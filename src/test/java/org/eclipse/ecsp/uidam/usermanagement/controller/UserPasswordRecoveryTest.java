@@ -117,6 +117,9 @@ class UserPasswordRecoveryTest {
     @MockBean
     PasswordPolicyService passwordPolicyService;
     
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
+    
     @BeforeEach 
     @AfterEach
     public void cleanup() {
@@ -138,6 +141,7 @@ class UserPasswordRecoveryTest {
                 .thenReturn(userRecoverySecret);
         when(usersRepository.findByIdAndStatusNot(userRecoverySecret.getUserId(), UserStatus.DELETED))
                 .thenReturn(getUserEntity());
+        when(usersRepository.save(any(UserEntity.class))).thenReturn(getUserEntity());
         when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
         when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRE_IN_MINUTES);
         when(tenantProperties.getPasswordEncoder()).thenReturn(PASSWORD_ENCODER);

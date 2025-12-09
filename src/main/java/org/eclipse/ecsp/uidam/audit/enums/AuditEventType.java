@@ -45,7 +45,6 @@ public enum AuditEventType {
     ADMIN_USER_DELETED("ADMIN_USER_DELETED", "Administrator deleted a user"),
     ADMIN_USER_STATUS_CHANGED("ADMIN_USER_STATUS_CHANGED", "Administrator changed user status"),
     ADMIN_USER_ROLE_CHANGED("ADMIN_USER_ROLE_CHANGED", "Administrator changed user roles"),
-    ADMIN_USER_PASSWORD_RESET("ADMIN_USER_PASSWORD_RESET", "Administrator reset user password"),
     ADMIN_USER_ACCOUNT_ASSOCIATED("ADMIN_USER_ACCOUNT_ASSOCIATED", "Administrator associated user with account"),
     
     // ========== Account Management Events ==========

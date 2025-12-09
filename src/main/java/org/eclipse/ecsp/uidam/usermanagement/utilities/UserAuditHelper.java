@@ -262,6 +262,42 @@ public class UserAuditHelper {
     }
     
     /**
+     * Log audit event for password reset request (self-service).
+     */
+    public void logPasswordResetRequestedAudit(UserEntity user, String recoverySecret,
+                                               Map<BigInteger, String> accountIdToNameMapping) {
+        try {
+            AuditEventType eventType = AuditEventType.SELF_PASSWORD_RESET_REQUESTED;
+            
+            UserActorContext actorContext = buildUserActorContext(user, accountIdToNameMapping);
+            UserTargetContext targetContext = buildUserTargetContext(user, accountIdToNameMapping);
+            HttpRequestContext requestContext = buildHttpRequestContext();
+            
+            String afterValue = "{\"recoverySecretGenerated\":true,\"email\":\"" 
+                + user.getEmail() + "\"}";
+            
+            auditLogger.logWithStateChange(
+                eventType.getType(),
+                ApiConstants.COMPONENT_NAME,
+                SUCCESS,
+                eventType.getDescription(),
+                actorContext,
+                targetContext,
+                requestContext,
+                null,
+                null,
+                afterValue,
+                null
+            );
+            
+            LOGGER.debug("Audit log created for password reset request: userId={}", user.getId());
+        } catch (Exception e) {
+            LOGGER.error("Failed to create audit log for password reset request: userId={}, error={}", 
+                user.getId(), e.getMessage(), e);
+        }
+    }
+    
+    /**
      * Build UserActorContext from UserEntity.
      */
     private UserActorContext buildUserActorContext(UserEntity user, Map<BigInteger, String> accountIdToNameMapping) {
