@@ -22,7 +22,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;

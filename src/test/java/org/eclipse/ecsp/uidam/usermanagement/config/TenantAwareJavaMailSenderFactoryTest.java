@@ -18,6 +18,7 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;

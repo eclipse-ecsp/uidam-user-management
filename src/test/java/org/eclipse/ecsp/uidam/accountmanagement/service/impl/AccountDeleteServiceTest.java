@@ -18,6 +18,7 @@
 
 package org.eclipse.ecsp.uidam.accountmanagement.service.impl;
 
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants;
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
@@ -33,6 +34,7 @@ import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -110,8 +112,12 @@ class AccountDeleteServiceTest {
     private static final String USER_DEFAULT_ACCOUNTID = "112313385530649019824702444100150";
 
     @BeforeEach
-    public void setupTenantConfiguration() {
+    public void setupTenantConfiguration() throws Exception {
         MockitoAnnotations.openMocks(this);
+        
+        // Set tenant context for all tests
+        TenantContext.setCurrentTenant("ecsp");
+        
         AccountEntity accountEntity = new AccountEntity();
         accountEntity.setId(new BigInteger(USER_DEFAULT_ACCOUNTID));
         accountEntity.setAccountName(USER_DEFAULT_ACCOUNT);
@@ -125,6 +131,12 @@ class AccountDeleteServiceTest {
                 userAccountRoleMappingRepository);
         // Note: postConstruct() method was replaced with lazy loading cache
         // No need to call postConstruct() anymore as account ID is resolved on-demand
+    }
+
+    @AfterEach
+    public void cleanup() {
+        // Clear tenant context after each test to prevent memory leaks
+        TenantContext.clear();
     }
 
     @Test

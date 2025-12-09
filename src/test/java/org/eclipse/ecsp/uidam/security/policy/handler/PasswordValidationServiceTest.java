@@ -62,7 +62,8 @@ class PasswordValidationServiceTest {
         when(handlerFactory.createHandler(policy1)).thenReturn(handler1);
         when(handlerFactory.createHandler(policy2)).thenReturn(handler2);
 
-        passwordValidationService.loadPolicies();
+        // Call refreshPolicies instead of loadPolicies since loadPolicies is commented out
+        passwordValidationService.refreshPolicies();
 
         verify(handlerFactory).createHandler(policy1);
         verify(handlerFactory).createHandler(policy2);

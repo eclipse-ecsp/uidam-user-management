@@ -19,10 +19,10 @@
 package org.eclipse.ecsp.uidam.usermanagement.template;
 
 import io.prometheus.client.CollectorRegistry;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
@@ -52,6 +52,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(classes = MustacheTemplateParserImplTest.AppConfig.class)
 @TestPropertySource("classpath:application-thymeleaf.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class ThymeleafTemplateParserImplTest {
 
     /**

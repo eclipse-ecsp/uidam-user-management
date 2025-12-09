@@ -18,6 +18,7 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,6 +36,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * without requiring the full Spring configuration context.
  */
 class LiquibaseConfigTest {
+
+    // Static initializer to set system property before tests run
+    static {
+        System.setProperty("multitenancy.enabled", "true");
+        System.setProperty("tenant.default", "ecsp");
+    }
 
     @AfterEach
     void tearDown() {
@@ -60,28 +67,28 @@ class LiquibaseConfigTest {
     }
 
     @Test
-    void tenantContext_shouldClearTenant() {
+    void tenantContext_shouldClearTenant() throws Exception {
         // Arrange
         TenantContext.setCurrentTenant("test");
 
         // Act
         TenantContext.clear();
 
-        // Assert - Should return null after clear (no default tenant)
-        String currentTenant = TenantContext.getCurrentTenant();
-        assertEquals("ecsp", currentTenant); // No tenant after clear
+        // Assert - Should throw exception when tenant is not set after clear
+        assertThrows(org.eclipse.ecsp.sql.exception.TenantNotFoundException.class, () -> {
+            TenantContext.getCurrentTenant();
+        });
     }
 
     @Test
-    void tenantContext_shouldReturnDefaultWhenNotSet() {
+    void tenantContext_shouldReturnDefaultWhenNotSet() throws Exception {
         // Arrange - Ensure context is clear
         TenantContext.clear();
 
-        // Act
-        String currentTenant = TenantContext.getCurrentTenant();
-
-        // Assert - Should return null when no tenant is set
-        assertEquals("ecsp", currentTenant); // No default tenant
+        // Assert - Should throw exception when no tenant is set
+        assertThrows(org.eclipse.ecsp.sql.exception.TenantNotFoundException.class, () -> {
+            TenantContext.getCurrentTenant();
+        });
     }
 
     @ParameterizedTest
@@ -168,7 +175,7 @@ class LiquibaseConfigTest {
     }
 
     @Test
-    void mdcCleanup_shouldBeClearedOnTenantContextClear() {
+    void mdcCleanup_shouldBeClearedOnTenantContextClear() throws Exception {
         try {
             // Setup - Simulate MDC being set (as done in LiquibaseConfig)
             MDC.put("tenantId", "test");
@@ -182,8 +189,10 @@ class LiquibaseConfigTest {
             TenantContext.clear();
             MDC.clear(); // This simulates the cleanup in the actual implementation
 
-            // Assert - Should return null when no tenant is set
-            assertEquals("ecsp", TenantContext.getCurrentTenant()); // No tenant after clear
+            // Assert - Should throw exception when no tenant is set after clear
+            assertThrows(org.eclipse.ecsp.sql.exception.TenantNotFoundException.class, () -> {
+                TenantContext.getCurrentTenant();
+            });
             assertEquals(null, MDC.get("tenantId")); // MDC cleared
         } finally {
             TenantContext.clear();
