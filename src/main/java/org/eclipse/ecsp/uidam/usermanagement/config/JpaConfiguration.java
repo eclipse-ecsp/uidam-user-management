@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 - 2024 Harman International
+ * Copyright (c) 2023 Harman International
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,23 +16,17 @@
  *
  */
 
-package org.eclipse.ecsp.uidam.usermanagement.auth.request.dto;
+package org.eclipse.ecsp.uidam.usermanagement.config;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotEmpty;
-import lombok.Getter;
-import lombok.Setter;
-import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
-import java.util.Set;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
- * pojo class for scope filter request.
+ * JPA Configuration for repository and entity scanning.
  */
-@Getter
-@Setter
-public class ScopesFilterRequest {
-
-    @JsonProperty("scopes")
-    private Set<String> scopes;
-
+@Configuration
+@EnableJpaRepositories(basePackages = {"org.eclipse.ecsp"})
+@EntityScan(basePackages = {"org.eclipse.ecsp"})
+public class JpaConfiguration {
 }

@@ -69,6 +69,9 @@ class EmailVerificationControllerTest {
 
     @MockBean
     private TenantConfigurationService tenantConfigurationService;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @Autowired
     private ApplicationContext applicationContext;
