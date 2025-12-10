@@ -1013,6 +1013,10 @@ public class UsersServiceImpl implements UsersService {
                 acRoleMaps = validateAndCreateAccountRoleMappings(loggedInUserId,
                     user, accountOperations, objectMapper);
             }
+            // Capture account-role mappings before modifications for audit
+            final String beforeAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(user, 
+                accountIdToNameMapping, roleIdToNameMapping);
+            
             UserEntity userEntity = applyPatchToUser(JsonPatch.fromJson(objectMapper.valueToTree(operations)), user);
             // Capture before value for audit
             String beforeValue = userAuditHelper.buildUserStateJson(user, accountIdToNameMapping, roleIdToNameMapping);
@@ -1026,6 +1030,14 @@ public class UsersServiceImpl implements UsersService {
             // Audit log: User updated
             userAuditHelper.logUserUpdatedAudit(savedUser, loggedInUserId, beforeValue, 
                 loggedInUserId.equals(userId), accountIdToNameMapping, roleIdToNameMapping);
+            
+            // Audit log: Account-role associations changed (only if modified)
+            String afterAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(savedUser, 
+                accountIdToNameMapping, roleIdToNameMapping);
+            if (!Objects.equals(beforeAccountRoleValue, afterAccountRoleValue)) {
+                userAuditHelper.logAccountRoleChangedAudit(savedUser, loggedInUserId, 
+                    beforeAccountRoleValue, afterAccountRoleValue, accountIdToNameMapping);
+            }
         } catch (JsonPatchException | IOException e) {
             throw new ApplicationRuntimeException(FIELD_DATA_IS_INVALID, BAD_REQUEST, String.valueOf(e.getMessage()));
         }
@@ -2458,12 +2470,23 @@ public class UsersServiceImpl implements UsersService {
 
         validateAllInputsForAssociation(loggedInUserId, associationRequest, userId, roleNameAndIdMap);
 
+        // Capture account-role mappings before modifications for audit
+        String beforeAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(userEntity, 
+            accountIdToNameMapping, roleIdToNameMapping);
+
         List<UserAccountRoleMappingEntity> acRoleMaps = prepareAccountRoleMappings(loggedInUserId,
             associationRequest, userEntity, roleNameAndIdMap);
         userEntity.getAccountRoleMapping().clear();
         userEntity.getAccountRoleMapping().addAll(acRoleMaps);
-        userRepository.save(userEntity);
-        return createAssociateAccountAndRolesResponse(userEntity);
+        UserEntity savedUser = userRepository.save(userEntity);
+        
+        // Audit log: Account-role associations changed
+        String afterAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(savedUser, 
+            accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logAccountRoleChangedAudit(savedUser, loggedInUserId, 
+            beforeAccountRoleValue, afterAccountRoleValue, accountIdToNameMapping);
+        
+        return createAssociateAccountAndRolesResponse(savedUser);
     }
 
     /**
@@ -2514,6 +2537,10 @@ public class UsersServiceImpl implements UsersService {
             throw new UserAccountRoleMappingException(USER_ACCOUNT_ROLE_ASSOCIATION_CODE,
                 INVALID_ACCOUNT_ID_AND_ROLES_ERROR_MESSGAE, errorPropertyList, BAD_REQUEST);
         }
+
+        // Populate instance-level mappings for audit logging
+        rolesEntityList.forEach(role -> roleIdToNameMapping.put(role.getId(), role.getName()));
+        accountEntityList.forEach(account -> accountIdToNameMapping.put(account.getId(), account.getAccountName()));
 
         //All roles are valid. Now check if the logged in user is permitted to do this operation.
         if (!roleNameSet.isEmpty()) {

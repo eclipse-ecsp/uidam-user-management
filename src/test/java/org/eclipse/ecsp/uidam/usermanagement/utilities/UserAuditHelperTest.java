@@ -526,4 +526,142 @@ class UserAuditHelperTest {
         verify(auditLogger, times(1)).logWithStateChange(
             any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
+
+    @Test
+    void testLogAccountRoleChangedAudit_Success() {
+        // Given
+        String beforeValue = "{\"accountRoleMappings\":[{\"accountId\":\"1\",\"accountName\":\"Account1\","
+            + "\"roleId\":\"10\",\"roleName\":\"Role1\"}]}";
+        String afterValue = "{\"accountRoleMappings\":[{\"accountId\":\"1\",\"accountName\":\"Account1\","
+            + "\"roleId\":\"10\",\"roleName\":\"Role1\"},{\"accountId\":\"1\",\"accountName\":\"Account1\","
+            + "\"roleId\":\"11\",\"roleName\":\"Role2\"}]}";
+
+        // When
+        userAuditHelper.logAccountRoleChangedAudit(testUser, loggedInUserId, beforeValue, afterValue,
+            accountIdToNameMapping);
+
+        // Then
+        verify(auditLogger).logWithStateChange(
+            eventTypeCaptor.capture(),
+            componentCaptor.capture(),
+            eq(SUCCESS),
+            descriptionCaptor.capture(),
+            any(), // actorContext
+            any(), // targetContext
+            any(), // requestContext
+            eq(null), // beforeState
+            eq(beforeValue),
+            eq(afterValue),
+            eq(null) // additionalInfo
+        );
+
+        assertThat(eventTypeCaptor.getValue())
+            .isEqualTo(AuditEventType.ADMIN_USER_ACCOUNT_ROLE_CHANGED.getType());
+        assertThat(componentCaptor.getValue()).isEqualTo(ApiConstants.COMPONENT_NAME);
+        assertThat(descriptionCaptor.getValue())
+            .isEqualTo(AuditEventType.ADMIN_USER_ACCOUNT_ROLE_CHANGED.getDescription());
+    }
+
+    @Test
+    void testLogAccountRoleChangedAudit_HandlesException() {
+        // Given
+        doThrow(new RuntimeException("Test exception"))
+            .when(auditLogger).logWithStateChange(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        // When - should not throw exception
+        userAuditHelper.logAccountRoleChangedAudit(testUser, loggedInUserId, 
+            "{\"before\":\"value\"}", "{\"after\":\"value\"}", accountIdToNameMapping);
+
+        // Then
+        verify(auditLogger, times(1)).logWithStateChange(
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void testBuildAccountRoleMappingsJson_WithMappings() {
+        // Given - testUser already has account role mappings from setUp
+
+        // When
+        String json = userAuditHelper.buildAccountRoleMappingsJson(testUser, accountIdToNameMapping,
+            roleIdToNameMapping);
+
+        // Then
+        assertThat(json).isNotNull();
+        assertThat(json).contains("accountRoleMappings");
+        assertThat(json).contains("accountId");
+        assertThat(json).contains("accountName");
+        assertThat(json).contains("roleId");
+        assertThat(json).contains("roleName");
+        assertThat(json).contains("Test Account");
+        assertThat(json).contains("Test Role");
+    }
+
+    @Test
+    void testBuildAccountRoleMappingsJson_EmptyMappings() {
+        // Given
+        UserEntity userWithoutMappings = new UserEntity();
+        userWithoutMappings.setId(new BigInteger("99999"));
+        userWithoutMappings.setAccountRoleMapping(new ArrayList<>());
+
+        // When
+        String json = userAuditHelper.buildAccountRoleMappingsJson(userWithoutMappings, 
+            accountIdToNameMapping, roleIdToNameMapping);
+
+        // Then
+        assertThat(json).isEqualTo("{}");
+    }
+
+    @Test
+    void testBuildAccountRoleMappingsJson_NullMappings() {
+        // Given
+        UserEntity userWithNullMappings = new UserEntity();
+        userWithNullMappings.setId(new BigInteger("88888"));
+        userWithNullMappings.setAccountRoleMapping(null);
+
+        // When
+        String json = userAuditHelper.buildAccountRoleMappingsJson(userWithNullMappings, 
+            accountIdToNameMapping, roleIdToNameMapping);
+
+        // Then
+        assertThat(json).isEqualTo("{}");
+    }
+
+    @Test
+    void testBuildAccountRoleMappingsJson_MultipleRoles() {
+        // Given
+        // Add additional mappings to existing mapping dictionaries
+        accountIdToNameMapping.put(new BigInteger("101"), "Account1");
+        accountIdToNameMapping.put(new BigInteger("102"), "Account2");
+        roleIdToNameMapping.put(new BigInteger("201"), "Role1");
+        roleIdToNameMapping.put(new BigInteger("202"), "Role2");
+        roleIdToNameMapping.put(new BigInteger("203"), "Role3");
+
+        UserAccountRoleMappingEntity mapping1 = new UserAccountRoleMappingEntity();
+        mapping1.setAccountId(new BigInteger("101"));
+        mapping1.setRoleId(new BigInteger("201"));
+
+        UserAccountRoleMappingEntity mapping2 = new UserAccountRoleMappingEntity();
+        mapping2.setAccountId(new BigInteger("101"));
+        mapping2.setRoleId(new BigInteger("202"));
+
+        UserAccountRoleMappingEntity mapping3 = new UserAccountRoleMappingEntity();
+        mapping3.setAccountId(new BigInteger("102"));
+        mapping3.setRoleId(new BigInteger("203"));
+
+        List<UserAccountRoleMappingEntity> mappings = List.of(mapping1, mapping2, mapping3);
+        testUser.setAccountRoleMapping(mappings);
+
+        // When
+        String json = userAuditHelper.buildAccountRoleMappingsJson(testUser, accountIdToNameMapping,
+            roleIdToNameMapping);
+
+        // Then
+        assertThat(json).contains("Account1");
+        assertThat(json).contains("Account2");
+        assertThat(json).contains("Role1");
+        assertThat(json).contains("Role2");
+        assertThat(json).contains("Role3");
+    }
 }
+

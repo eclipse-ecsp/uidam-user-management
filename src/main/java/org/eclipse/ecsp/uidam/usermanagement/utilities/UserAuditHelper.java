@@ -298,6 +298,74 @@ public class UserAuditHelper {
     }
     
     /**
+     * Log audit event for account-role association changes (admin operation).
+     * This captures both V1 (roles only) and V2 (explicit account-role) changes.
+     */
+    public void logAccountRoleChangedAudit(UserEntity user, BigInteger loggedInUserId,
+                                           String beforeValue, String afterValue,
+                                           Map<BigInteger, String> accountIdToNameMapping) {
+        try {
+            AuditEventType eventType = AuditEventType.ADMIN_USER_ACCOUNT_ROLE_CHANGED;
+            
+            UserActorContext actorContext = buildAdminActorContext(loggedInUserId, accountIdToNameMapping);
+            UserTargetContext targetContext = buildUserTargetContext(user, accountIdToNameMapping);
+            HttpRequestContext requestContext = buildHttpRequestContext();
+            
+            auditLogger.logWithStateChange(
+                eventType.getType(),
+                ApiConstants.COMPONENT_NAME,
+                SUCCESS,
+                eventType.getDescription(),
+                actorContext,
+                targetContext,
+                requestContext,
+                null,
+                beforeValue,
+                afterValue,
+                null
+            );
+            
+            LOGGER.debug("Audit log created for account-role change: userId={}, eventType={}", 
+                user != null ? user.getId() : "null", eventType.getType());
+        } catch (Exception e) {
+            LOGGER.error("Failed to create audit log for account-role change: userId={}, error={}", 
+                user != null ? user.getId() : "null", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Build JSON representation of account-role mappings for before/after comparison.
+     */
+    public String buildAccountRoleMappingsJson(UserEntity user, 
+                                               Map<BigInteger, String> accountIdToNameMapping,
+                                               Map<BigInteger, String> roleIdToNameMapping) {
+        try {
+            if (user == null || user.getAccountRoleMapping() == null || user.getAccountRoleMapping().isEmpty()) {
+                return "{}";
+            }
+            
+            List<Map<String, String>> mappings = new ArrayList<>();
+            for (var mapping : user.getAccountRoleMapping()) {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("accountId", mapping.getAccountId() != null ? mapping.getAccountId().toString() : null);
+                m.put("accountName", accountIdToNameMapping.get(mapping.getAccountId()));
+                m.put("roleId", mapping.getRoleId() != null ? mapping.getRoleId().toString() : null);
+                m.put("roleName", roleIdToNameMapping.get(mapping.getRoleId()));
+                mappings.add(m);
+            }
+            
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("accountRoleMappings", mappings);
+            
+            return objectMapper.writeValueAsString(result);
+            
+        } catch (Exception e) {
+            LOGGER.error("Failed to build account-role mappings JSON: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
      * Build UserActorContext from UserEntity.
      */
     private UserActorContext buildUserActorContext(UserEntity user, Map<BigInteger, String> accountIdToNameMapping) {
@@ -321,6 +389,9 @@ public class UserAuditHelper {
      * Build UserTargetContext from UserEntity.
      */
     private UserTargetContext buildUserTargetContext(UserEntity user, Map<BigInteger, String> accountIdToNameMapping) {
+        if (user == null) {
+            return null;
+        }
         String accountId = null;
         String accountName = null;
         if (user.getAccountRoleMapping() != null && !user.getAccountRoleMapping().isEmpty()) {

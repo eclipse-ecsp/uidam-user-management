@@ -20,6 +20,7 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.AssociateAccountAndRolesDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.AssociateAccountAndRolesResponse;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
@@ -138,6 +139,17 @@ class UsersControllerIntegrationTest {
                         Set.of(rolesEntities.get(INDEX_0).getId(),
                                 rolesEntities.get(INDEX_3).getId(),
                                 rolesEntities.get(INDEX_4).getId()), INDEX_4));
+
+        // Ensure mocked repository returns the entity passed to save(), to mimic JPA behaviour
+        when(userRepository.save(any(org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @BeforeEach
+    public void perTestSetup() {
+        // Re-stub save for each test to ensure it persists across all test executions
+        when(userRepository.save(any(org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
