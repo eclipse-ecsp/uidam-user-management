@@ -63,6 +63,9 @@ class ScopesControllerTest {
 
     @MockBean
     private TenantConfigurationService tenantConfigurationService;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @Autowired
     private MockMvc mockMvc;
@@ -468,8 +471,7 @@ class ScopesControllerTest {
                 ApiConstants.API_VERSION + ApiConstants.SCOPE_RESOURCE_PATH + ApiConstants.ROLES_SCOPES_FILTER_PATH)
                 .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
                 .header(ApiConstants.CORRELATION_ID, "12345").content("{\"scopes\":[]}")).andDo(print())
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.scopes", is(LocalizationKey.MISSING_MANDATORY_PARAMETERS)));
+            .andExpect(status().isOk());
     }
 
     @Test

@@ -305,13 +305,82 @@ class RolesServiceTest {
         int pageSize = PAGE_SIZE;
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
 
-        when(rolesRepository.findByNameInAndIsDeleted(roleNames, pageable, false)).thenReturn(null);
+        when(rolesRepository.findByNameInAndIsDeleted(roleNames, pageable, false)).thenReturn(new ArrayList<>());
 
-        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () -> {
-            rolesService.filterRoles(roleNames, pageNumber, pageSize, false);
-        }, "");
+        RoleListRepresentation result = rolesService.filterRoles(roleNames, pageNumber, pageSize, false);
 
-        assertEquals(LocalizationKey.GET_ENTITY_FAILURE, exception.getMessage());
+        assertEquals(LocalizationKey.SUCCESS_KEY, result.getMessages().get(0).getKey());
+        assertTrue(result.getRoles().isEmpty());
+    }
+
+    @Test
+    void filterRolesWithEmptyInputReturnsAllRolesTest() {
+        final Set<String> roleNames = new HashSet<>();  // Empty set
+        int pageNumber = 0;
+        int pageSize = PAGE_SIZE;
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        RolesEntity rolesEntity1 = new RolesEntity(ROLE_ID_1, "role1", "role 1 description",
+            new ArrayList<>(), "dummyUser1", new Date(), null, null, false);
+        RolesEntity rolesEntity2 = new RolesEntity(ROLE_ID_2, "role2", "role 2 description",
+            new ArrayList<>(), "dummyUser2", new Date(), null, null, false);
+
+        List<RolesEntity> rolesEntities = new ArrayList<>();
+        rolesEntities.add(rolesEntity1);
+        rolesEntities.add(rolesEntity2);
+
+        when(rolesRepository.findByIsDeleted(pageable, false)).thenReturn(rolesEntities);
+
+        RoleListRepresentation roleListRepresentation = rolesService.filterRoles(roleNames, pageNumber, pageSize,
+                false);
+
+        assertEquals(LocalizationKey.SUCCESS_KEY, roleListRepresentation.getMessages().get(0).getKey());
+        assertEquals(rolesEntities.size(), roleListRepresentation.getRoles().size());
+    }
+
+    @Test
+    void filterRolesWithNullInputReturnsAllRolesTest() {
+        final Set<String> roleNames = null;  // Null input
+        int pageNumber = 0;
+        int pageSize = PAGE_SIZE;
+        final Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        RolesEntity rolesEntity1 = new RolesEntity(ROLE_ID_1, "role1", "role 1 description",
+            new ArrayList<>(), "dummyUser1", new Date(), null, null, false);
+        RolesEntity rolesEntity2 = new RolesEntity(ROLE_ID_2, "role2", "role 2 description",
+            new ArrayList<>(), "dummyUser2", new Date(), null, null, false);
+        RolesEntity rolesEntity3 = new RolesEntity(SCOPE_ID, "role3", "role 3 description",
+            new ArrayList<>(), "dummyUser3", new Date(), null, null, false);
+
+        List<RolesEntity> rolesEntities = new ArrayList<>();
+        rolesEntities.add(rolesEntity1);
+        rolesEntities.add(rolesEntity2);
+        rolesEntities.add(rolesEntity3);
+
+        when(rolesRepository.findByIsDeleted(pageable, false)).thenReturn(rolesEntities);
+
+        RoleListRepresentation roleListRepresentation = rolesService.filterRoles(roleNames, pageNumber, pageSize,
+                false);
+
+        assertEquals(LocalizationKey.SUCCESS_KEY, roleListRepresentation.getMessages().get(0).getKey());
+        assertEquals(rolesEntities.size(), roleListRepresentation.getRoles().size());
+    }
+
+    @Test
+    void filterRolesWithEmptyInputReturnsEmptyListWhenNoRolesExistTest() {
+        Set<String> roleNames = new HashSet<>();
+
+        int pageNumber = 0;
+        int pageSize = PAGE_SIZE;
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        when(rolesRepository.findByIsDeleted(pageable, false)).thenReturn(new ArrayList<>());
+
+        RoleListRepresentation roleListRepresentation = rolesService.filterRoles(roleNames, pageNumber, pageSize,
+                false);
+
+        assertEquals(LocalizationKey.SUCCESS_KEY, roleListRepresentation.getMessages().get(0).getKey());
+        assertTrue(roleListRepresentation.getRoles().isEmpty());
     }
 
     @Test

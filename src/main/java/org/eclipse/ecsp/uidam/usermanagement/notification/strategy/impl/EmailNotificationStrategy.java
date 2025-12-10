@@ -24,12 +24,14 @@ import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateCon
 import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
+import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParserFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProvider;
+import org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolverFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.strategy.NotificationStrategy;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import java.util.HashMap;
@@ -38,32 +40,35 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Stategy for email notification.
+ * Strategy for email notification.
+ * Uses EmailNotificationProviderFactory to select the appropriate provider at runtime
+ * based on tenant configuration (internal vs ignite).
+ * Uses NotificationConfigResolverFactory to select the appropriate config resolver per tenant.
  */
 @Slf4j
 @Component(NotificationConstants.EMAIL)
-@ConditionalOnProperty("notification.email.provider")
 public class EmailNotificationStrategy implements NotificationStrategy {
     public static final String UIDAM = "uidam";
-    private final EmailNotificationProvider emailNotificationProvider;
-    private final NotificationConfigResolver notificationConfigResolver;
-    private final TemplateParser templateParser;
-    private TenantConfigurationService tenantConfigurationService;
+    private final EmailNotificationProviderFactory emailNotificationProviderFactory;
+    private final NotificationConfigResolverFactory notificationConfigResolverFactory;
+    private final TemplateParserFactory templateParserFactory;
+    private final TenantConfigurationService tenantConfigurationService;
 
     /**
      * Initialize {@link EmailNotificationStrategy}.
      *
-     * @param emailNotificationProvider  email notification provider implementation
-     * @param notificationConfigResolver notification config resolver
-     * @param templateParser             parse notification template
+     * @param emailNotificationProviderFactory factory for selecting email notification provider
+     * @param notificationConfigResolverFactory factory for selecting notification config resolver
+     * @param templateParserFactory      factory for selecting template parser
+     * @param tenantConfigurationService tenant configuration service
      */
-    public EmailNotificationStrategy(final EmailNotificationProvider emailNotificationProvider,
-                                     final NotificationConfigResolver notificationConfigResolver,
-                                     final TemplateParser templateParser,
+    public EmailNotificationStrategy(final EmailNotificationProviderFactory emailNotificationProviderFactory,
+                                     final NotificationConfigResolverFactory notificationConfigResolverFactory,
+                                     final TemplateParserFactory templateParserFactory,
                                      TenantConfigurationService tenantConfigurationService) {
-        this.emailNotificationProvider = emailNotificationProvider;
-        this.notificationConfigResolver = notificationConfigResolver;
-        this.templateParser = templateParser;
+        this.emailNotificationProviderFactory = emailNotificationProviderFactory;
+        this.notificationConfigResolverFactory = notificationConfigResolverFactory;
+        this.templateParserFactory = templateParserFactory;
         this.tenantConfigurationService = tenantConfigurationService;
     }
 
@@ -73,25 +78,33 @@ public class EmailNotificationStrategy implements NotificationStrategy {
         Objects.requireNonNull(request, "Notification Request should not be null");
         Objects.requireNonNull(request.getRecipients(),
                 "recipient list should not be null, at least one recipient should be provided");
+        
+        // Get the appropriate config resolver for the current tenant
+        NotificationConfigResolver notificationConfigResolver = notificationConfigResolverFactory.getResolver();
+        
         request.getRecipients().forEach(recipient -> {
             Optional<EmailNotificationTemplateConfig> emailTemplate =
-                    this.notificationConfigResolver.getEmailTemplate(request.getNotificationId(),
+                    notificationConfigResolver.getEmailTemplate(request.getNotificationId(),
                             recipient.getLocale());
             //process template
             if (emailTemplate.isPresent()) {
                 final EmailNotificationTemplateConfig template = emailTemplate.get();
                 final Map<String, Object> parsedEmailBodyMap = new HashMap<>();
                 parsedEmailBodyMap.put("sender", template.getFrom());
+                
+                // Get tenant-specific template parser
+                final TemplateParser templateParser = this.templateParserFactory.getParser();
+                
                 if (!CollectionUtils.isEmpty(template.getBody())) {
                     template.getBody().entrySet().forEach(entry -> {
-                        final String parsedTemplateContent = this.templateParser.parseText(entry.getValue(),
+                        final String parsedTemplateContent = templateParser.parseText(entry.getValue(),
                                 recipient.getData());
                         parsedEmailBodyMap.put(entry.getKey(), parsedTemplateContent);
                     });
                 }
                 if (!StringUtils.isEmpty(template.getSubject())) {
                     parsedEmailBodyMap.put("subject",
-                            this.templateParser.parseText(template.getSubject(), recipient.getData()));
+                            templateParser.parseText(template.getSubject(), recipient.getData()));
                 }
                 String tenantLogoPath = tenantConfigurationService.getTenantProperties().getEmailLogoPath();
                 String tenantCopyRight = tenantConfigurationService.getTenantProperties().getEmailCopyright();
@@ -108,8 +121,9 @@ public class EmailNotificationStrategy implements NotificationStrategy {
                         request.getNotificationId()));
             }
         });
-        // call notification provider
-        return this.emailNotificationProvider.sendEmailNotification(request);
+        // Get tenant-specific provider and call notification provider
+        EmailNotificationProvider provider = this.emailNotificationProviderFactory.getProvider();
+        return provider.sendEmailNotification(request);
     }
 
     @Override
