@@ -136,13 +136,8 @@ import static org.mockito.Mockito.when;
  *
  */
 @ActiveProfiles("test")
-@TestPropertySource("classpath:application-test.properties")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = { AccountRepository.class, UsersRepository.class })
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient(timeout = "3600000")
-@EnableJpaRepositories(basePackages = "org.eclipse.ecsp")
-@ComponentScan(basePackages = { "org.eclipse.ecsp" })
-@EntityScan("org.eclipse.ecsp")
 class UsersControllerV2Test {
 
     private static final int HOUR_IN_MS = 3600000;
@@ -192,6 +187,9 @@ class UsersControllerV2Test {
     
     @MockBean
     PasswordPolicyService passwordPolicyService;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     private String passwordEncoder = "SHA-256";
 

@@ -19,18 +19,21 @@
 package org.eclipse.ecsp.uidam.usermanagement.notification;
 
 import io.prometheus.client.CollectorRegistry;
-import jakarta.mail.MessagingException;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl.InternalNotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,15 +43,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import java.io.IOException;
+
 import java.util.List;
 import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 /**
- * test resolving the notification config using internal impl.
+ * test resolving the notification config using internal impl with multi-tenant support.
  */
 @ActiveProfiles("test")
 @ExtendWith(SpringExtension.class)
@@ -59,6 +64,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InternalConfigResolverTest {
 
     @Autowired
+    @Qualifier("internalNotificationConfigResolver")
     private NotificationConfigResolver notificationConfigResolver;
 
     @MockBean
@@ -66,6 +72,9 @@ class InternalConfigResolverTest {
     
     @MockBean
     PasswordPolicyService passwordPolicyService;
+    
+    @MockBean
+    TenantConfigurationService tenantConfigurationService;
     
     /**
      * application test config.
@@ -78,19 +87,43 @@ class InternalConfigResolverTest {
 
     @BeforeEach
     @AfterEach
-    public void setup() {
+    void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
+    }
+    
+    @BeforeEach
+    void setup() {
+        // Set up tenant context
+        TenantContext.setCurrentTenant("ecsp");
+        
+        // Configure notification config path for ECSP tenant
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .NotificationConfigProperties configProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.NotificationConfigProperties();
+        configProps.setPath("classpath:/notification/uidam-notification-config.json");
+        
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notificationProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties();
+        notificationProps.setConfig(configProps);
+        
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties
+            tenantProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.UserManagementTenantProperties();
+        tenantProps.setNotification(notificationProps);
+        
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProps);
     }
 
     @Test
-    void testGetConfigSuccess() throws MessagingException, IOException {
+    void testGetConfigSuccess() {
         Optional<NotificationConfig> config = notificationConfigResolver.getConfig(
                 "UIDAM_USER_VERIFY_ACCOUNT");
         assertTrue(config.isPresent());
     }
 
     @Test
-    void testSuccess() throws MessagingException, IOException {
+    void testSuccess() {
         List<String> channels = notificationConfigResolver.getNotificationChannels(
                 "UIDAM_USER_VERIFY_ACCOUNT");
         assertFalse(channels.isEmpty());
@@ -99,7 +132,7 @@ class InternalConfigResolverTest {
     }
 
     @Test
-    void testTemplateByUserLocale() throws MessagingException {
+    void testTemplateByUserLocale() {
         Optional<EmailNotificationTemplateConfig> config = notificationConfigResolver.getEmailTemplate(
                 "UIDAM_USER_VERIFY_ACCOUNT", "en_IN");
         assertTrue(config.isPresent());
@@ -108,7 +141,7 @@ class InternalConfigResolverTest {
     }
 
     @Test
-    void testTemplateByDefaultLocale() throws MessagingException {
+    void testTemplateByDefaultLocale() {
         Optional<EmailNotificationTemplateConfig> config = notificationConfigResolver.getEmailTemplate(
                 "UIDAM_USER_VERIFY_ACCOUNT", "it_IT");
         assertTrue(config.isPresent());

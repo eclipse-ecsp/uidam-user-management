@@ -20,36 +20,65 @@ package org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl;
 
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
-import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * ]
- * notifcation config resolve which fetch the configuration from notification center.
+ * Notification config resolver which fetches the configuration from notification center (Ignite).
+ * Supports multi-tenancy - each tenant can independently choose to use Ignite for notification config resolution.
+ *
+ * <p><b>Note:</b> This implementation is currently not supported. Template configuration is handled
+ * directly by the Ignite Notification Center API. If you need to use Ignite for notifications,
+ * configure the email provider as 'ignite' instead.
+ *
+ * @see org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.impl.IgniteEmailNotificationProvider
  */
 @Component
-@ConditionalOnProperty(name = "notification.config.resolver", havingValue = "ignite")
 public class IgniteNotificationConfigResolver implements NotificationConfigResolver {
 
+    /**
+     * Get notification configuration by ID.
+     *
+     * @param notificationId the notification ID
+     * @return Optional of NotificationConfig
+     * @throws UnsupportedOperationException this operation is not supported for Ignite resolver
+     */
     @Override
     public Optional<NotificationConfig> getConfig(String notificationId) {
-        return Optional.empty();
+        throw new UnsupportedOperationException(
+                "getConfig is not supported for Ignite resolver. "
+                + "Template configuration is handled by Ignite Notification Center API.");
     }
 
+    /**
+     * Get notification channels for a notification ID.
+     *
+     * @param notificationId the notification ID
+     * @return List of notification channels
+     * @throws UnsupportedOperationException this operation is not supported for Ignite resolver
+     */
     @Override
     public List<String> getNotificationChannels(String notificationId) {
-        //call notification api to get the channel enable for the notificationId
-        return List.of(NotificationConstants.EMAIL);
+        throw new UnsupportedOperationException(
+                "getNotificationChannels is not supported for Ignite resolver. "
+                + "Use IgniteEmailNotificationProvider directly for Ignite-based notifications.");
     }
 
+    /**
+     * Get email template configuration.
+     *
+     * @param notificationId the notification ID
+     * @param locale the user locale
+     * @return Optional of EmailNotificationTemplateConfig
+     * @throws UnsupportedOperationException this operation is not supported for Ignite resolver
+     */
     @Override
     public Optional<EmailNotificationTemplateConfig> getEmailTemplate(String notificationId,
                                                                       String locale) {
-        // handled by notification center
-        return Optional.empty();
+        throw new UnsupportedOperationException(
+                "getEmailTemplate is not supported for Ignite resolver. "
+                + "Templates are managed and rendered by Ignite Notification Center.");
     }
 }

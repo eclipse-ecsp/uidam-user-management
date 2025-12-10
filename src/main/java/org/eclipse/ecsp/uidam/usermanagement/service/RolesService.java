@@ -205,10 +205,17 @@ public class RolesService {
             boolean deleted) {
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
 
-        List<RolesEntity> rolesEntities = rolesRepository.findByNameInAndIsDeleted(roleNames, pageable, deleted);
+        List<RolesEntity> rolesEntities;
+        
+        // If roleNames is null or empty, fetch all roles
+        if (roleNames == null || roleNames.isEmpty()) {
+            rolesEntities = rolesRepository.findByIsDeleted(pageable, deleted);
+        } else {
+            rolesEntities = rolesRepository.findByNameInAndIsDeleted(roleNames, pageable, deleted);
+        }
+        
         if (rolesEntities == null || rolesEntities.isEmpty()) {
-            logger.error(LoggerMessages.ROLE_NOT_EXISTS, roleNames);
-            throw new EntityNotFoundException(LocalizationKey.GET_ENTITY_FAILURE);
+            return prepareResponse(new ArrayList<>(), LocalizationKey.SUCCESS_KEY);
         }
         List<RoleCreateResponse> roleCreateResponses = RoleMapper.MAPPER.mapToRolesList(rolesEntities);
         return prepareResponse(roleCreateResponses, LocalizationKey.SUCCESS_KEY);
