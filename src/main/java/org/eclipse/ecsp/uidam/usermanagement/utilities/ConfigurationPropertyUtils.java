@@ -243,8 +243,7 @@ public final class ConfigurationPropertyUtils {
      * @return the property value or default
      */
     public static boolean getBooleanProperty(Environment environment, String key, boolean defaultValue) {
-        Boolean value = environment.getProperty(key, Boolean.class, defaultValue);
-        return value != null ? value : defaultValue;
+        return environment.getProperty(key, Boolean.class, defaultValue);
     }
     
     /**

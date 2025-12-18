@@ -403,4 +403,149 @@ class ConfigRefreshListenerTest {
         verify(event).getKeys();
         verify(multitenancySystemPropertyConfig).refreshTenantSystemProperties();
     }
+
+    @Test
+    void onApplicationEvent_withTenantPropertyUpdate_shouldProcessUpdatedTenant() {
+        // Arrange
+        Set<String> changedKeys = new HashSet<>();
+        changedKeys.add("tenants.profile.tenant1.jdbc-url");
+        changedKeys.add("tenants.profile.tenant1.password");
+        
+        when(event.getKeys()).thenReturn(changedKeys);
+        when(environment.getProperty("tenant.ids")).thenReturn("tenant1,tenant2");
+        
+        // Mock tenant properties for updated tenant
+        when(environment.getProperty("tenants.profile.tenant1.jdbc-url"))
+            .thenReturn("jdbc:postgresql://localhost:5432/tenant1_updated");
+        when(environment.getProperty("tenants.profile.tenant1.user-name")).thenReturn("tenant1user");
+        when(environment.getProperty("tenants.profile.tenant1.password")).thenReturn("tenant1pass_updated");
+
+        // Act
+        listener.onApplicationEvent(event);
+
+        // Assert - Should update data source for tenant with changed properties
+        verify(tenantAwareDataSource).addOrUpdateTenantDataSource(eq("tenant1"), 
+            any(TenantDatabaseProperties.class));
+    }
+
+    @Test
+    void onApplicationEvent_withTenantPropertyUpdateForNonExistentTenant_shouldNotProcess() {
+        // Arrange
+        Set<String> changedKeys = new HashSet<>();
+        changedKeys.add("tenants.profile.tenant3.jdbc-url");
+        
+        when(event.getKeys()).thenReturn(changedKeys);
+        when(environment.getProperty("tenant.ids")).thenReturn("tenant1,tenant2");
+
+        // Act
+        listener.onApplicationEvent(event);
+
+        // Assert - Should not process tenant3 as it doesn't exist in current tenant list
+        verify(tenantAwareDataSource, never()).addOrUpdateTenantDataSource(eq("tenant3"), any());
+    }
+
+    @Test
+    void onApplicationEvent_withTenantAdditionMissingPassword_shouldNotAddTenant() {
+        // Arrange
+        Set<String> changedKeys = new HashSet<>();
+        changedKeys.add("tenant.ids");
+        
+        when(event.getKeys()).thenReturn(changedKeys);
+        when(environment.getProperty("tenant.ids")).thenReturn("tenant1,tenant2,tenant3");
+        
+        // Mock tenant properties with missing password
+        when(environment.getProperty("tenants.profile.tenant3.jdbc-url"))
+            .thenReturn("jdbc:postgresql://localhost:5432/tenant3");
+        when(environment.getProperty("tenants.profile.tenant3.user-name")).thenReturn("tenant3user");
+        when(environment.getProperty("tenants.profile.tenant3.password")).thenReturn(null);
+
+        // Act
+        listener.onApplicationEvent(event);
+
+        // Assert - Should not add tenant with missing password
+        verify(tenantAwareDataSource, never()).addOrUpdateTenantDataSource(eq("tenant3"), any());
+    }
+
+    @Test
+    void onApplicationEvent_withTenantAdditionEmptyPassword_shouldNotAddTenant() {
+        // Arrange
+        Set<String> changedKeys = new HashSet<>();
+        changedKeys.add("tenant.ids");
+        
+        when(event.getKeys()).thenReturn(changedKeys);
+        when(environment.getProperty("tenant.ids")).thenReturn("tenant1,tenant2,tenant3");
+        
+        // Mock tenant properties with empty password
+        when(environment.getProperty("tenants.profile.tenant3.jdbc-url"))
+            .thenReturn("jdbc:postgresql://localhost:5432/tenant3");
+        when(environment.getProperty("tenants.profile.tenant3.user-name")).thenReturn("tenant3user");
+        when(environment.getProperty("tenants.profile.tenant3.password")).thenReturn("");
+
+        // Act
+        listener.onApplicationEvent(event);
+
+        // Assert - Should not add tenant with empty password
+        verify(tenantAwareDataSource, never()).addOrUpdateTenantDataSource(eq("tenant3"), any());
+    }
+
+    @Test
+    void onApplicationEvent_withExistingTenantPropertyChanges_shouldUpdateDataSource() {
+        // Arrange - tenant.ids doesn't change, but tenant properties do
+        Set<String> changedKeys = new HashSet<>();
+        changedKeys.add("tenants.profile.tenant1.jdbc-url");
+        changedKeys.add("tenants.profile.tenant1.max-pool-size");
+        
+        when(event.getKeys()).thenReturn(changedKeys);
+        when(environment.getProperty("tenant.ids")).thenReturn("tenant1,tenant2");
+        
+        // Mock updated tenant properties
+        when(environment.getProperty("tenants.profile.tenant1.jdbc-url"))
+            .thenReturn("jdbc:postgresql://newhost:5432/tenant1");
+        when(environment.getProperty("tenants.profile.tenant1.user-name")).thenReturn("tenant1user");
+        when(environment.getProperty("tenants.profile.tenant1.password")).thenReturn("tenant1pass");
+        when(environment.getProperty("tenants.profile.tenant1.min-pool-size", "10")).thenReturn("10");
+        when(environment.getProperty("tenants.profile.tenant1.max-pool-size", "30")).thenReturn("50");
+        when(environment.getProperty("tenants.profile.tenant1.connection-timeout-ms", "60000"))
+            .thenReturn("60000");
+        when(environment.getProperty("tenants.profile.tenant1.max-idle-time", "0")).thenReturn("0");
+
+        // Act
+        listener.onApplicationEvent(event);
+
+        // Assert - Should update data source for tenant1
+        verify(tenantAwareDataSource).addOrUpdateTenantDataSource(eq("tenant1"), 
+            any(TenantDatabaseProperties.class));
+    }
+
+    @Test
+    void onApplicationEvent_withMultipleTenantsPropertyChanges_shouldUpdateAll() {
+        // Arrange - Multiple tenants have property changes
+        Set<String> changedKeys = new HashSet<>();
+        changedKeys.add("tenants.profile.tenant1.jdbc-url");
+        changedKeys.add("tenants.profile.tenant2.password");
+        
+        when(event.getKeys()).thenReturn(changedKeys);
+        when(environment.getProperty("tenant.ids")).thenReturn("tenant1,tenant2");
+        
+        // Mock tenant1 properties
+        when(environment.getProperty("tenants.profile.tenant1.jdbc-url"))
+            .thenReturn("jdbc:postgresql://host1:5432/tenant1");
+        when(environment.getProperty("tenants.profile.tenant1.user-name")).thenReturn("user1");
+        when(environment.getProperty("tenants.profile.tenant1.password")).thenReturn("pass1");
+        
+        // Mock tenant2 properties
+        when(environment.getProperty("tenants.profile.tenant2.jdbc-url"))
+            .thenReturn("jdbc:postgresql://host2:5432/tenant2");
+        when(environment.getProperty("tenants.profile.tenant2.user-name")).thenReturn("user2");
+        when(environment.getProperty("tenants.profile.tenant2.password")).thenReturn("pass2");
+
+        // Act
+        listener.onApplicationEvent(event);
+
+        // Assert - Should update data sources for both tenants
+        verify(tenantAwareDataSource).addOrUpdateTenantDataSource(eq("tenant1"), 
+            any(TenantDatabaseProperties.class));
+        verify(tenantAwareDataSource).addOrUpdateTenantDataSource(eq("tenant2"), 
+            any(TenantDatabaseProperties.class));
+    }
 }
