@@ -395,6 +395,21 @@
             <artifactId>micrometer-registry-datadog</artifactId>
 		</dependency>
     </dependencies>
+        <repositories>
+        <repository>
+            <id>central-snapshots</id>
+            <name>Sonatype Central Snapshot Repository</name>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </repository>
+    </repositories>
+
 
     <build>
         <plugins>
