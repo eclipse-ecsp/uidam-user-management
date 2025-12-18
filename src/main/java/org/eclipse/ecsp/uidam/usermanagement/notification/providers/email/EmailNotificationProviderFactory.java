@@ -19,7 +19,7 @@
 package org.eclipse.ecsp.uidam.usermanagement.notification.providers.email;
 
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
@@ -35,8 +35,8 @@ import org.springframework.util.StringUtils;
  * 
  * <p>Example configurations:
  * <ul>
- *   <li>ECSP tenant: tenant.tenants.ecsp.notification.email.provider=internal</li>
- *   <li>SDP tenant: tenant.tenants.sdp.notification.email.provider=ignite</li>
+ *   <li>ECSP tenant: tenants.profile.ecsp.notification.email.provider=internal</li>
+ *   <li>SDP tenant: tenants.profile.sdp.notification.email.provider=ignite</li>
  * </ul>
  * 
  * <p>The factory retrieves the current tenant from TenantContext and selects the appropriate

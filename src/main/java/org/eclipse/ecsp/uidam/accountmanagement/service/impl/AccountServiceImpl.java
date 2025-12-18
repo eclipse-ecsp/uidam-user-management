@@ -28,6 +28,7 @@ package org.eclipse.ecsp.uidam.accountmanagement.service.impl;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.CreateAccountDto;
 import org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.UpdateAccountDto;
@@ -40,9 +41,9 @@ import org.eclipse.ecsp.uidam.accountmanagement.exception.AccountManagementExcep
 import org.eclipse.ecsp.uidam.accountmanagement.mapper.AccountMapper;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.accountmanagement.service.AccountService;
+import org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper;
 import org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountSearchSpecification;
 import org.eclipse.ecsp.uidam.usermanagement.auth.response.dto.RoleCreateResponse;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
@@ -112,30 +113,34 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Slf4j
 public class AccountServiceImpl implements AccountService {
 
-    private AccountRepository accountRepository;
-    private RolesService rolesService;
+    private final AccountRepository accountRepository;
+    private final RolesService rolesService;
+    private final TenantConfigurationService tenantConfigurationService;
+    private final UserAccountRoleMappingRepository userAccountRoleMappingRepository;
+    private final AccountAuditHelper accountAuditHelper;
     
     // Lazy loading cache for tenant-specific default account IDs
     private final ConcurrentHashMap<String, BigInteger> tenantAccountCache = new ConcurrentHashMap<>();
 
-    private TenantConfigurationService tenantConfigurationService;
-
-    private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
-
     /**
      * AccountServiceImpl constructor with values from application.properties.
      *
-     * @param accountRepository     accountRepository
-     * @param rolesService          rolesService
-     * @param tenantConfigurationService tenantConfigurationService
+     * @param accountRepository              accountRepository
+     * @param rolesService                   rolesService
+     * @param tenantConfigurationService     tenantConfigurationService
+     * @param userAccountRoleMappingRepository userAccountRoleMappingRepository
+     * @param accountAuditHelper             accountAuditHelper
      */
-    public AccountServiceImpl(AccountRepository accountRepository, RolesService rolesService,
-            TenantConfigurationService tenantConfigurationService,
-            UserAccountRoleMappingRepository userAccountRoleMappingRepository) {
+    public AccountServiceImpl(AccountRepository accountRepository,
+                             RolesService rolesService,
+                             TenantConfigurationService tenantConfigurationService,
+                             UserAccountRoleMappingRepository userAccountRoleMappingRepository,
+                             AccountAuditHelper accountAuditHelper) {
         this.accountRepository = accountRepository;
         this.rolesService = rolesService;
         this.tenantConfigurationService = tenantConfigurationService;
         this.userAccountRoleMappingRepository = userAccountRoleMappingRepository;
+        this.accountAuditHelper = accountAuditHelper;
     }
 
     /**
@@ -192,6 +197,10 @@ public class AccountServiceImpl implements AccountService {
         accountEntity.setCreatedBy(String.valueOf(loggedInUserId));
         accountEntity.setStatus(AccountStatus.ACTIVE);
         AccountEntity savedAccount = accountRepository.save(accountEntity);
+        
+        // Audit log: Account created
+        accountAuditHelper.logAccountCreatedAudit(savedAccount, loggedInUserId);
+        
         CreateAccountResponse response = AccountMapper.ACCOUNT_MAPPER.mapToCreateAccountResponse(savedAccount);
         log.info("Account creation successful for account {} with Account ID {} completed by {}.", accountName,
                 response.getId(), loggedInUserId);
@@ -333,11 +342,19 @@ public class AccountServiceImpl implements AccountService {
         }
 
         AccountEntity account = savedAccount.get();
+        
+        // Capture before value for audit
+        String beforeValue = accountAuditHelper.buildAccountStateJson(account);
+        
         account.setStatus(AccountStatus.DELETED);
         account.setUpdatedBy(String.valueOf(loggedInUserId));
         account.setUpdateDate(new Timestamp(System.currentTimeMillis()));
         try {
-            accountRepository.save(account);
+            AccountEntity deletedAccount = accountRepository.save(account);
+            
+            // Audit log: Account deleted
+            accountAuditHelper.logAccountDeletedAudit(deletedAccount, loggedInUserId, beforeValue);
+            
         } catch (Exception e) {
             throwException(UNKNOWN_DB_ERROR_MSG, UNKNOWN_DB_ERROR, ACCOUNT_ID,
                     String.valueOf(accountId), INTERNAL_SERVER_ERROR);
@@ -495,10 +512,17 @@ public class AccountServiceImpl implements AccountService {
 
         Map<String, BigInteger> roleNameToId = getRoleNameAndIdMapping(accountDto, accIdAsString, account);
 
+        // Capture before value for audit (must be final for checkstyle)
+        final String beforeValue = accountAuditHelper.buildAccountStateJson(account);
+        
         AccountMapper.ACCOUNT_MAPPER.updateAccountEntity(accountDto, account, roleNameToId);
         account.setUpdateDate(new Timestamp(System.currentTimeMillis()));
         account.setUpdatedBy(String.valueOf(loggedInUserId));
-        accountRepository.save(account);
+        AccountEntity savedAccount = accountRepository.save(account);
+        
+        // Audit log: Account updated
+        accountAuditHelper.logAccountUpdatedAudit(savedAccount, loggedInUserId, beforeValue);
+        
         log.info("Account update successful for ID {} by {}.", id, loggedInUserId);
     }
 

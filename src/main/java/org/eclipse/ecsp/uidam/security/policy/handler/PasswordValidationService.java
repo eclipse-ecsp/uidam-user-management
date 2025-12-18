@@ -64,7 +64,7 @@ public class PasswordValidationService {
      */
     @PostConstruct
     public void loadPolicies() {
-        refreshPolicies();
+        //refreshPolicies(); DOTO Uncomment when ready to use
     }
 
     /**
@@ -99,12 +99,13 @@ public class PasswordValidationService {
      */
     @Scheduled(fixedDelayString = "${security.password.policy.check-interval:60s}")
     public void checkForPolicyUpdates() {
-        Timestamp latestUpdateDate = passwordPolicyRepository.findLatestUpdateDate();
+        //DOTO Uncomment when ready to use
+        /*Timestamp latestUpdateDate = passwordPolicyRepository.findLatestUpdateDate();
         if (latestUpdateDate != null && (lastUpdateDate == null || latestUpdateDate.after(lastUpdateDate))) {
             LOGGER.debug("Detected changes in password policies. Refreshing policies.");
             refreshPolicies();
             lastUpdateDate = latestUpdateDate; // Update the last known update date
-        }
+        }*/
     }
 
     /**

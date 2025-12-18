@@ -33,7 +33,6 @@ import java.util.Set;
 public class RolesFilterRequest {
 
     @JsonProperty("roles")
-    @NotEmpty(message = LocalizationKey.MISSING_MANDATORY_PARAMETERS)
     private Set<String> roles;
 
 }

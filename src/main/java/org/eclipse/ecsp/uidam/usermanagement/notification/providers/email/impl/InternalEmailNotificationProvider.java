@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
  * 
  * <p><b>Note:</b> This provider is no longer conditionally created based on global properties.
  * It's always available and selected at runtime via EmailNotificationProviderFactory
- * based on tenant configuration: tenant.tenants.{tenantId}.notification.email.provider=internal
+ * based on tenant configuration: tenants.profile.{tenantId}.notification.email.provider=internal
  *
  * @see org.eclipse.ecsp.uidam.usermanagement.notification.providers.email.EmailNotificationProviderFactory
  */
