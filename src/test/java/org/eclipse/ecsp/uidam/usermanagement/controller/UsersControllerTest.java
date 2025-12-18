@@ -157,6 +157,9 @@ public class UsersControllerTest {
 
     @MockBean
     PasswordValidationService passwordValidationService;
+
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     private static final String API_VERSION_1 = "v1";
 

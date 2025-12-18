@@ -17,4 +17,7 @@
     <!-- Release 1.1 Initial Data -->
     <include file="changesets/1_1_release/data.xml" relativeToChangelogFile="true"/>
 
+    <!-- Release 1.2 - Audit Log -->
+    <include file="changesets/1_2_release/audit_log_schema.xml" relativeToChangelogFile="true"/>
+
 </databaseChangeLog>

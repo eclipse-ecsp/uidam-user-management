@@ -33,7 +33,6 @@ import java.util.Set;
 public class ScopesFilterRequest {
 
     @JsonProperty("scopes")
-    @NotEmpty(message = LocalizationKey.MISSING_MANDATORY_PARAMETERS)
     private Set<String> scopes;
 
 }

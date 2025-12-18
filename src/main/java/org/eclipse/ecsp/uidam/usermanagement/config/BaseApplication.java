@@ -24,7 +24,6 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
-import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.ClientAddCorrelationIdInterceptor;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.CorrelationIdInterceptor;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.LoggingRequestInterceptor;
@@ -35,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorResourceFactory;
@@ -108,6 +108,7 @@ public abstract class BaseApplication {
      * @return WebClient
      */
     @Bean
+    @Lazy
     @DependsOn("adapter")
     public WebClient webClient() {
         ConnectionProvider provider =
@@ -137,19 +138,10 @@ public abstract class BaseApplication {
         } catch (SSLException e) {
             LOGGER.error("Error encountered ", e);
         }
-        
-        // Get tenant properties with null safety for test environments
-        UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
-        String baseUrl = "http://localhost:8080"; // Default for tests
-        
-        if (tenantProperties != null && tenantProperties.getAuthServer() != null) {
-            baseUrl = tenantProperties.getAuthServer().getHostName();
-            LOGGER.debug("Authorization Server service URL: {}", baseUrl);
-        } else {
-            LOGGER.warn("TenantProperties or AuthServer is null, using default URL: {}", baseUrl);
-        }
-        
-        return WebClient.builder().baseUrl(baseUrl)
+        //DOTO need revert previous changes
+        // Don't set baseUrl here - it will be set per-request in the services
+        // This avoids tenant context access during bean initialization
+        return WebClient.builder()
             .filter(ClientAddCorrelationIdInterceptor.addCorrelationIdAndContentType())
             .filter(LoggingRequestInterceptor.interceptWebClientHttpRequestAndResponse())
             .clientConnector(connector)

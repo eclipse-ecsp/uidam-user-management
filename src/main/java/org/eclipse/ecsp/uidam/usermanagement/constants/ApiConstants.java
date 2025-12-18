@@ -27,6 +27,7 @@ public final class ApiConstants {
 
     }
 
+    public static final String COMPONENT_NAME = "UIDAM_USER_MANAGEMENT";
     public static final String SAVED_USER_ID_MESSAGE = "savedUserId: {}";
     public static final String ACCOUNT_ID_IN_ACCOUNT_ROLE_MAPPING_MESSAGE = "accountId in accountRoleMapping: {}";
     public static final String ROLE_ID_IN_ACCOUNT_ROLE_MAPPING_MESSAGE = "roleId in accountRoleMapping: {}";
