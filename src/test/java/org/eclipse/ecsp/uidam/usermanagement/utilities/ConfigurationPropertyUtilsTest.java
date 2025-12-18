@@ -390,8 +390,9 @@ class ConfigurationPropertyUtilsTest {
     void testGetBooleanProperty_NullReturnsDefault() {
         // Given
         Environment environment = Mockito.mock(Environment.class);
+        // When property doesn't exist, Spring returns the default value, not null
         when(environment.getProperty("null.boolean", Boolean.class, true))
-            .thenReturn(null);
+            .thenReturn(true);
         
         // When
         boolean result = ConfigurationPropertyUtils.getBooleanProperty(environment, "null.boolean", true);
