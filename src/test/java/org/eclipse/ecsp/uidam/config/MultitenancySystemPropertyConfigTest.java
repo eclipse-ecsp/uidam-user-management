@@ -30,7 +30,6 @@
 
 package org.eclipse.ecsp.uidam.config;
 
-import org.eclipse.ecsp.sql.multitenancy.MultiTenantDatabaseProperties;
 import org.eclipse.ecsp.sql.multitenancy.TenantDatabaseProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +59,7 @@ import static org.mockito.Mockito.when;
 class MultitenancySystemPropertyConfigTest {
 
     @Mock
-    private MultiTenantDatabaseProperties multiTenantDbProperties;
+    private Map<String, TenantDatabaseProperties> multiTenantDbProperties;
 
     @Mock
     private Environment environment;
@@ -157,6 +156,29 @@ class MultitenancySystemPropertyConfigTest {
     }
 
     @Test
+    void refreshTenantSystemProperties_withMultitenancyEnabled_shouldSetPropertiesForAllTenants() {
+        // Arrange
+        when(environment.getProperty("tenant.multitenant.enabled", Boolean.class, false)).thenReturn(true);
+        when(environment.getProperty("tenant.ids", "")).thenReturn("tenant1");
+        when(environment.getProperty("tenant.default", "default")).thenReturn("default");
+        
+        final Map<String, TenantDatabaseProperties> tenants = new HashMap<>();
+        TenantDatabaseProperties props = new TenantDatabaseProperties();
+        props.setJdbcUrl("jdbc:postgresql://localhost:5432/tenant1");
+        props.setUserName("user1");
+        props.setPassword("pass1");
+        tenants.put("tenant1", props);
+
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(props);
+
+        // Act
+        config.refreshTenantSystemProperties();
+
+        // Assert
+        verify(multiTenantDbProperties, atLeastOnce()).get("tenant1");
+    }
+
+    @Test
     void refreshTenantSystemProperties_shouldCallLogTenantDatabaseProperties() {
         // Arrange
         when(environment.getProperty("tenant.multitenant.enabled", Boolean.class, false)).thenReturn(true);
@@ -170,13 +192,13 @@ class MultitenancySystemPropertyConfigTest {
         props.setPassword("pass1");
         tenants.put("tenant1", props);
 
-        when(multiTenantDbProperties.getProfile()).thenReturn(tenants);
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(props);
 
         // Act
         config.refreshTenantSystemProperties();
 
         // Assert
-        verify(multiTenantDbProperties, atLeastOnce()).getProfile();
+        verify(multiTenantDbProperties, atLeastOnce()).get("tenant1");
     }
 
     @Test
@@ -189,7 +211,7 @@ class MultitenancySystemPropertyConfigTest {
         props.setPassword("testPassword");
         tenants.put("tenant1", props);
 
-        when(multiTenantDbProperties.getProfile()).thenReturn(tenants);
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(props);
         when(environment.getProperty("tenant.multitenant.enabled", Boolean.class, false)).thenReturn(true);
         when(environment.getProperty("tenant.ids", "")).thenReturn("tenant1");
 
@@ -197,13 +219,13 @@ class MultitenancySystemPropertyConfigTest {
         config.refreshTenantSystemProperties();
 
         // Assert
-        verify(multiTenantDbProperties, atLeastOnce()).getProfile();
+        verify(multiTenantDbProperties, atLeastOnce()).get("tenant1");
     }
 
     @Test
     void logTenantDatabaseProperties_withNullProperties_shouldHandleGracefully() {
         // Arrange
-        when(multiTenantDbProperties.getProfile()).thenReturn(new HashMap<>());
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(null);
         when(environment.getProperty("tenant.multitenant.enabled", Boolean.class, false)).thenReturn(true);
         when(environment.getProperty("tenant.ids", "")).thenReturn("tenant1");
 
@@ -249,7 +271,8 @@ class MultitenancySystemPropertyConfigTest {
         props2.setPassword("pass2");
         tenants.put("tenant2", props2);
 
-        when(multiTenantDbProperties.getProfile()).thenReturn(tenants);
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(props1);
+        when(multiTenantDbProperties.get("tenant2")).thenReturn(props2);
         when(environment.getProperty("tenant.multitenant.enabled", Boolean.class, false)).thenReturn(true);
         when(environment.getProperty("tenant.ids", "")).thenReturn("tenant1,tenant2");
 
@@ -257,7 +280,8 @@ class MultitenancySystemPropertyConfigTest {
         config.refreshTenantSystemProperties();
 
         // Assert
-        verify(multiTenantDbProperties, atLeastOnce()).getProfile();
+        verify(multiTenantDbProperties, atLeastOnce()).get("tenant1");
+        verify(multiTenantDbProperties, atLeastOnce()).get("tenant2");
     }
 
     @Test
@@ -270,7 +294,7 @@ class MultitenancySystemPropertyConfigTest {
         props.setPassword("secretPassword123");
         tenants.put("tenant1", props);
 
-        when(multiTenantDbProperties.getProfile()).thenReturn(tenants);
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(props);
         when(environment.getProperty("tenant.multitenant.enabled", Boolean.class, false)).thenReturn(true);
         when(environment.getProperty("tenant.ids", "")).thenReturn("tenant1");
 
@@ -278,7 +302,7 @@ class MultitenancySystemPropertyConfigTest {
         config.refreshTenantSystemProperties();
 
         // Assert - Password should be masked in logs (verify in actual execution)
-        verify(multiTenantDbProperties, atLeastOnce()).getProfile();
+        verify(multiTenantDbProperties, atLeastOnce()).get("tenant1");
     }
 
     @Test
@@ -322,7 +346,8 @@ class MultitenancySystemPropertyConfigTest {
         props2.setJdbcUrl("jdbc:postgresql://localhost:5432/tenant2");
         tenants.put("tenant2", props2);
 
-        when(multiTenantDbProperties.getProfile()).thenReturn(tenants);
+        when(multiTenantDbProperties.get("tenant1")).thenReturn(props1);
+        when(multiTenantDbProperties.get("tenant2")).thenReturn(props2);
 
         // Act & Assert - Should handle whitespace
         assertDoesNotThrow(() -> config.refreshTenantSystemProperties());
