@@ -345,7 +345,7 @@ public class LiquibaseConfig  {
 
                 LOGGER.info("Loaded Liquibase parameters from MultiTenantProperties bean for tenant {}", tenantId);
             } else {
-                LOGGER.warn("No tenant-specific Liquibase properties found for tenant: {} in environment or bean, using defaults", tenantId);
+                LOGGER.warn("No tenant-specific Liquibase properties found for tenant: {}", tenantId);
             }
         }
 
