@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
@@ -37,6 +38,7 @@ public class LiquibaseConfig  {
 
     private final DataSource dataSource;
     private final MultiTenantProperties multiTenantProperties;
+    private final Environment environment;
     
     @Value("#{'${tenant.ids}'.split(',')}")
     private List<String> tenantIds;
@@ -70,11 +72,14 @@ public class LiquibaseConfig  {
      *
      * @param dataSource            the multi-tenant DataSource
      * @param multiTenantProperties the multi-tenant properties
+     * @param environment           the Spring Environment to read fresh property values
      */
     public LiquibaseConfig(DataSource dataSource,
-                          MultiTenantProperties multiTenantProperties) {
+                          MultiTenantProperties multiTenantProperties,
+                          Environment environment) {
         this.dataSource = dataSource;
         this.multiTenantProperties = multiTenantProperties;
+        this.environment = environment;
         LOGGER.info("LiquibaseConfig initialized with DataSource of type: {}", dataSource.getClass().getName());
     }
 
@@ -275,6 +280,8 @@ public class LiquibaseConfig  {
    
     /**
      * Retrieve tenant-specific Liquibase parameters from tenant properties.
+     * This method reads directly from the Environment to ensure fresh values
+     * when tenants are added at runtime via actuator/refresh.
      *
      * @param tenantId the tenant identifier
      * @return a map of Liquibase parameters for the specified tenant
@@ -286,37 +293,84 @@ public class LiquibaseConfig  {
         // Do not set tenant.id parameter to maintain null TENANT_ID for users
         // This preserves the original behavior where user records have null TENANT_ID
 
-        // Get tenant-specific properties
-        UserManagementTenantProperties tenant = multiTenantProperties.getTenantProperties(tenantId);
-        if (tenant != null && tenant.getLiquibase() != null) {
-            UserManagementTenantProperties.LiquibaseProperties liquibaseProps = tenant.getLiquibase();
-            liquibaseParams.put("tenant.id", tenantId); // Optional: Include tenant.id if needed
-
-            // Set tenant-specific initial data parameters from nested parameters
-            if (liquibaseProps.getParameters() != null) {
-                UserManagementTenantProperties.LiquibaseProperties.ParametersProperties params = liquibaseProps
-                        .getParameters();
-
-                if (params.getInitialDataClientSecret() != null) {
-                    liquibaseParams.put("initial.data.client.secret", params.getInitialDataClientSecret());
-                }
-                if (params.getInitialDataUserSalt() != null) {
-                    liquibaseParams.put("initial.data.user.salt", params.getInitialDataUserSalt());
-                }
-                if (params.getInitialDataUserPwd() != null) {
-                    liquibaseParams.put("initial.data.user.pwd", params.getInitialDataUserPwd());
-                }
+        // Try to read tenant-specific Liquibase properties directly from Environment
+        // This ensures we get fresh values after actuator/refresh
+        String propertyPrefix = "tenants.profile." + tenantId + ".liquibase.parameters.";
+        
+        String clientSecret = getPropertyFromEnvironment(propertyPrefix + "initial-data-client-secret");
+        String userSalt = getPropertyFromEnvironment(propertyPrefix + "initial-data-user-salt");
+        String userPwd = getPropertyFromEnvironment(propertyPrefix + "initial-data-user-pwd");
+        
+        if (clientSecret != null || userSalt != null || userPwd != null) {
+            // Found properties in environment, use them
+            liquibaseParams.put("tenant.id", tenantId);
+            
+            if (clientSecret != null) {
+                liquibaseParams.put("initial.data.client.secret", clientSecret);
+                LOGGER.debug("Read initial.data.client.secret from environment for tenant: {}", tenantId);
             }
-
-            LOGGER.debug("Liquibase parameters for tenant {}: {}", tenantId, liquibaseParams);
-            LOGGER.info("Liquibase parameters for tenant {}: {}", tenantId, liquibaseParams);
+            if (userSalt != null) {
+                liquibaseParams.put("initial.data.user.salt", userSalt);
+                LOGGER.debug("Read initial.data.user.salt from environment for tenant: {}", tenantId);
+            }
+            if (userPwd != null) {
+                liquibaseParams.put("initial.data.user.pwd", userPwd);
+                LOGGER.debug("Read initial.data.user.pwd from environment for tenant: {}", tenantId);
+            }
+            
+            LOGGER.info("Loaded Liquibase parameters from environment for tenant {}: {} parameters", 
+                       tenantId, liquibaseParams.size());
         } else {
+            // Fallback to MultiTenantProperties bean (for backward compatibility)
+            UserManagementTenantProperties tenant = multiTenantProperties.getTenantProperties(tenantId);
+            if (tenant != null && tenant.getLiquibase() != null) {
+                UserManagementTenantProperties.LiquibaseProperties liquibaseProps = tenant.getLiquibase();
+                liquibaseParams.put("tenant.id", tenantId);
 
-            LOGGER.info("No tenant-specific Liquibase properties found for tenant: {}, using defaults", tenantId);
-            LOGGER.debug("Default Liquibase parameters for tenant {}: {}", tenantId, liquibaseParams);
+                // Set tenant-specific initial data parameters from nested parameters
+                if (liquibaseProps.getParameters() != null) {
+                    UserManagementTenantProperties.LiquibaseProperties.ParametersProperties params = liquibaseProps
+                            .getParameters();
+
+                    if (params.getInitialDataClientSecret() != null) {
+                        liquibaseParams.put("initial.data.client.secret", params.getInitialDataClientSecret());
+                    }
+                    if (params.getInitialDataUserSalt() != null) {
+                        liquibaseParams.put("initial.data.user.salt", params.getInitialDataUserSalt());
+                    }
+                    if (params.getInitialDataUserPwd() != null) {
+                        liquibaseParams.put("initial.data.user.pwd", params.getInitialDataUserPwd());
+                    }
+                }
+
+                LOGGER.info("Loaded Liquibase parameters from MultiTenantProperties bean for tenant {}", tenantId);
+            } else {
+                LOGGER.warn("No tenant-specific Liquibase properties found for tenant: {} in environment or bean, using defaults", tenantId);
+            }
         }
 
+        LOGGER.debug("Final Liquibase parameters for tenant {}: {}", tenantId, liquibaseParams);
         return liquibaseParams;
+    }
+    
+    /**
+     * Helper method to read property from Spring Environment.
+     * Returns null if property is not found or is empty.
+     *
+     * @param propertyKey the property key to read
+     * @return the property value or null
+     */
+    private String getPropertyFromEnvironment(String propertyKey) {
+        try {
+            String value = environment.getProperty(propertyKey);
+            if (value == null || value.trim().isEmpty() || "ChangeMe".equals(value)) {
+                return null;
+            }
+            return value;
+        } catch (Exception e) {
+            LOGGER.debug("Error reading property {} from environment: {}", propertyKey, e.getMessage());
+            return null;
+        }
     }
 
     /**

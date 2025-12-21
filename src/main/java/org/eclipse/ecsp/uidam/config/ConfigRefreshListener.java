@@ -321,6 +321,14 @@ public class ConfigRefreshListener implements ApplicationListener<EnvironmentCha
             LOGGER.info("Start of adding new tenant DataSource: {}", tenantId);
             tenantAwareDataSource.addOrUpdateTenantDataSource(tenantId, tenantDbProps);
             LOGGER.info("Successfully added tenant data source for tenant: {}", tenantId);
+            
+            // Refresh tenant configuration to ensure MultiTenantProperties bean has the latest values
+            // This is crucial for runtime tenant additions via actuator/refresh
+            LOGGER.info("Refreshing tenant configuration for new tenant: {}", tenantId);
+            multitenancySystemPropertyConfig.refreshTenantSystemProperties();
+            tenantDefaultPropertiesProcessor.refreshTenantProperties(environment.getProperty(TENANT_IDS_KEY), environment);
+            LOGGER.info("Tenant configuration refreshed for tenant: {}", tenantId);
+            
             // Initialize tenant schema using Liquibase
             LOGGER.info("Initializing schema for tenant: {}", tenantId);
             liquibaseConfig.initializeTenantSchema(tenantId);
