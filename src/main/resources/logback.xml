@@ -166,4 +166,18 @@
     <logger name="org.eclipse.ecsp.config" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
         <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
     </logger>
+    <logger name="org.eclipse.ecsp.uidam.usermanagement.config.TenantDefaultPropertiesProcessor"
+            level="INFO" additivity="false">
+        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </logger>
+    <logger name="org.eclipse.ecsp.uidam.usermanagement.config.ConfigRefreshListener"
+            level="INFO" additivity="false">
+        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
+            <then><appender-ref ref="ASYNC-GELF" /></then>
+            <else><appender-ref ref="ASYNC-STDOUT" /></else>
+        </if>
+    </logger>
 </configuration>

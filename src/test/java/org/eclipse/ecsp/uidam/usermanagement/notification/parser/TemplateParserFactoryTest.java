@@ -18,7 +18,7 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.notification.parser;
 
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.impl.MustacheTemplateParserImpl;
