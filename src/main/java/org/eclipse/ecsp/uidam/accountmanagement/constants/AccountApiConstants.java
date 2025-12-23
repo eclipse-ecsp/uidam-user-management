@@ -79,6 +79,7 @@ public final class AccountApiConstants {
     public static final int MAX_ROLE_LENGTH = 49;
     public static final String LIST_ACCOUNTS_BY_FILTER = "Retrieve accounts that match the defined criteria";
     public static final int MINIMUM_PATTERN_LENGTH = 1;
+    public static final String COMPONENT_NAME = "UIDAM_USER_MANAGEMENT";
 
     /**
      * This class contains comments for the fields in the AccountApiConstants class.

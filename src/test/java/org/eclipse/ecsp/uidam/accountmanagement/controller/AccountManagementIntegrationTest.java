@@ -61,6 +61,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import java.io.IOException;
@@ -114,13 +115,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ActiveProfiles("test")
-@TestPropertySource("classpath:application-test.properties")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = { AccountRepository.class })
 @AutoConfigureWebTestClient(timeout = "3600000")
-@EnableJpaRepositories(basePackages = "org.eclipse.ecsp")
-@ComponentScan(basePackages = { "org.eclipse.ecsp" })
-@EntityScan("org.eclipse.ecsp")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AccountManagementIntegrationTest {
 
     private static final int INDEX_0 = 0;
@@ -160,10 +161,20 @@ class AccountManagementIntegrationTest {
     
     @MockBean
     private UserManagementTenantProperties tenantProperties;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @BeforeEach
     public void init() {
         CollectorRegistry.defaultRegistry.clear();
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
     }
 
     @BeforeAll
