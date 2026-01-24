@@ -1,4 +1,4 @@
-# Multitenancy Developer Guidelines - UIDAM User Management
+# UIDAM Multitenancy Developer Guidelines
 
 ## Table of Contents
 - [Overview](#overview)
