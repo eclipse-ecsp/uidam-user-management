@@ -65,6 +65,7 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
     private static final Logger LOGGER = LoggerFactory.getLogger(TenantDefaultPropertiesProcessor.class);
     
     private static final String TENANT_PREFIX = "tenants.profile.";
+    private static final String DEFAULT_TENANT_PREFIX = "tenant.props.";
     private static final String DEFAULT_TENANT = "default";
     private static final String TENANT_IDS_PROPERTY = "tenant.ids";
     private static final String TENANT_MULTITENANT_ENABLED_PROPERTY = "tenant.multitenant.enabled";
@@ -113,7 +114,7 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
         }
         
         // First validate default tenant properties
-        boolean defaultValidationPassed = validateTenantProperties(DEFAULT_TENANT, configurableEnvironment);
+        boolean defaultValidationPassed = validateTenantProperties(DEFAULT_TENANT, configurableEnvironment, true);
         
         if (!defaultValidationPassed) {
             LOGGER.error("Default tenant validation failed. Cannot proceed with tenant property generation.");
@@ -170,7 +171,7 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
         for (String tenantId : tenantIds) {
             String trimmedTenantId = tenantId.trim();
             if (!trimmedTenantId.isEmpty() && !DEFAULT_TENANT.equals(trimmedTenantId)) {
-                boolean validationPassed = validateTenantProperties(trimmedTenantId, configurableEnvironment);
+                boolean validationPassed = validateTenantProperties(trimmedTenantId, configurableEnvironment, false);
                 
                 if (validationPassed) {
                     processTenant(trimmedTenantId, configurableEnvironment, generatedProperties);
@@ -214,7 +215,7 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
      */
     private void loadDefaultProperties(ConfigurableEnvironment environment) {
         defaultProperties = new HashMap<>();
-        String defaultPrefix = TENANT_PREFIX + DEFAULT_TENANT + ".";
+        String defaultPrefix = DEFAULT_TENANT_PREFIX + DEFAULT_TENANT + ".";
         
         // Iterate through all property sources to find default tenant properties
         for (PropertySource<?> propertySource : environment.getPropertySources()) {
@@ -382,7 +383,7 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
         loadDefaultProperties(configurableEnvironment);
         
         // First validate default tenant properties
-        boolean defaultValidationPassed = validateTenantProperties(DEFAULT_TENANT, configurableEnvironment);
+        boolean defaultValidationPassed = validateTenantProperties(DEFAULT_TENANT, configurableEnvironment, true);
         
         if (!defaultValidationPassed) {
             LOGGER.error("Default tenant validation failed during refresh. "
@@ -399,7 +400,7 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
             String trimmedTenantId = tenantId.trim();
             if (!trimmedTenantId.isEmpty() && !DEFAULT_TENANT.equals(trimmedTenantId)) {
                 // Validate tenant properties before processing
-                boolean validationPassed = validateTenantProperties(trimmedTenantId, configurableEnvironment);
+                boolean validationPassed = validateTenantProperties(trimmedTenantId, configurableEnvironment, false);
                 
                 if (validationPassed) {
                     processTenant(trimmedTenantId, configurableEnvironment, generatedProperties);
@@ -444,9 +445,12 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
      *
      * @param tenantId the tenant ID
      * @param environment the Spring environment
+     * @param isDefaultTenant true if validating default tenant properties (uses tenant.props prefix),
+     *                        false if validating actual tenant properties (uses tenants.profile prefix)
      * @return true if validation passed or is disabled, false if validation failed
      */
-    private boolean validateTenantProperties(String tenantId, ConfigurableEnvironment environment) {
+    private boolean validateTenantProperties(String tenantId, ConfigurableEnvironment environment,
+                                            boolean isDefaultTenant) {
         boolean allValidationsPassed = true;
         
         // Check if standard validation is enabled
@@ -455,10 +459,13 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
         boolean validationEnabled = validationEnabledValue != null ? validationEnabledValue : true;
         
         if (validationEnabled) {
-            LOGGER.info("Validating properties for tenant: {}", tenantId);
+            LOGGER.info("Validating properties for tenant: {} (isDefault: {})", tenantId, isDefaultTenant);
             
             List<String> missingProperties = new ArrayList<>();
-            String tenantPrefix = TENANT_PREFIX + tenantId + ".";
+            // Use appropriate prefix based on whether this is the default tenant or actual tenant
+            String tenantPrefix = isDefaultTenant 
+                ? (DEFAULT_TENANT_PREFIX + tenantId + ".") 
+                : (TENANT_PREFIX + tenantId + ".");
             
             // Validate database properties
             validateProperty(environment, tenantPrefix + "jdbc-url", "jdbc-url", missingProperties);
@@ -494,17 +501,18 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
             }
             
             // Log property values (masked for sensitive data)
-            logTenantPropertyValues(tenantId, environment);
+            logTenantPropertyValues(tenantId, environment, isDefaultTenant);
         } else {
             LOGGER.debug("Tenant property validation is disabled. "
                 + "Skipping standard validation for tenant: {}", tenantId);
         }
         
         // Database name validation - runs INDEPENDENTLY of tenant.config.validation.enabled
-        if ("default".equalsIgnoreCase(tenantId)) {
+        // Skip DB name validation for default tenant
+        if (isDefaultTenant || "default".equalsIgnoreCase(tenantId)) {
             return allValidationsPassed;
         }
-        boolean dbNameValidationPassed = validateDatabaseName(tenantId, environment);
+        boolean dbNameValidationPassed = validateDatabaseName(tenantId, environment, isDefaultTenant);
         if (!dbNameValidationPassed) {
             allValidationsPassed = false;
         }
@@ -518,9 +526,11 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
      *
      * @param tenantId the tenant ID
      * @param environment the Spring environment
+     * @param isDefaultTenant true if validating default tenant properties, false for actual tenant
      * @return true if validation passed, false otherwise
      */
-    private boolean validateDatabaseName(String tenantId, ConfigurableEnvironment environment) {
+    private boolean validateDatabaseName(String tenantId, ConfigurableEnvironment environment,
+                                        boolean isDefaultTenant) {
         // Get the validation mode
         String validationModeStr = environment.getProperty(TENANT_DBNAME_VALIDATION_PROPERTY, "EQUAL");
         DatabaseNameValidationMode validationMode = DatabaseNameValidationMode.fromString(validationModeStr);
@@ -532,8 +542,10 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
             return true;
         }
         
-        // Get the JDBC URL for the tenant
-        String tenantPrefix = TENANT_PREFIX + tenantId + ".";
+        // Get the JDBC URL for the tenant using appropriate prefix
+        String tenantPrefix = isDefaultTenant 
+            ? (DEFAULT_TENANT_PREFIX + tenantId + ".") 
+            : (TENANT_PREFIX + tenantId + ".");
         String jdbcUrl = environment.getProperty(tenantPrefix + "jdbc-url");
         
         if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {
@@ -573,9 +585,14 @@ public class TenantDefaultPropertiesProcessor implements BeanFactoryPostProcesso
      *
      * @param tenantId the tenant ID
      * @param environment the Spring environment
+     * @param isDefaultTenant true if logging default tenant properties, false for actual tenant
      */
-    private void logTenantPropertyValues(String tenantId, ConfigurableEnvironment environment) {
-        String tenantPrefix = TENANT_PREFIX + tenantId + ".";
+    private void logTenantPropertyValues(String tenantId, ConfigurableEnvironment environment,
+                                        boolean isDefaultTenant) {
+        // Use appropriate prefix based on whether this is the default tenant or actual tenant
+        String tenantPrefix = isDefaultTenant 
+            ? (DEFAULT_TENANT_PREFIX + tenantId + ".") 
+            : (TENANT_PREFIX + tenantId + ".");
         
         // Log database properties
         String jdbcUrl = environment.getProperty(tenantPrefix + "jdbc-url");

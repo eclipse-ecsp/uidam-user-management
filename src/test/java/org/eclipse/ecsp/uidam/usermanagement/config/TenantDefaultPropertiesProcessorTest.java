@@ -113,15 +113,15 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
-        defaultProps.put("tenants.profile.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
         sources.add(defaultPropertySource);
         when(propertySources.iterator()).thenReturn(sources.iterator());
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.jdbc-url")).thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.user-name")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.jdbc-url")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.user-name")).thenReturn(null);
         when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
 
         // Act & Assert - Should not throw exception
@@ -135,7 +135,7 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
@@ -154,7 +154,7 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
@@ -173,13 +173,13 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources with complete default tenant properties
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
-        defaultProps.put("tenants.profile.default.user-name", "defaultUser");
-        defaultProps.put("tenants.profile.default.password", "defaultPass");
-        defaultProps.put("tenants.profile.default.notification.email.host", "smtp.example.com");
-        defaultProps.put("tenants.profile.default.notification.email.port", "587");
-        defaultProps.put("tenants.profile.default.notification.email.username", "emailUser");
-        defaultProps.put("tenants.profile.default.notification.email.password", "emailPass");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.password", "defaultPass");
+        defaultProps.put("tenant.props.default.notification.email.host", "smtp.example.com");
+        defaultProps.put("tenant.props.default.notification.email.port", "587");
+        defaultProps.put("tenant.props.default.notification.email.username", "emailUser");
+        defaultProps.put("tenant.props.default.notification.email.password", "emailPass");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
@@ -192,32 +192,32 @@ class TenantDefaultPropertiesProcessorTest {
             .thenReturn(false);
         
         // Mock environment to return default properties for validation
-        when(configurableEnvironment.getProperty("tenants.profile.default.jdbc-url"))
+        when(configurableEnvironment.getProperty("tenant.props.default.jdbc-url"))
             .thenReturn("jdbc:postgresql://localhost:5432/default");
-        when(configurableEnvironment.getProperty("tenants.profile.default.user-name"))
+        when(configurableEnvironment.getProperty("tenant.props.default.user-name"))
             .thenReturn("defaultUser");
-        when(configurableEnvironment.getProperty("tenants.profile.default.password"))
+        when(configurableEnvironment.getProperty("tenant.props.default.password"))
             .thenReturn("defaultPass");
-        when(configurableEnvironment.getProperty("tenants.profile.default.notification.email.host"))
+        when(configurableEnvironment.getProperty("tenant.props.default.notification.email.host"))
             .thenReturn("smtp.example.com");
-        when(configurableEnvironment.getProperty("tenants.profile.default.notification.email.port"))
+        when(configurableEnvironment.getProperty("tenant.props.default.notification.email.port"))
             .thenReturn("587");
-        when(configurableEnvironment.getProperty("tenants.profile.default.notification.email.username"))
+        when(configurableEnvironment.getProperty("tenant.props.default.notification.email.username"))
             .thenReturn("emailUser");
-        when(configurableEnvironment.getProperty("tenants.profile.default.notification.email.password"))
+        when(configurableEnvironment.getProperty("tenant.props.default.notification.email.password"))
             .thenReturn("emailPass");
         
         // Mock environment to return null for tenant1 properties (so they will be generated)
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.jdbc-url")).thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.user-name")).thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.password")).thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.notification.email.host"))
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.jdbc-url")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.user-name")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.password")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.notification.email.host"))
             .thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.notification.email.port"))
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.notification.email.port"))
             .thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.notification.email.username"))
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.notification.email.username"))
             .thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.notification.email.password"))
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.notification.email.password"))
             .thenReturn(null);
 
         // Act
@@ -234,7 +234,7 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
@@ -253,8 +253,8 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
-        defaultProps.put("tenants.profile.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
@@ -263,11 +263,11 @@ class TenantDefaultPropertiesProcessorTest {
         when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
         
         // Mock environment to return null for tenant1 properties (so they will be generated)
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.jdbc-url")).thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.user-name")).thenReturn(null);
-        when(configurableEnvironment.getProperty("tenants.profile.default.jdbc-url"))
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.jdbc-url")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.user-name")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.default.jdbc-url"))
             .thenReturn("jdbc:postgresql://localhost:5432/default");
-        when(configurableEnvironment.getProperty("tenants.profile.default.user-name")).thenReturn("defaultUser");
+        when(configurableEnvironment.getProperty("tenant.props.default.user-name")).thenReturn("defaultUser");
 
         // Act
         processor.refreshTenantProperties(tenantIds, configurableEnvironment);
@@ -283,13 +283,13 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources with tenant already having all properties
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
         sources.add(defaultPropertySource);
         when(propertySources.iterator()).thenReturn(sources.iterator());
-        when(configurableEnvironment.getProperty("tenants.profile.tenant1.jdbc-url"))
+        when(configurableEnvironment.getProperty("tenant.props.tenant1.jdbc-url"))
             .thenReturn("jdbc:postgresql://localhost:5432/tenant1");
         when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
 
@@ -304,7 +304,7 @@ class TenantDefaultPropertiesProcessorTest {
         
         // Mock property sources
         Map<String, Object> defaultProps = new HashMap<>();
-        defaultProps.put("tenants.profile.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         
         List<PropertySource<?>> sources = new ArrayList<>();
