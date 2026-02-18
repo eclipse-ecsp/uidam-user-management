@@ -20,9 +20,9 @@ package org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;

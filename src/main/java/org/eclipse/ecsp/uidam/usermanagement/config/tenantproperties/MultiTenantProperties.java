@@ -22,6 +22,7 @@ import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.HashMap;
@@ -30,22 +31,23 @@ import java.util.Set;
 
 /**
  * Multi-tenant properties configuration for User Management service.
- * Uses prefix-based property binding with pattern: tenant.tenants.{tenantId}.{property}
+ * Uses prefix-based property binding with pattern: tenants.profile.{tenantId}.{property}
  * Follows the Auth Server pattern for consistent multi-tenant configuration.
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "tenant")
+@RefreshScope
+@ConfigurationProperties(prefix = "tenants")
 @Validated
 public class MultiTenantProperties {
     
     /**
      * Map of tenant-specific configurations for User Management.
-     * Spring automatically binds tenant.tenants.{tenantId}.* properties to this map.
+     * Spring automatically binds tenants.profile.{tenantId}.* properties to this map.
      * Key: tenant ID (e.g., "ecsp", "sdp"), Value: tenant properties.
      */
     @Valid
-    private Map<String, UserManagementTenantProperties> tenants = new HashMap<>();
+    private Map<String, UserManagementTenantProperties> profile = new HashMap<>();
     
     /**
      * Get tenant properties for a specific tenant ID.
@@ -54,7 +56,7 @@ public class MultiTenantProperties {
      * @return UserManagementTenantProperties for the specified tenant, or null if not found
      */
     public UserManagementTenantProperties getTenantProperties(String tenantId) {
-        return tenants.get(tenantId);
+        return profile.get(tenantId);
     }
     
     /**
@@ -63,7 +65,7 @@ public class MultiTenantProperties {
      * @return Set of all tenant IDs
      */
     public Set<String> getAllTenantIds() {
-        return tenants.keySet();
+        return profile.keySet();
     }
     
     /**
@@ -73,6 +75,6 @@ public class MultiTenantProperties {
      * @return true if tenant exists, false otherwise
      */
     public boolean hasTenant(String tenantId) {
-        return tenants.containsKey(tenantId);
+        return profile.containsKey(tenantId);
     }
 }

@@ -97,6 +97,12 @@ class AccountControllerTest {
 
     @MockBean
     private TenantConfigurationService tenantConfigurationService;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @Autowired
     private ApplicationContext applicationContext;

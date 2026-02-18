@@ -118,6 +118,7 @@ import org.eclipse.ecsp.uidam.usermanagement.utilities.PasswordUtils;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserAccountRoleAssociationValidator;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserAttributeSpecification;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserManagementUtils;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserSpecification;
 import org.slf4j.Logger;
@@ -323,6 +324,9 @@ public class UsersServiceImpl implements UsersService {
 
     private final UidamMetricsService uidamMetricsService;
     
+    @Autowired
+    private UserAuditHelper userAuditHelper;
+    
     /**
      * Helper method to get current tenant properties.
      *
@@ -392,6 +396,10 @@ public class UsersServiceImpl implements UsersService {
             LOGGER.debug(ROLE_ID_IN_ACCOUNT_ROLE_MAPPING_MESSAGE, urm.getRoleId());
             urm.setUserId(savedUserId);
         });
+        
+        // Audit log: User created
+        userAuditHelper.logUserCreatedAudit(savedUser, loggedInUserId, isSelfAddUser, 
+            accountIdToNameMapping, roleIdToNameMapping);
 
         String version = (userDto instanceof UserDtoV1) ? VERSION_1 : VERSION_2;
         String userType = isSelfAddUser ? UidamMetricsConstants.USER_TYPE_SELF : UidamMetricsConstants.USER_TYPE_ADMIN;
@@ -993,46 +1001,43 @@ public class UsersServiceImpl implements UsersService {
             JsonNode jsonNodeList = objectMapper.convertValue(jsonPatch, JsonNode.class);
             List<JsonNode> operations = new ArrayList<>();
             jsonNodeList.forEach(operations::add);
-            Iterator<JsonNode> iterator = operations.iterator();
             List<JsonNode> addressOperations = new ArrayList<>();
             List<JsonNode> accountOperations = new ArrayList<>();
-            Set<String> addressEnums = Set.of(CITIES.getField(), STATES.getField(), COUNTRIES.getField(),
-                ADDRESS1.getField(), ADDRESS2.getField(), TIMEZONE.getField(), POSTAL_CODES.getField());
-            while (iterator.hasNext()) {
-                JsonNode operation = iterator.next();
-                if (apiVersion.equals(VERSION_1)
-                    && operation.has(PATH) && operation.get(PATH).asText().equals(ROLES_RESOURCE_PATH)) {
-                    patchUserRoles(user, userRoleNames, operation, isExternalUser);
-                    iterator.remove();
-                } else if (apiVersion.equals(VERSION_2)
-                    && operation.has(PATH) && operation.get(PATH).asText().contains(ACCOUNT_RESOURCE_PATH)) {
-                    accountOperations.add(operation);
-                    iterator.remove();
-                }
-                String key = operation.get(PATH).asText().substring(1);
-                checkForbiddenField(key, isExternalUser);
-                UserAttributeEntity userAttributeEntity = userAttributeEntitiesMap.get(key);
-                if (userAttributeEntity != null) {
-                    handleAttributes(userAttributeEntity, attributeIds, additionalAttributes, operation, key);
-                    iterator.remove();
-                }
-                if (addressEnums.contains(key)) {
-                    addressOperations.add(operation);
-                    iterator.remove();
-                }
-            }
+            
+            processPatchOperations(operations, user, userRoleNames, userAttributeEntitiesMap,
+                attributeIds, additionalAttributes, addressOperations, accountOperations,
+                isExternalUser, apiVersion);
             List<UserAccountRoleMappingEntity> acRoleMaps = new ArrayList<>();
             if (apiVersion.equals(VERSION_2) && !accountOperations.isEmpty()) {
                 //Validate the account operations are correct and can be applied to this user
                 acRoleMaps = validateAndCreateAccountRoleMappings(loggedInUserId,
                     user, accountOperations, objectMapper);
             }
+            // Capture before value for audit (must be done before applying patch)
+            String beforeValue = userAuditHelper.buildUserStateJson(user, accountIdToNameMapping, roleIdToNameMapping);
+            // Capture account-role mappings before modifications for audit
+            final String beforeAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(user, 
+                accountIdToNameMapping, roleIdToNameMapping);
+            
             UserEntity userEntity = applyPatchToUser(JsonPatch.fromJson(objectMapper.valueToTree(operations)), user);
+            
             UserEntity savedUser = updateUserEntity(userRoleNames, userAttributeEntities, attributeIds,
                 additionalAttributes, userAttributeEntitiesMap, objectMapper, addressOperations, userEntity,
                 loggedInUserId, isExternalUser, acRoleMaps);
             addUpdatedUserMetrics();
             userResponse = buildUserResponse(userId, userRoleNames, savedUser, apiVersion);
+            
+            // Audit log: User updated
+            userAuditHelper.logUserUpdatedAudit(savedUser, loggedInUserId, beforeValue, 
+                loggedInUserId.equals(userId), accountIdToNameMapping, roleIdToNameMapping);
+            
+            // Audit log: Account-role associations changed (only if modified)
+            String afterAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(savedUser, 
+                accountIdToNameMapping, roleIdToNameMapping);
+            if (!Objects.equals(beforeAccountRoleValue, afterAccountRoleValue)) {
+                userAuditHelper.logAccountRoleChangedAudit(savedUser, loggedInUserId, 
+                    beforeAccountRoleValue, afterAccountRoleValue, accountIdToNameMapping);
+            }
         } catch (JsonPatchException | IOException e) {
             throw new ApplicationRuntimeException(FIELD_DATA_IS_INVALID, BAD_REQUEST, String.valueOf(e.getMessage()));
         }
@@ -1333,6 +1338,11 @@ public class UsersServiceImpl implements UsersService {
             }
         });
         List<UserEntity> updatedUserEntities = userRepository.saveAll(savedUserEntities);
+        
+        // Audit log: Users deleted (bulk operation)
+        updatedUserEntities.forEach(entity -> userAuditHelper.logUserDeletedAudit(entity, null,
+            accountIdToNameMapping, roleIdToNameMapping));
+        
         Optional.of(updatedUserEntities).ifPresent(entities ->
                 entities.forEach(entity -> uidamMetricsService.incrementCounter(MetricInfo.builder()
                         .uidamMetrics(UidamMetrics.TOTAL_DELETED_USERS)
@@ -2090,13 +2100,17 @@ public class UsersServiceImpl implements UsersService {
             userEntity.setUserPassword(hashPassword);
             userEntity.setPasswordSalt(passwordSalt);
             userEntity.setPwdChangedtime(Timestamp.from(Instant.now()));
-            userRepository.save(userEntity);
+            UserEntity savedUser = userRepository.save(userEntity);
             userRecoverySecret.setRecoverySecretStatus(UserRecoverySecretStatus.VERIFIED.name());
             userRecoverySecretRepository.save(userRecoverySecret);
-            PasswordHistoryEntity historyEntity = generateUserPasswordHistoryEntity(userEntity);
+            PasswordHistoryEntity historyEntity = generateUserPasswordHistoryEntity(savedUser);
             historyEntity.setCreatedBy("system");
             passwordHistoryRepository.save(historyEntity);
-            revokeUserTokens(userEntity.getUserName());
+            revokeUserTokens(savedUser.getUserName());
+            
+            // Audit log: Self-service password reset completed
+            userAuditHelper.logPasswordResetCompletedAudit(savedUser, accountIdToNameMapping);
+            
             uidamMetricsService.incrementCounter(MetricInfo.builder()
                     .uidamMetrics(UidamMetrics.TOTAL_RESET_PASSWORD_BY_USER)
                     .build());
@@ -2151,6 +2165,10 @@ public class UsersServiceImpl implements UsersService {
         userRecoverySecret.setRecoverySecret(recoverySecret);
         userRecoverySecret.setUserId(userEntity.getId());
         userRecoverySecretRepository.save(userRecoverySecret);
+        
+        // Audit log: Self-service password reset requested
+        userAuditHelper.logPasswordResetRequestedAudit(userEntity, recoverySecret, accountIdToNameMapping);
+        
         uidamMetricsService.incrementCounter(MetricInfo.builder()
                 .uidamMetrics(UidamMetrics.TOTAL_FORGOT_PASSWORD_BY_USER)
                 .build());
@@ -2278,6 +2296,10 @@ public class UsersServiceImpl implements UsersService {
                     .map(UserAccountRoleMappingEntity::getRoleId).collect(Collectors.toSet());
                 RoleListRepresentation roleListDto = rolesService.getRoleById(roleIds);
                 UserEntity savedUser = userRepository.save(user);
+                
+                // Audit log: User status changed
+                userAuditHelper.logUserStatusChangedAudit(savedUser, loggedInUserId, currentStatus, newStatus,
+                    accountIdToNameMapping);
                 UserResponseV1 userResponse = (UserResponseV1) UserMapper.USER_MAPPER.mapToUserResponseV1(savedUser);
                 Map<BigInteger, Map<String, Object>> additionalAttributes = findAdditionalAttributeData(
                     List.of(user.getId()));
@@ -2448,12 +2470,23 @@ public class UsersServiceImpl implements UsersService {
 
         validateAllInputsForAssociation(loggedInUserId, associationRequest, userId, roleNameAndIdMap);
 
+        // Capture account-role mappings before modifications for audit
+        String beforeAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(userEntity, 
+            accountIdToNameMapping, roleIdToNameMapping);
+
         List<UserAccountRoleMappingEntity> acRoleMaps = prepareAccountRoleMappings(loggedInUserId,
             associationRequest, userEntity, roleNameAndIdMap);
         userEntity.getAccountRoleMapping().clear();
         userEntity.getAccountRoleMapping().addAll(acRoleMaps);
-        userRepository.save(userEntity);
-        return createAssociateAccountAndRolesResponse(userEntity);
+        UserEntity savedUser = userRepository.save(userEntity);
+        
+        // Audit log: Account-role associations changed
+        String afterAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(savedUser, 
+            accountIdToNameMapping, roleIdToNameMapping);
+        userAuditHelper.logAccountRoleChangedAudit(savedUser, loggedInUserId, 
+            beforeAccountRoleValue, afterAccountRoleValue, accountIdToNameMapping);
+        
+        return createAssociateAccountAndRolesResponse(savedUser);
     }
 
     /**
@@ -2504,6 +2537,10 @@ public class UsersServiceImpl implements UsersService {
             throw new UserAccountRoleMappingException(USER_ACCOUNT_ROLE_ASSOCIATION_CODE,
                 INVALID_ACCOUNT_ID_AND_ROLES_ERROR_MESSGAE, errorPropertyList, BAD_REQUEST);
         }
+
+        // Populate instance-level mappings for audit logging
+        rolesEntityList.forEach(role -> roleIdToNameMapping.put(role.getId(), role.getName()));
+        accountEntityList.forEach(account -> accountIdToNameMapping.put(account.getId(), account.getAccountName()));
 
         //All roles are valid. Now check if the logged in user is permitted to do this operation.
         if (!roleNameSet.isEmpty()) {
@@ -2730,4 +2767,43 @@ public class UsersServiceImpl implements UsersService {
         uidamMetricsService.incrementCounter(MetricInfo.builder()
                 .uidamMetrics(UidamMetrics.TOTAL_UPDATED_USERS).build());
     }
+    
+    /**
+     * Process JSON patch operations and categorize them.
+     */
+    private void processPatchOperations(List<JsonNode> operations, UserEntity user, Set<String> userRoleNames,
+                                       Map<String, UserAttributeEntity> userAttributeEntitiesMap,
+                                       List<BigInteger> attributeIds, Map<String, Object> additionalAttributes,
+                                       List<JsonNode> addressOperations, List<JsonNode> accountOperations,
+                                       boolean isExternalUser, String apiVersion) {
+        Set<String> addressEnums = Set.of(CITIES.getField(), STATES.getField(), COUNTRIES.getField(),
+            ADDRESS1.getField(), ADDRESS2.getField(), TIMEZONE.getField(), POSTAL_CODES.getField());
+        Iterator<JsonNode> iterator = operations.iterator();
+        
+        while (iterator.hasNext()) {
+            JsonNode operation = iterator.next();
+            if (apiVersion.equals(VERSION_1)
+                && operation.has(PATH) && operation.get(PATH).asText().equals(ROLES_RESOURCE_PATH)) {
+                patchUserRoles(user, userRoleNames, operation, isExternalUser);
+                iterator.remove();
+            } else if (apiVersion.equals(VERSION_2)
+                && operation.has(PATH) && operation.get(PATH).asText().contains(ACCOUNT_RESOURCE_PATH)) {
+                accountOperations.add(operation);
+                iterator.remove();
+            }
+            String key = operation.get(PATH).asText().substring(1);
+            checkForbiddenField(key, isExternalUser);
+            UserAttributeEntity userAttributeEntity = userAttributeEntitiesMap.get(key);
+            if (userAttributeEntity != null) {
+                handleAttributes(userAttributeEntity, attributeIds, additionalAttributes, operation, key);
+                iterator.remove();
+            }
+            if (addressEnums.contains(key)) {
+                addressOperations.add(operation);
+                iterator.remove();
+            }
+        }
+    }
+    
+    // Removed audit helper methods - moved to UserAuditHelper utility class
 }
