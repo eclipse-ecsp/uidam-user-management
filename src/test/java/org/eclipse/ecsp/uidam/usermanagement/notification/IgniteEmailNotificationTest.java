@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.usermanagement.notification;
 
 import io.prometheus.client.CollectorRegistry;
 import jakarta.mail.MessagingException;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
@@ -67,6 +68,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestPropertySource(properties = "notification.email.provider=ignite")
 @TestPropertySource("classpath:application-notification.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class IgniteEmailNotificationTest {
 
     @Autowired
@@ -97,27 +103,63 @@ class IgniteEmailNotificationTest {
     }
 
     @BeforeEach
-    @AfterEach
-    public void cleanup() {
-        CollectorRegistry.defaultRegistry.clear();
-    }
-
-    @BeforeEach
     public void setup() {
+        // Clear and set up tenant context for all tests
+        TenantContext.clear();
+        CollectorRegistry.defaultRegistry.clear();
+        TenantContext.setCurrentTenant("ecsp");
+        
         mockRestServiceServer = MockRestServiceServer.bindTo(restTemplate).build();
         
         // Configure the mock TenantConfigurationService
-        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties tenantProperties = 
-            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties();
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties
+            tenantProperties = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+                .UserManagementTenantProperties();
         
-        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties notificationProperties = 
-            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties();
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notificationProperties = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+                .NotificationProperties();
         notificationProperties.setNotificationApiUrl("http://test-notification-api:8080/v1/notifications/nonRegisteredUsers");
         notificationProperties.setNotificationId("TEST_NOTIFICATION_ID");
+        
+        // Configure email provider to use Ignite
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .EmailProviderProperties emailProviderProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .EmailProviderProperties();
+        emailProviderProperties.setProvider("ignite");
+        notificationProperties.setEmail(emailProviderProperties);
+        
+        // Configure template engine to use Mustache (for Ignite compatibility)
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateEngineProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .TemplateEngineProperties();
+        templateEngineProperties.setEngine("mustache");
+        templateEngineProperties.setFormat("HTML");
+        templateEngineProperties.setResolver("CLASSPATH");
+        templateEngineProperties.setPrefix("/notification/");
+        templateEngineProperties.setSuffix(".html");
+        notificationProperties.setTemplate(templateEngineProperties);
+        
+        // Configure notification config
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .NotificationConfigProperties notificationConfigProperties =
+            new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+                .NotificationConfigProperties();
+        notificationConfigProperties.setResolver("internal");
+        notificationConfigProperties.setPath("classpath:/notification/uidam-notification-config.json");
+        notificationProperties.setConfig(notificationConfigProperties);
         
         tenantProperties.setNotification(notificationProperties);
         
         org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
+    }
+
+    @AfterEach
+    public void cleanup() {
+        CollectorRegistry.defaultRegistry.clear();
+        TenantContext.clear();
     }
 
     @Test

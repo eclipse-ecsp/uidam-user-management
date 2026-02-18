@@ -18,7 +18,7 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.service;
 
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,30 +141,5 @@ class TenantConfigurationServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(expectedTenantIds, result);
-    }
-
-    @Test
-    void testGetDefaultTenantId_ReturnsDefaultTenantId() {
-        // Arrange
-        when(multiTenantProperties.getDefaultTenantId()).thenReturn(DEFAULT_TENANT_ID);
-
-        // Act
-        String result = tenantConfigurationService.getDefaultTenantId();
-
-        // Assert
-        assertEquals(DEFAULT_TENANT_ID, result);
-    }
-
-    @Test
-    void testGetDefaultTenantProperties_ReturnsDefaultProperties() {
-        // Arrange
-        when(multiTenantProperties.getDefaultTenantProperties()).thenReturn(defaultTenantProperties);
-
-        // Act
-        UserManagementTenantProperties result = tenantConfigurationService.getDefaultTenantProperties();
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(defaultTenantProperties, result);
     }
 }

@@ -22,6 +22,7 @@ package org.eclipse.ecsp.uidam.usermanagement.notification;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
+import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolverFactory;
 import org.eclipse.ecsp.uidam.usermanagement.notification.strategy.NotificationStrategy;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.springframework.stereotype.Component;
@@ -30,18 +31,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * sends notifications for different channels based on the strategy available.
+ * Sends notifications for different channels based on the strategy available.
+ * Supports multi-tenant notification config resolution.
  */
 @Slf4j
 @Component
 public class NotificationManager {
-    private Map<String, NotificationStrategy> strategyMap;
-    private NotificationConfigResolver configResolver;
+    private final Map<String, NotificationStrategy> strategyMap;
+    private final NotificationConfigResolverFactory configResolverFactory;
 
     public NotificationManager(Map<String, NotificationStrategy> strategyMap,
-                               NotificationConfigResolver configResolver) {
+                               NotificationConfigResolverFactory configResolverFactory) {
         this.strategyMap = strategyMap;
-        this.configResolver = configResolver;
+        this.configResolverFactory = configResolverFactory;
     }
 
     /**
@@ -53,6 +55,10 @@ public class NotificationManager {
     public boolean sendNotification(NotificationNonRegisteredUser request) {
         log.info("Request for notification with notificationId: {}, sessionId: {}, requestId: {}",
                 request.getNotificationId(), request.getSessionId(), request.getRequestId());
+        
+        // Get the appropriate config resolver for the current tenant
+        NotificationConfigResolver configResolver = configResolverFactory.getResolver();
+        
         // get the notification config for that notificationId
         List<String> notificationChannels = configResolver.getNotificationChannels(request.getNotificationId());
 

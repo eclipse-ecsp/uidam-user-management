@@ -233,7 +233,7 @@ class ScopesServiceTest {
 
         ScopeListRepresentation response = scopeService.updateScope(scopeName, new ScopePatch(), "DummyUser");
         assertEquals(LocalizationKey.SCOPE_UPDATE_FAILED, response.getMessages().get(0).getKey());
-        assertNull(response.getScopes());
+        assertTrue(response.getScopes().isEmpty());
     }
 
     @Test
@@ -283,7 +283,7 @@ class ScopesServiceTest {
 
         ScopeListRepresentation response = scopeService.deleteScope(scopeName);
         assertEquals(LocalizationKey.SCOPE_DELETE_FAILED, response.getMessages().get(0).getKey());
-        assertNull(response.getScopes());
+        assertTrue(response.getScopes().isEmpty());
     }
 
     @Test
@@ -305,7 +305,7 @@ class ScopesServiceTest {
 
         ScopeListRepresentation response = scopeService.deleteScope(scopeName);
         assertEquals(LocalizationKey.SCOPE_DELETE_FAILED_MAPPED_WITH_ROLE, response.getMessages().get(0).getKey());
-        assertNull(response.getScopes());
+        assertTrue(response.getScopes().isEmpty());
     }
 
     @Test
@@ -320,7 +320,7 @@ class ScopesServiceTest {
 
         ScopeListRepresentation response = scopeService.deleteScope(scopeName);
         assertEquals(LocalizationKey.SUCCESS_KEY, response.getMessages().get(0).getKey());
-        assertNull(response.getScopes());
+        assertTrue(response.getScopes().isEmpty());
     }
 
     @Test
@@ -363,13 +363,92 @@ class ScopesServiceTest {
         int pageSize = PAGE_SIZE;
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
 
-        when(scopesRepository.findByNameIn(scopeNames, pageable)).thenReturn(null);
+        when(scopesRepository.findByNameIn(scopeNames, pageable)).thenReturn(new ArrayList<>());
 
-        EntityNotFoundException exception = Assertions.assertThrows(EntityNotFoundException.class, () -> {
-            scopeService.filterScopes(scopeNames, pageNumber, pageSize);
-        }, "");
+        ScopeListRepresentation result = scopeService.filterScopes(scopeNames, pageNumber, pageSize);
 
-        assertEquals(LocalizationKey.GET_ENTITY_FAILURE, exception.getMessage());
+        assertEquals(LocalizationKey.SUCCESS_KEY, result.getMessages().get(0).getKey());
+        assertTrue(result.getScopes().isEmpty());
+    }
+
+    @Test
+    void filterScopesWithEmptyInputReturnsAllScopesTest() {
+        final Set<String> scopeNames = new HashSet<>();  // Empty set
+        int pageNumber = 0;
+        int pageSize = PAGE_SIZE;
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        ScopesEntity scopesEntity1 = new ScopesEntity(SCOPE_ID_1, "scope1",
+            "scope 1 description", false, false,
+                new ArrayList<>(), "dummyUser1", new Date(), null, null);
+        ScopesEntity scopesEntity2 = new ScopesEntity(SCOPE_ID_2, "scope2",
+            "scope 2 description", false, false,
+                new ArrayList<>(), "dummyUser2", new Date(), null, null);
+
+        List<ScopesEntity> scopesEntities = new ArrayList<>();
+        scopesEntities.add(scopesEntity1);
+        scopesEntities.add(scopesEntity2);
+
+        when(scopesRepository.findAll(pageable))
+            .thenReturn(new org.springframework.data.domain.PageImpl<>(scopesEntities));
+
+        ScopeListRepresentation scopeListRepresentation = scopeService.filterScopes(scopeNames,
+            pageNumber, pageSize);
+
+        assertEquals(LocalizationKey.SUCCESS_KEY, scopeListRepresentation.getMessages().get(0).getKey());
+        assertEquals(scopesEntities.size(), scopeListRepresentation.getScopes().size());
+    }
+
+    @Test
+    void filterScopesWithNullInputReturnsAllScopesTest() {
+        final Set<String> scopeNames = null;  // Null input
+        int pageNumber = 0;
+        int pageSize = PAGE_SIZE;
+        final Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        ScopesEntity scopesEntity1 = new ScopesEntity(SCOPE_ID_1, "scope1",
+            "scope 1 description", false, false,
+                new ArrayList<>(), "dummyUser1", new Date(), null, null);
+        ScopesEntity scopesEntity2 = new ScopesEntity(SCOPE_ID_2, "scope2",
+            "scope 2 description", false, false,
+                new ArrayList<>(), "dummyUser2", new Date(), null, null);
+        ScopesEntity scopesEntity3 = new ScopesEntity(SCOPE_ID_3, "scope3",
+            "scope 3 description", false, false,
+                new ArrayList<>(), "dummyUser3", new Date(), null, null);
+
+        List<ScopesEntity> scopesEntities = new ArrayList<>();
+        scopesEntities.add(scopesEntity1);
+        scopesEntities.add(scopesEntity2);
+        scopesEntities.add(scopesEntity3);
+
+        when(scopesRepository.findAll(pageable))
+            .thenReturn(new org.springframework.data.domain.PageImpl<>(scopesEntities));
+
+        ScopeListRepresentation scopeListRepresentation = scopeService
+            .filterScopes(scopeNames, pageNumber, pageSize);
+
+        assertEquals(LocalizationKey.SUCCESS_KEY,
+            scopeListRepresentation.getMessages().get(0).getKey());
+        assertEquals(scopesEntities.size(), scopeListRepresentation.getScopes().size());
+    }
+
+    @Test
+    void filterScopesWithEmptyInputReturnsEmptyListWhenNoScopesExistTest() {
+        Set<String> scopeNames = new HashSet<>();
+
+        int pageNumber = 0;
+        int pageSize = PAGE_SIZE;
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        when(scopesRepository.findAll(pageable))
+            .thenReturn(new org.springframework.data.domain.PageImpl<>(new ArrayList<>()));
+
+        ScopeListRepresentation scopeListRepresentation = scopeService
+            .filterScopes(scopeNames, pageNumber, pageSize);
+
+        assertEquals(LocalizationKey.SUCCESS_KEY,
+            scopeListRepresentation.getMessages().get(0).getKey());
+        assertTrue(scopeListRepresentation.getScopes().isEmpty());
     }
 
 }

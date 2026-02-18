@@ -45,6 +45,8 @@ from the command line interface.
 
 [Install Java](https://stackoverflow.com/questions/52511778/how-to-install-openjdk-11-on-windows)
 
+[Multitenancy Developer Guideline](https://github.com/eclipse-ecsp/uidam-user-management/blob/main/docs/MULTITENANCY_DEVELOPER_GUIDE.md)
+
 #### Local DB Setup
 
 1. Install PostgreSQL and a Database manager tool like [DBeaver](https://dbeaver.com/2022/02/17/how-to-download-and-install-dbeaver/)
@@ -114,7 +116,6 @@ It provides the following services:
    * All CRUD operations for roles
 5. Cloud Profile services:
     * All CRUD operations for cloud profiles
-
 
 #### Predefined Scopes and Roles
 Following Scopes and Roles are created by the Liquibase scripts, and can be used for api invocation. Rest of the default data can be checked directly in the [inital_schema.xml](src/main/resources/database.schema/changesets/1_0_release/initial_schema.xml) file.

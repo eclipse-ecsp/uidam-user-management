@@ -29,11 +29,12 @@ import com.github.mustachejava.resolver.FileSystemResolver;
 import com.github.mustachejava.resolver.URIResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.ecsp.uidam.usermanagement.config.NotificationTemplateConfig;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties.TemplateEngineProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateManagerException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -41,68 +42,90 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
- * Implementation for {@link TemplateParser} uses Mustache template engine.
+ * Implementation for {@link TemplateParser} uses Mustache template engine with tenant-specific configuration.
  * for more details please refer <a href="https://github.com/spullara/mustache.java/tree/main">Mustache Template Engine</a>
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "template.engine", havingValue = "mustache", matchIfMissing = true)
 public class MustacheTemplateParserImpl implements TemplateParser {
 
-    private MustacheFactory mustacheFactory;
-    private NotificationTemplateConfig templateConfig;
-    private ResourceLoader resourceLoader;
-    private String resourcePrefix;
+    private final ResourceLoader resourceLoader;
+    private final TenantConfigurationService tenantConfigurationService;
+    
+    // Cache of tenant-specific mustache factories: key = tenantId, value = MustacheFactory
+    private final Map<String, MustacheFactory> tenantMustacheFactories = new ConcurrentHashMap<>();
 
     /**
-     * Constructor to initialize mustache and validate config.
+     * Constructor to initialize mustache parser with tenant configuration service.
      *
-     * @param templateConfig {@link NotificationTemplateConfig} obj
+     * @param tenantConfigurationService service to get tenant-specific configuration
+     * @param resourceLoader resource loader for loading files
      */
-    public MustacheTemplateParserImpl(NotificationTemplateConfig templateConfig, ResourceLoader resourceLoader) {
-        this.templateConfig = templateConfig;
-        Objects.requireNonNull(templateConfig.getResolver(), "template resolver should not be null");
-        Objects.requireNonNull(templateConfig.getFormat(), "template format should not be null");
+    public MustacheTemplateParserImpl(TenantConfigurationService tenantConfigurationService, 
+                                      ResourceLoader resourceLoader) {
+        log.info("Initializing MustacheTemplateParser with tenant-specific configuration support");
+        this.tenantConfigurationService = tenantConfigurationService;
         this.resourceLoader = resourceLoader;
-        MustacheResolver resolver = null;
-        switch (templateConfig.getResolver()) {
-            case CLASSPATH -> {
-                String templatePrefix = templateConfig.getPrefix();
-                this.resourcePrefix = "classpath:";
+        log.info("MustacheTemplateParser initialization completed");
+    }
+
+    /**
+     * Get or create mustache factory for the current tenant.
+     *
+     * @param tenantId tenant identifier
+     * @return mustache factory for the tenant
+     */
+    private MustacheFactory getOrCreateMustacheFactory(String tenantId) {
+        return tenantMustacheFactories.computeIfAbsent(tenantId, tid -> {
+            log.info("Creating Mustache factory for tenant '{}'", tid);
+            
+            // Get tenant-specific template configuration
+            TemplateEngineProperties templateConfig = tenantConfigurationService
+                    .getTenantProperties().getNotification().getTemplate();
+            
+            MustacheResolver resolver = null;
+            String resolverType = templateConfig.getResolver();
+            String prefix = templateConfig.getPrefix();
+            
+            if ("CLASSPATH".equalsIgnoreCase(resolverType)) {
+                String templatePrefix = prefix;
                 if (StringUtils.isNotEmpty(templatePrefix) && templatePrefix.startsWith("/")) {
                     templatePrefix = templatePrefix.substring(1);
                 }
                 resolver = new ClasspathResolver(templatePrefix);
-            }
-            case FILE -> {
-                resourcePrefix = "file:";
-                resolver = new FileSystemResolver(Path.of(templateConfig.getPrefix()));
-            }
-            case URL ->
+                log.debug("Created ClasspathResolver for tenant '{}' with prefix: {}", tid, templatePrefix);
+            } else if ("FILE".equalsIgnoreCase(resolverType)) {
+                resolver = new FileSystemResolver(Path.of(prefix != null ? prefix : "."));
+                log.debug("Created FileSystemResolver for tenant '{}' with prefix: {}", tid, prefix);
+            } else if ("URL".equalsIgnoreCase(resolverType)) {
                 resolver = new URIResolver();
-            default -> log.info("no template resolver is configured..");
-        }
-        if (StringUtils.isNotEmpty(templateConfig.getPrefix())) {
-            resourcePrefix += templateConfig.getPrefix();
-        }
-        mustacheFactory = new DefaultMustacheFactory(resolver);
+                log.debug("Created URIResolver for tenant '{}'", tid);
+            } else {
+                log.warn("No template resolver configured for tenant '{}', using default", tid);
+            }
+            
+            return new DefaultMustacheFactory(resolver);
+        });
     }
 
     @Override
     public String parseText(String template, Map<String, Object> placeholderValues) {
         try {
             log.debug("[mustache]: text processing started");
+            String tenantId = TenantContext.getCurrentTenant();
+            MustacheFactory factory = getOrCreateMustacheFactory(tenantId);
+            
             StringWriter stringWriter = new StringWriter();
-            Mustache mustache = this.mustacheFactory.compile(new StringReader(template), "string-template");
+            Mustache mustache = factory.compile(new StringReader(template), "string-template");
             mustache.execute(stringWriter, placeholderValues);
             log.debug("[mustache]: text processing completed");
             return stringWriter.toString();
         } catch (Exception e) {
-            log.error("[thymeleaf]: Unknown error occurred while processing template {}", template, e);
+            log.error("[mustache]: Unknown error occurred while processing template {}", template, e);
             throw new TemplateManagerException(
                     String.format("An unknown error happened during template parsing , Template : %s", template), e);
         }
@@ -112,19 +135,30 @@ public class MustacheTemplateParserImpl implements TemplateParser {
     public String parseTemplate(String template, Map<String, Object> placeholderValues) {
         try {
             log.debug("[mustache]: template processing started");
-            if (null != templateConfig.getSuffix() && !template.contains(this.templateConfig.getSuffix())) {
-                template = template + "." + this.templateConfig.getSuffix();
+            String tenantId = TenantContext.getCurrentTenant();
+            MustacheFactory factory = getOrCreateMustacheFactory(tenantId);
+            
+            // Get tenant-specific template configuration
+            TemplateEngineProperties templateConfig = tenantConfigurationService
+                    .getTenantProperties().getNotification().getTemplate();
+            
+            // Add suffix if configured and not already present
+            String templateName = template;
+            String suffix = templateConfig.getSuffix();
+            if (StringUtils.isNotEmpty(suffix) && !template.contains(suffix)) {
+                templateName = template + suffix;
             }
-            Mustache mustache = mustacheFactory.compile(template);
+            
+            Mustache mustache = factory.compile(templateName);
             StringWriter stringWriter = new StringWriter();
             mustache.execute(stringWriter, placeholderValues);
             log.debug("[mustache]: template processing completed");
             return stringWriter.toString();
         } catch (MustacheNotFoundException e) {
-            log.error("[Mustache] Template {} not found", template);
+            log.error("[Mustache] Template {} not found", template, e);
             throw new TemplateNotFoundException(String.format("Template : %s not found", template), e);
         } catch (Exception e) {
-            log.error("[thymeleaf]: Unknown error occurred while processing template {}", template, e);
+            log.error("[mustache]: Unknown error occurred while processing template {}", template, e);
             throw new TemplateManagerException(
                     String.format("An unknown error happened during template parsing , Template : %s", template), e);
         }
@@ -132,8 +166,21 @@ public class MustacheTemplateParserImpl implements TemplateParser {
 
     @Override
     public Resource getFile(String path) {
-        path = null != resourcePrefix ? resourcePrefix + path : path;
-        Resource resource = resourceLoader.getResource(path);
+        TemplateEngineProperties templateConfig = tenantConfigurationService
+                .getTenantProperties().getNotification().getTemplate();
+        
+        String resolver = templateConfig.getResolver();
+        String prefix = templateConfig.getPrefix();
+        
+        // Build resource path
+        String resourcePath = path;
+        if ("FILE".equalsIgnoreCase(resolver)) {
+            resourcePath = "file:" + (prefix != null ? prefix : "") + path;
+        } else if ("CLASSPATH".equalsIgnoreCase(resolver)) {
+            resourcePath = "classpath:" + (prefix != null ? prefix : "") + path;
+        }
+        
+        Resource resource = resourceLoader.getResource(resourcePath);
         if (resource.exists()) {
             return resource;
         }

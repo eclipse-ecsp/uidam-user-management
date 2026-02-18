@@ -19,63 +19,94 @@
 package org.eclipse.ecsp.uidam.usermanagement.notification.resolver.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.EmailNotificationTemplateConfig;
 import org.eclipse.ecsp.uidam.usermanagement.config.NotificationConfig;
 import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.notification.resolver.NotificationConfigResolver;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * internal notification config resolver fetch config file contains notification template.
+ * Now supports multi-tenancy by loading tenant-specific notification configurations.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "notification.config.resolver", havingValue = "internal", matchIfMissing = true)
 public class InternalNotificationConfigResolver implements NotificationConfigResolver {
 
-    private static final Map<String, NotificationConfig> NOTIFICATION_CONFIG_MAP = new HashMap<>();
+    // Cache for tenant-specific notification configs: tenantId -> (notificationId -> NotificationConfig)
+    private final Map<String, Map<String, NotificationConfig>> tenantNotificationConfigs = new ConcurrentHashMap<>();
 
-    @Value("${notification.config.path:classpath:notification-config.json}")
-    private String notificationConfigPath;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-    @Autowired
-    private ResourceLoader resourceLoader;
+    private final TenantConfigurationService tenantConfigurationService;
+    private final ObjectMapper objectMapper;
+    private final ResourceLoader resourceLoader;
 
     /**
-     * load the config during application startup.
+     * Constructor for InternalNotificationConfigResolver.
      *
-     * @throws IOException if error occurred during fetching config file
+     * @param tenantConfigurationService the tenant configuration service
+     * @param objectMapper the object mapper for JSON parsing
+     * @param resourceLoader the resource loader for loading notification configs
      */
-    @PostConstruct
-    public void prepareNotificationConfig() throws IOException {
-        Resource resource = resourceLoader.getResource(notificationConfigPath);
-        if (resource.exists()) {
-            List<NotificationConfig> notificationConfig = objectMapper.readValue(resource.getContentAsByteArray(),
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, NotificationConfig.class));
-            notificationConfig.stream().forEach(i -> NOTIFICATION_CONFIG_MAP.put(i.getNotificationId(), i));
-        } else {
-            throw new FileNotFoundException("notification config not found: " + notificationConfigPath);
-        }
+    public InternalNotificationConfigResolver(TenantConfigurationService tenantConfigurationService,
+                                             ObjectMapper objectMapper,
+                                             ResourceLoader resourceLoader) {
+        this.tenantConfigurationService = tenantConfigurationService;
+        this.objectMapper = objectMapper;
+        this.resourceLoader = resourceLoader;
+    }
 
+    /**
+     * Load notification config for the current tenant (lazy initialization).
+     *
+     * @param tenantId the tenant ID
+     * @return Map of notification configs for the tenant
+     */
+    private Map<String, NotificationConfig> getOrLoadTenantNotificationConfig(String tenantId) {
+        return tenantNotificationConfigs.computeIfAbsent(tenantId, tid -> {
+            try {
+                // Get tenant-specific notification config path
+                String configPath = tenantConfigurationService.getTenantProperties()
+                        .getNotification()
+                        .getConfig()
+                        .getPath();
+                
+                log.debug("Loading notification config for tenant '{}' from path: {}", tid, configPath);
+                
+                Resource resource = resourceLoader.getResource(configPath);
+                if (!resource.exists()) {
+                    log.error("Notification config not found for tenant '{}' at path: {}", tid, configPath);
+                    return new HashMap<>();
+                }
+                
+                List<NotificationConfig> notificationConfigs = objectMapper.readValue(
+                        resource.getContentAsByteArray(),
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, NotificationConfig.class));
+                
+                Map<String, NotificationConfig> configMap = new HashMap<>();
+                notificationConfigs.forEach(config -> configMap.put(config.getNotificationId(), config));
+                
+                log.info("Loaded {} notification configs for tenant '{}'", configMap.size(), tid);
+                return configMap;
+                
+            } catch (IOException e) {
+                log.error("Failed to load notification config for tenant '{}': {}", tid, e.getMessage(), e);
+                return new HashMap<>();
+            }
+        });
     }
 
     @Override
@@ -120,13 +151,21 @@ public class InternalNotificationConfigResolver implements NotificationConfigRes
         return Optional.empty();
     }
 
+    /**
+     * Get notification config for the current tenant.
+     *
+     * @param notificationId the notification ID
+     * @return NotificationConfig or null if not found
+     */
     private NotificationConfig getNotificationConfig(String notificationId) {
-        NotificationConfig notificationConfigObj = NOTIFICATION_CONFIG_MAP.get(notificationId);
+        String tenantId = TenantContext.getCurrentTenant();
+        Map<String, NotificationConfig> tenantConfigs = getOrLoadTenantNotificationConfig(tenantId);
+        
+        NotificationConfig notificationConfigObj = tenantConfigs.get(notificationId);
         if (Objects.isNull(notificationConfigObj)) {
-            log.error("Notification config not found for notificationId: {}", notificationId);
+            log.error("Notification config not found for notificationId: {} in tenant: {}", 
+                     notificationId, tenantId);
         }
         return notificationConfigObj;
     }
-
-
 }

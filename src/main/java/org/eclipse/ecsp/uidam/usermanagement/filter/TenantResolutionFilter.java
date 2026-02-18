@@ -27,7 +27,7 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TenantResolutionException;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.slf4j.Logger;
@@ -68,6 +68,9 @@ public class TenantResolutionFilter implements Filter {
                        Pattern.CASE_INSENSITIVE);
 
     private static final String TENANT_HEADER = "tenantId";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final int BEARER_PREFIX_LENGTH = 7; // Length of "Bearer "
+    private static final int JWT_PARTS_COUNT = 3; // JWT has 3 parts: header.payload.signature
     private static final String TENANT_SESSION_KEY = "RESOLVED_TENANT_ID";
 
     @Value("${tenant.multitenant.enabled}")
@@ -118,7 +121,7 @@ public class TenantResolutionFilter implements Filter {
                 LOGGER.debug("Tenant resolved from request: {}", tenantId);
             } else {
                 // Fallback: try to get tenant from session
-                tenantId = getTenantFromSession(httpRequest);
+                //tenantId = getTenantFromSession(httpRequest);
                 if (StringUtils.hasText(tenantId)) {
                     LOGGER.debug("Tenant resolved from session: {}", tenantId);
                 } else if (multiTenantEnabled) {
@@ -207,7 +210,10 @@ public class TenantResolutionFilter implements Filter {
 
     /**
      * Resolve tenant from request header or path parameter.
-     * Enhanced version for User Management supporting both header and path-based tenant resolution.
+     * Enhanced version for User Management supporting multiple tenant resolution strategies:
+     * 1. URL path (for email verification links)
+     * 2. tenantId header (from API Gateway)
+     * 3. Authorization header (JWT token with tenantID claim)
      */
     private String resolveTenantFromRequest(HttpServletRequest request) {
         // Strategy 1: Check for tenant in URL path (for email verification links)
@@ -221,12 +227,20 @@ public class TenantResolutionFilter implements Filter {
         // Strategy 2: Check tenantId header (from API Gateway)
         String tenantId = request.getHeader(TENANT_HEADER);
         if (StringUtils.hasText(tenantId)) {
-            LOGGER.debug("Tenant resolved from header: {}", tenantId);
+            LOGGER.debug("Tenant resolved from tenantId header: {}", tenantId);
             storeTenantInSession(request, tenantId);
             return tenantId;
         }
 
-        LOGGER.debug("No tenant found in header or path for User Management request");
+        // Strategy 3: Check Authorization header for JWT token with tenantID claim
+        String tenantFromAuth = extractTenantFromAuthorizationHeader(request);
+        if (StringUtils.hasText(tenantFromAuth)) {
+            LOGGER.debug("Tenant resolved from Authorization header: {}", tenantFromAuth);
+            storeTenantInSession(request, tenantFromAuth);
+            return tenantFromAuth;
+        }
+
+        LOGGER.debug("No tenant found in path, header, or authorization for User Management request");
         return null;
     }
 
@@ -254,6 +268,109 @@ public class TenantResolutionFilter implements Filter {
         
         LOGGER.debug("No tenant pattern matched for URL: {}", requestUri);
         return null;
+    }
+
+    /**
+     * Extract tenant ID from Authorization header.
+     * Supports JWT tokens with tenantId claim in the payload.
+     * Expected format: Bearer JWT-TOKEN
+     * The JWT payload should contain a "tenantId" claim.
+     *
+     * <p>Example JWT payload:
+     * <pre>
+     * {
+     *   "sub": "admin",
+     *   "accountName": "sdp",
+     *   "tenantId": "sdp",
+     *   "user_id": "33332547171543448520109731243641",
+     *   ...
+     * }
+     * </pre>
+     *
+     * @param request The HTTP request containing the Authorization header
+     * @return The tenant ID if found in the token, null otherwise
+     */
+    private String extractTenantFromAuthorizationHeader(HttpServletRequest request) {
+        String authHeader = request.getHeader(AUTHORIZATION_HEADER);
+        
+        if (!StringUtils.hasText(authHeader)) {
+            LOGGER.debug("No Authorization header found in request");
+            return null;
+        }
+        
+        // Check if it's a Bearer token
+        if (!authHeader.startsWith("Bearer ")) {
+            LOGGER.debug("Authorization header is not a Bearer token");
+            return null;
+        }
+        
+        try {
+            // Extract the JWT token (remove "Bearer " prefix)
+            String token = authHeader.substring(BEARER_PREFIX_LENGTH);
+            
+            // Parse JWT token to extract tenantId claim
+            // JWT format: header.payload.signature
+            String[] parts = token.split("\\.");
+            if (parts.length != JWT_PARTS_COUNT) {
+                LOGGER.warn("Invalid JWT token format in Authorization header");
+                return null;
+            }
+            
+            // Decode the payload (second part)
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+            
+            // Parse JSON payload to extract tenantId
+            String tenantId = extractTenantIdFromPayload(payload);
+            
+            if (StringUtils.hasText(tenantId)) {
+                LOGGER.debug("Extracted tenant '{}' from Authorization header JWT token", tenantId);
+                return tenantId;
+            } else {
+                LOGGER.debug("No tenantId claim found in JWT token payload");
+                return null;
+            }
+            
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("Failed to decode JWT token from Authorization header: {}", e.getMessage());
+            return null;
+        } catch (Exception e) {
+            LOGGER.error("Error extracting tenant from Authorization header: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Extract tenantId value from JWT payload JSON.
+     * The primary claim name is "tenantId" as per UIDAM token structure.
+     *
+     * @param payload The JWT payload JSON string
+     * @return The tenant ID if found, null otherwise
+     */
+    private String extractTenantIdFromPayload(String payload) {
+        if (!StringUtils.hasText(payload)) {
+            return null;
+        }
+        
+        try {
+            // Use Jackson ObjectMapper to parse the JSON payload
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> claims = objectMapper.readValue(payload, java.util.Map.class);
+            
+            // Check for "tenantId" claim (standard UIDAM claim name)
+            Object tenantId = claims.get("tenantId");
+            if (tenantId != null) {
+                LOGGER.debug("Found 'tenantId' claim in JWT payload: {}", tenantId);
+                return tenantId.toString();
+            }
+            
+            LOGGER.debug("JWT payload does not contain 'tenantId' claim. Available claims: {}", 
+                claims.keySet());
+            return null;
+            
+        } catch (Exception e) {
+            LOGGER.warn("Failed to parse JWT payload JSON: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -306,5 +423,20 @@ public class TenantResolutionFilter implements Filter {
             this.timestamp = System.currentTimeMillis();
         }
 
+        public String getError() {
+            return error;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public int getStatus() {
+            return status;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
     }
 }

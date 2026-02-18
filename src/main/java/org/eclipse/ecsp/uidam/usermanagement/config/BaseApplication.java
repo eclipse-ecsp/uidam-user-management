@@ -24,9 +24,6 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
-import org.apache.commons.lang3.StringUtils;
-import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
-import org.eclipse.ecsp.uidam.usermanagement.constants.NotificationConstants;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.ClientAddCorrelationIdInterceptor;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.CorrelationIdInterceptor;
 import org.eclipse.ecsp.uidam.usermanagement.interceptor.LoggingRequestInterceptor;
@@ -35,17 +32,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
-import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.EnumerablePropertySource;
-import org.springframework.core.env.PropertySource;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorResourceFactory;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -53,7 +45,6 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 import javax.net.ssl.SSLException;
 import java.time.Duration;
-import java.util.Properties;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.BUILDER_NAME;
 
 /**
@@ -117,6 +108,7 @@ public abstract class BaseApplication {
      * @return WebClient
      */
     @Bean
+    @Lazy
     @DependsOn("adapter")
     public WebClient webClient() {
         ConnectionProvider provider =
@@ -146,55 +138,14 @@ public abstract class BaseApplication {
         } catch (SSLException e) {
             LOGGER.error("Error encountered ", e);
         }
-        
-        // Get tenant properties with null safety for test environments
-        UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
-        String baseUrl = "http://localhost:8080"; // Default for tests
-        
-        if (tenantProperties != null && tenantProperties.getAuthServer() != null) {
-            baseUrl = tenantProperties.getAuthServer().getHostName();
-            LOGGER.debug("Authorization Server service URL: {}", baseUrl);
-        } else {
-            LOGGER.warn("TenantProperties or AuthServer is null, using default URL: {}", baseUrl);
-        }
-        
-        return WebClient.builder().baseUrl(baseUrl)
+        //DOTO need revert previous changes
+        // Don't set baseUrl here - it will be set per-request in the services
+        // This avoids tenant context access during bean initialization
+        return WebClient.builder()
             .filter(ClientAddCorrelationIdInterceptor.addCorrelationIdAndContentType())
             .filter(LoggingRequestInterceptor.interceptWebClientHttpRequestAndResponse())
             .clientConnector(connector)
            .build();
-    }
-
-    /**
-     * Create spring mail {@link JavaMailSender} instance if provider is internal.
-     *
-     * @param env contains all the enviroment configuration
-     *
-     * @return instance of {@link JavaMailSender}
-     */
-    @Bean
-    @ConditionalOnProperty(name = NotificationConstants.NOTIFICATION_EMAIL_PROVIDER, havingValue = "internal")
-    public JavaMailSender javaMailSender(ConfigurableEnvironment env) {
-        JavaMailSenderImpl javaMailSender = new JavaMailSenderImpl();
-        javaMailSender.setHost(env.getProperty(NotificationConstants.NOTIFICATION_EMAIL_PROVIDER_HOST));
-        javaMailSender.setPort(env.getProperty(NotificationConstants.NOTIFICATION_EMAIL_PROVIDER_PORT, Integer.class));
-        javaMailSender.setUsername(env.getProperty(NotificationConstants.NOTIFICATION_EMAIL_PROVIDER_USERNAME));
-        javaMailSender.setPassword(env.getProperty(NotificationConstants.NOTIFICATION_EMAIL_PROVIDER_PASSWORD));
-        Properties props = javaMailSender.getJavaMailProperties();
-        for (PropertySource<?> propertySource : env.getPropertySources()) {
-            if (propertySource instanceof EnumerablePropertySource source) {
-                for (String key : source.getPropertyNames()) {
-                    if (key.startsWith(NotificationConstants.NOTIFICATION_EMAIL_PROVIDER_PROPERTIES_PREFIX)) {
-                        String updatedKey = StringUtils.removeStart(
-                                key, NotificationConstants.NOTIFICATION_EMAIL_PROVIDER_PROPERTIES_PREFIX);
-                        String value = env.resolvePlaceholders((String) source.getProperty(key));
-                        LOGGER.info("setting mail property with key: {}, value: {}", updatedKey, value);
-                        props.put(updatedKey, value);
-                    }
-                }
-            }
-        }
-        return javaMailSender;
     }
 
 }
