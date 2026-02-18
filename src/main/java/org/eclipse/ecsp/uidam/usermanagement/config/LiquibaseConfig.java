@@ -52,8 +52,8 @@ public class LiquibaseConfig  {
     @Value("${uidam.liquibase.change-log.path}")
     private String liquibaseChangeLogPath;
     
-    @Value("${uidam.default.db.schema}")
-    private String defaultUidamSchema;
+    @Value("${uidam.default.db.schema:}")
+    private String defaultUidamSchemaProperty;
     
     @Value("${uidam.liquibase.db.credential.global:false}")
     private boolean useGlobalCredentials;
@@ -117,6 +117,9 @@ public class LiquibaseConfig  {
             try {
                 // Get tenant-specific datasource based on configuration
                 tenantDataSource = getTenantDataSource(tenantId);
+                
+                // Get schema name for this tenant
+                String defaultUidamSchema = getSchemaNameForTenant(tenantId);
                 
                 liquibase.setDataSource(tenantDataSource);
                 liquibase.setChangeLog(liquibaseChangeLogPath);
@@ -277,6 +280,27 @@ public class LiquibaseConfig  {
         return "jdbc:postgresql://localhost:5432/" + tenantId;
     }
     
+    /**
+     * Gets the schema name for a tenant. 
+     * First checks the uidam.default.db.schema property.
+     * If empty or null, uses the tenant ID (lowercase) as the schema name.
+     *
+     * @param tenantId the tenant identifier
+     * @return the schema name to use for this tenant
+     */
+    private String getSchemaNameForTenant(String tenantId) {
+        if (defaultUidamSchemaProperty == null || defaultUidamSchemaProperty.trim().isEmpty()) {
+            // Use tenant ID (lowercase) as schema name
+            String schemaName = tenantId.toLowerCase();
+            LOGGER.info("Property 'uidam.default.db.schema' is empty or null. "
+                    + "Using tenant ID (lowercase) as schema: {}", schemaName);
+            return schemaName;
+        }
+        
+        LOGGER.info("Using schema from property 'uidam.default.db.schema': {}", 
+                defaultUidamSchemaProperty);
+        return defaultUidamSchemaProperty;
+    }
    
     /**
      * Retrieve tenant-specific Liquibase parameters from tenant properties.
@@ -288,7 +312,9 @@ public class LiquibaseConfig  {
      */
     public Map<String, String> getTenantSpecificLiquibaseParameters(String tenantId) {
         Map<String, String> liquibaseParams = new HashMap<>();
-        liquibaseParams.put("schema", defaultUidamSchema);
+        // Get schema name for this tenant
+        String schemaName = getSchemaNameForTenant(tenantId);
+        liquibaseParams.put("schema", schemaName);
 
         // Do not set tenant.id parameter to maintain null TENANT_ID for users
         // This preserves the original behavior where user records have null TENANT_ID
@@ -394,6 +420,9 @@ public class LiquibaseConfig  {
         try {
             // Get tenant-specific datasource
             tenantDataSource = getTenantDataSource(tenantId);
+            
+            // Get schema name for this tenant
+            String defaultUidamSchema = getSchemaNameForTenant(tenantId);
             
             // Create and configure Liquibase
             SpringLiquibase liquibase = new SpringLiquibase();
