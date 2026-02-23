@@ -29,7 +29,7 @@ import com.github.mustachejava.resolver.FileSystemResolver;
 import com.github.mustachejava.resolver.URIResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties.TemplateEngineProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateManagerException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;

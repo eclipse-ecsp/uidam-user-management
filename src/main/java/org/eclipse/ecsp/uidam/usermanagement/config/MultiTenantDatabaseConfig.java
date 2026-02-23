@@ -47,12 +47,12 @@ import java.util.Properties;
  * This configuration follows the exact pattern from UIDAM Authorization Server but adapted for User Management service
  * requirements.
  * Configuration sources (in priority order): 1. Environment variables: TENANT_TENANTS_{TENANT}_POSTGRES_* 2.
- * Application properties: tenant.tenants.{tenant}.postgres.* 3. Tenant property files:
+ * Application properties: tenants.profile.{tenant}.postgres.* 3. Tenant property files:
  * classpath:tenant-{tenant}.properties
  * Each tenant requires: - postgres.jdbc.url: JDBC connection URL - postgres.username: Database username -
  * postgres.password: Database password - postgres.driver.class.name: JDBC driver (defaults to PostgreSQL)
  */
-@Configuration
+//@Configuration DOTO to be removed after testing
 @Profile("!test")
 public class MultiTenantDatabaseConfig {
 
@@ -61,7 +61,7 @@ public class MultiTenantDatabaseConfig {
     // Configuration property keys
     private static final String TENANT_DEFAULT = "${tenant.default}";
     private static final String TENANT_IDS = "${tenant.ids}";
-    private static final String TENANT_PROPERTIES_PREFIX = "tenant.tenants.%s.%s";
+    private static final String TENANT_PROPERTIES_PREFIX = "tenants.profile.%s.%s";
     private static final String TENANT_PROPERTIES_FILE = "classpath:tenant-%s.properties";
     
     // Database property keys
@@ -144,7 +144,7 @@ public class MultiTenantDatabaseConfig {
      */
     @Bean("multiTenantDataSource")
     @Primary
-    @ConfigurationProperties(prefix = "tenant")
+    @ConfigurationProperties(prefix = "tenants")
     public DataSource dataSource() {
         LOGGER.info("Configuring multi-tenant DataSource for User Management");
         

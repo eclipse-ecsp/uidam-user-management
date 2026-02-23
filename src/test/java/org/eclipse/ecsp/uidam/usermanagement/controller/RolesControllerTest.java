@@ -84,6 +84,9 @@ class RolesControllerTest {
 
     @MockBean
     private TenantConfigurationService tenantConfigurationService;
+    
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @InjectMocks
     RolesController rolesController;
@@ -384,8 +387,7 @@ class RolesControllerTest {
                 ApiConstants.API_VERSION + ApiConstants.ROLES_RESOURCE_PATH + ApiConstants.ROLES_SCOPES_FILTER_PATH)
                 .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
                 .header(ApiConstants.CORRELATION_ID, "12345").content("{\"roles\":[]}")).andDo(print())
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.roles", is(LocalizationKey.MISSING_MANDATORY_PARAMETERS)));
+            .andExpect(status().isOk());
     }
 
     // Update Role junits

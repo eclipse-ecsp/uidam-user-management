@@ -19,7 +19,7 @@
 package org.eclipse.ecsp.uidam.usermanagement.notification.parser.impl;
 
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties.TemplateEngineProperties;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateManagerException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;

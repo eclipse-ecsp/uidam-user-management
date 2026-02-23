@@ -20,6 +20,7 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.AssociateAccountAndRolesDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.AssociateAccountAndRolesResponse;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -60,14 +62,13 @@ import static org.mockito.Mockito.when;
  * @author sputhanveett
  */
 @ActiveProfiles("test")
-@TestPropertySource("classpath:application-test.properties")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {
-    AccountRepository.class })
 @AutoConfigureWebTestClient(timeout = "3600000")
-@EnableJpaRepositories(basePackages = "org.eclipse.ecsp")
-@ComponentScan(basePackages = { "org.eclipse.ecsp" })
-@EntityScan("org.eclipse.ecsp")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestExecutionListeners(listeners = {
+    org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class
+}, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UsersControllerIntegrationTest {
 
     private Logger logger = LoggerFactory.getLogger(UsersControllerIntegrationTest.class);
@@ -117,12 +118,20 @@ class UsersControllerIntegrationTest {
     @MockBean
     PasswordPolicyService passwordPolicyService;
     
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
+    
     /**
      * Init before each test.
      */
     @BeforeAll
     public void init() {
         CollectorRegistry.defaultRegistry.clear();
+        
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
 
         rolesEntities = List.of(addRoles("Bussiness_admin", "BUSSINESS_ADMIN", INDEX_1),
                 addRoles("Guest", "GUEST", INDEX_2), addRoles("Tenant", "TENANT", INDEX_3),
@@ -140,6 +149,16 @@ class UsersControllerIntegrationTest {
                         Set.of(rolesEntities.get(INDEX_0).getId(),
                                 rolesEntities.get(INDEX_3).getId(),
                                 rolesEntities.get(INDEX_4).getId()), INDEX_4));
+        // Ensure mocked repository returns the entity passed to save(), to mimic JPA behaviour
+        when(userRepository.save(any(org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+    
+    @BeforeEach
+    public void perTestSetup() {
+        // Re-stub save for each test to ensure it persists across all test executions
+        when(userRepository.save(any(org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
