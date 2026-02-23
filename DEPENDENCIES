@@ -130,7 +130,7 @@ maven/mavencentral/org.eclipse.angus/angus-activation/2.0.2, EPL-2.0 OR GPL-2.0-
 maven/mavencentral/org.eclipse.angus/jakarta.mail/2.0.4, EPL-2.0 OR GPL-2.0-only with Classpath-exception-2.0, approved, ee4j.angus
 maven/mavencentral/org.eclipse.ecsp/api-registry-common/1.3.1, Apache-2.0, approved, automotive.ecsp
 maven/mavencentral/org.eclipse.ecsp/entities/1.1.1, Apache-2.0, approved, automotive.ecsp
-maven/mavencentral/org.eclipse.ecsp/sql-dao/1.9-feat-17-8-20251217.082812-1, Apache-2.0, approved, automotive.ecsp
+maven/mavencentral/org.eclipse.ecsp/sql-dao/1.2.2, Apache-2.0, approved, automotive.ecsp
 maven/mavencentral/org.eclipse.ecsp/utils/1.1.1, Apache-2.0, approved, automotive.ecsp
 maven/mavencentral/org.glassfish.jaxb/jaxb-core/4.0.5, BSD-3-Clause, approved, ee4j.jaxb-impl
 maven/mavencentral/org.glassfish.jaxb/jaxb-runtime/4.0.5, BSD-3-Clause, approved, ee4j.jaxb-impl
@@ -143,7 +143,7 @@ maven/mavencentral/org.hibernate.common/hibernate-commons-annotations/7.0.3.Fina
 maven/mavencentral/org.hibernate.orm/hibernate-core/6.6.29.Final, (EPL-2.0 OR BSD-3-Clause) AND LGPL-2.1-or-later AND MIT, approved, #17553
 maven/mavencentral/org.hibernate.validator/hibernate-validator/8.0.3.Final, Apache-2.0 AND CC-PDDC, approved, #18198
 maven/mavencentral/org.javassist/javassist/3.29.0-GA, Apache-2.0 AND LGPL-2.1-or-later AND MPL-1.1, approved, #6023
-maven/mavencentral/org.jboss.logging/jboss-logging/3.6.1.Final, Apache-2.0, approved, clearlydefined
+maven/mavencentral/org.jboss.logging/jboss-logging/3.6.1.Final, Apache-2.0, approved, #26108
 maven/mavencentral/org.jetbrains/annotations/13.0, Apache-2.0, approved, clearlydefined
 maven/mavencentral/org.junit.jupiter/junit-jupiter-api/5.12.2, EPL-2.0, approved, #19509
 maven/mavencentral/org.junit.jupiter/junit-jupiter-engine/5.12.2, EPL-2.0, approved, #19514
@@ -200,7 +200,7 @@ maven/mavencentral/org.springframework.cloud/spring-cloud-commons/4.3.0, Apache-
 maven/mavencentral/org.springframework.cloud/spring-cloud-config-client/4.3.0, Apache-2.0, approved, clearlydefined
 maven/mavencentral/org.springframework.cloud/spring-cloud-context/4.3.0, Apache-2.0, approved, clearlydefined
 maven/mavencentral/org.springframework.cloud/spring-cloud-starter-config/4.3.0, Apache-2.0, approved, clearlydefined
-maven/mavencentral/org.springframework.cloud/spring-cloud-starter/4.3.0, Apache-2.0, approved, clearlydefined
+maven/mavencentral/org.springframework.cloud/spring-cloud-starter/4.3.0, Apache-2.0, approved, #25562
 maven/mavencentral/org.springframework.data/spring-data-commons/3.5.4, Apache-2.0, approved, #21920
 maven/mavencentral/org.springframework.data/spring-data-jpa/3.5.4, Apache-2.0, approved, #21922
 maven/mavencentral/org.springframework.security/spring-security-crypto/6.5.5, Apache-2.0 AND ISC, approved, #22171
