@@ -24,7 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.http.HttpStatus;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +52,12 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("test")
 class TenantResolutionFilterTest {
 
+    // Static initializer to set system property before tests run
+    static {
+        System.setProperty("multitenancy.enabled", "true");
+        System.setProperty("tenant.default", "ecsp");
+    }
+
     @Mock
     private TenantConfigurationService tenantConfigurationService;
 
@@ -78,7 +84,21 @@ class TenantResolutionFilterTest {
     @BeforeEach
     void setUp() throws Exception {
         tenantResolutionFilter = new TenantResolutionFilter(tenantConfigurationService, objectMapper);
+        
+        // Set default multiTenantEnabled=true and defaultTenant="ecsp" for all tests via reflection
+        java.lang.reflect.Field multiTenantField = TenantResolutionFilter.class.getDeclaredField("multiTenantEnabled");
+        multiTenantField.setAccessible(true);
+        multiTenantField.set(tenantResolutionFilter, true);
+        
+        java.lang.reflect.Field defaultTenantField = TenantResolutionFilter.class.getDeclaredField("defaultTenant");
+        defaultTenantField.setAccessible(true);
+        defaultTenantField.set(tenantResolutionFilter, "ecsp");
+        
         TenantContext.clear();
+        // Set a default tenant context for the test setup phase
+        // This will be cleared and reset by each test as needed
+        TenantContext.setCurrentTenant("ecsp");
+        
         // Mock session for all tests - handle both getSession(false) and getSession(true)
         when(request.getSession(false)).thenReturn(session);
         when(request.getSession(true)).thenReturn(session);
@@ -103,11 +123,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(expectedTenant);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -120,11 +147,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(null);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -162,11 +196,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(headerTenant);
         when(tenantConfigurationService.tenantExists(pathTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(pathTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(pathTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -217,11 +258,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(null);
         when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals(expectedTenant, TenantContext.getCurrentTenant());
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -240,11 +288,18 @@ class TenantResolutionFilterTest {
         when(request.getHeader("tenantId")).thenReturn(null);
         when(tenantConfigurationService.tenantExists("default_tenant")).thenReturn(true);
 
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
         // Act
         tenantResolutionFilter.doFilter(request, response, filterChain);
 
-        // Assert
-        assertEquals("ecsp", TenantContext.getCurrentTenant());
+        // Assert - When multitenancy is disabled, default tenant should be set
+        assertEquals("default_tenant", capturedTenant[0]);
         verify(filterChain).doFilter(request, response);
     }
 
@@ -270,5 +325,269 @@ class TenantResolutionFilterTest {
         verify(response).setContentType("application/json");
         verify(printWriter).write(anyString());
         verify(printWriter).flush();
+    }
+
+    @Test
+    void testTenantResolutionFromAuthorizationHeaderWithValidJwt() throws Exception {
+        // Arrange
+        String expectedTenant = "sdp";
+        // Create a valid JWT token with tenantId claim
+        // JWT format: header.payload.signature (Base64 URL encoded)
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{\"alg\":\"RS256\",\"typ\":\"JWT\"}".getBytes());
+        String payloadJson = "{\"sub\":\"admin\",\"tenantId\":\""
+            + expectedTenant + "\",\"user_id\":\"12345\"}";
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(payloadJson.getBytes());
+        String signature = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("fake-signature".getBytes());
+        final String jwtToken = header + "." + payload + "." + signature;
+
+        // Mock objectMapper to parse the JWT payload - use exact string match
+        java.util.Map<String, Object> claims = new java.util.HashMap<>();
+        claims.put("sub", "admin");
+        claims.put("tenantId", expectedTenant);
+        claims.put("user_id", "12345");
+        when(objectMapper.readValue(payloadJson, java.util.Map.class)).thenReturn(claims);
+        
+        // Ensure session doesn't interfere
+        when(session.getAttribute(anyString())).thenReturn(null);
+        
+        final String authHeader = "Bearer " + jwtToken;
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn(authHeader);
+        when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
+
+        // Create a holder to capture tenant context from inside the filter chain
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        assertEquals(expectedTenant, capturedTenant[0]);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testTenantResolutionFromAuthorizationHeaderWithDifferentTenant() throws Exception {
+        // Arrange
+        String expectedTenant = "ecsp";
+        String payloadJson = "{\"sub\":\"testuser\",\"tenantId\":\""
+            + expectedTenant + "\",\"accountName\":\"Engineering\"}";
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(payloadJson.getBytes());
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{\"alg\":\"HS256\"}".getBytes());
+        String signature = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("signature".getBytes());
+        final String jwtToken = header + "." + payload + "." + signature;
+
+        // Mock objectMapper to parse the JWT payload
+        java.util.Map<String, Object> claims = new java.util.HashMap<>();
+        claims.put("sub", "testuser");
+        claims.put("tenantId", expectedTenant);
+        claims.put("accountName", "Engineering");
+        when(objectMapper.readValue(payloadJson, java.util.Map.class)).thenReturn(claims);
+        
+        final String authHeader = "Bearer " + jwtToken;
+        when(request.getRequestURI()).thenReturn("/v1/roles");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn(authHeader);
+        when(tenantConfigurationService.tenantExists(expectedTenant)).thenReturn(true);
+
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - check tenant was set during filter chain execution
+        assertEquals(expectedTenant, capturedTenant[0]);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testAuthorizationHeaderIgnoredWhenTenantIdHeaderPresent() throws Exception {
+        // Arrange - header should take precedence over Authorization
+        String headerTenant = "ecsp";
+        String authTenant = "sdp";
+        
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(("{\"tenantId\":\"" + authTenant + "\"}").getBytes());
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{\"alg\":\"HS256\"}".getBytes());
+        String signature = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("sig".getBytes());
+        String jwtToken = header + "." + payload + "." + signature;
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(headerTenant);
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
+        when(tenantConfigurationService.tenantExists(headerTenant)).thenReturn(true);
+
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should use tenantId header, not Authorization
+        assertEquals(headerTenant, capturedTenant[0]);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testAuthorizationHeaderIgnoredWhenPathContainsTenant() throws Exception {
+        // Arrange - path should take precedence over Authorization
+        String pathTenant = "ecsp";
+        String authTenant = "sdp";
+        
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(("{\"tenantId\":\"" + authTenant + "\"}").getBytes());
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{\"alg\":\"HS256\"}".getBytes());
+        String signature = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("sig".getBytes());
+        String jwtToken = header + "." + payload + "." + signature;
+        String requestUri = "/" + pathTenant + "/v1/emailVerification/token-123";
+
+        when(request.getRequestURI()).thenReturn(requestUri);
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
+        when(tenantConfigurationService.tenantExists(pathTenant)).thenReturn(true);
+
+        // Capture tenant context value during filter chain execution
+        final String[] capturedTenant = new String[1];
+        doAnswer(invocation -> {
+            capturedTenant[0] = TenantContext.getCurrentTenant();
+            return null;
+        }).when(filterChain).doFilter(request, response);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should use path tenant, not Authorization
+        assertEquals(pathTenant, capturedTenant[0]);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testInvalidJwtFormatIgnored() throws Exception {
+        // Arrange - invalid JWT (only 2 parts instead of 3)
+        String invalidJwt = "header.payload"; // Missing signature
+        String authHeader = "Bearer " + invalidJwt;
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn(authHeader);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should fail to resolve tenant
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+    }
+
+    @Test
+    void testNonBearerTokenIgnored() throws Exception {
+        // Arrange - Authorization header without Bearer prefix
+        String authHeader = "Basic dXNlcjpwYXNzd29yZA=="; // Basic auth
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn(authHeader);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should fail to resolve tenant
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+    }
+
+    @Test
+    void testJwtWithoutTenantIdClaimIgnored() throws Exception {
+        // Arrange - JWT without tenantId claim
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{\"sub\":\"user\",\"role\":\"admin\"}".getBytes()); // No tenantId
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{\"alg\":\"HS256\"}".getBytes());
+        String signature = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("sig".getBytes());
+        String jwtToken = header + "." + payload + "." + signature;
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should fail to resolve tenant
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+    }
+
+    @Test
+    void testMalformedBase64InJwtIgnored() throws Exception {
+        // Arrange - JWT with invalid Base64 encoding
+        String invalidJwt = "header.invalid-base64-!!!.signature";
+        String authHeader = "Bearer " + invalidJwt;
+
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn(authHeader);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should fail to resolve tenant
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+    }
+
+    @Test
+    void testEmptyAuthorizationHeaderIgnored() throws Exception {
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn("");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should fail to resolve tenant
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+    }
+
+    @Test
+    void testBearerTokenWithOnlyPrefixIgnored() throws Exception {
+        // Arrange - "Bearer " with no token
+        when(request.getRequestURI()).thenReturn("/v1/users");
+        when(request.getHeader("tenantId")).thenReturn(null);
+        when(request.getHeader("Authorization")).thenReturn("Bearer ");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - should fail to resolve tenant
+        verify(filterChain, never()).doFilter(request, response);
+        verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
     }
 }

@@ -40,6 +40,7 @@ public class ScopeListRepresentation extends BaseRepresentation {
     public static ScopeListRepresentation error(String error) {
         ScopeListRepresentation errorRepresentation = new ScopeListRepresentation();
         errorRepresentation.addMessage(new ResponseMessage(error));
+        errorRepresentation.setScopes(new java.util.HashSet<>());
         return errorRepresentation;
     }
 

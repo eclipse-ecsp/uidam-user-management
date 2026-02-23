@@ -25,7 +25,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.service.EmailVerificationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;

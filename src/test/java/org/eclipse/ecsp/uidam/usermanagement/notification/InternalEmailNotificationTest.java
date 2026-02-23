@@ -25,7 +25,9 @@ import jakarta.mail.internet.MimeMessage;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
+import org.eclipse.ecsp.uidam.usermanagement.config.TenantAwareJavaMailSenderFactory;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NonRegisteredUserData;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.NotificationNonRegisteredUser;
 import org.junit.jupiter.api.AfterEach;
@@ -43,7 +45,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,13 +63,24 @@ import static org.mockito.Mockito.verify;
 @SpringBootTest(classes = InternalEmailNotificationTest.AppConfig.class)
 @TestPropertySource("classpath:application-notification.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class InternalEmailNotificationTest {
 
     @Autowired
     private NotificationManager notificationManager;
 
     @MockBean
+    private TenantAwareJavaMailSenderFactory tenantAwareJavaMailSenderFactory;
+    
+    @MockBean
     private JavaMailSender javaMailSender;
+    
+    @MockBean
+    private TenantConfigurationService tenantConfigurationService;
     
     @MockBean
     PasswordValidationService passwordValidationService;
@@ -91,9 +103,63 @@ class InternalEmailNotificationTest {
         CollectorRegistry.defaultRegistry.clear();
     }
 
-    @Test
-    void testSuccess() throws MessagingException, IOException {
+    @BeforeEach
+    public void setup() {
+        // Mock the factory to return our mocked JavaMailSender
+        org.mockito.Mockito.when(tenantAwareJavaMailSenderFactory.getMailSender())
+            .thenReturn(javaMailSender);
+        
+        // Mock JavaMailSender to prevent actual email sending
         doReturn(new MimeMessage((Session) null)).when(javaMailSender).createMimeMessage();
+        
+        // Configure email provider to use Internal
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .EmailProviderProperties emailProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.EmailProviderProperties();
+        emailProps.setProvider("internal");
+        emailProps.setHost("smtp.test.com");
+        final int smtpPort = 587;
+        emailProps.setPort(smtpPort);
+        emailProps.setUsername("test@test.com");
+        emailProps.setPassword("testpass");
+        
+        // Configure template engine properties
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.TemplateEngineProperties();
+        templateProps.setEngine("thymeleaf");
+        templateProps.setFormat("HTML");
+        templateProps.setResolver("CLASSPATH");
+        templateProps.setPrefix("/notification/");
+        templateProps.setSuffix(".html");
+        
+        // Configure notification config properties
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .NotificationConfigProperties configProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.NotificationConfigProperties();
+        configProps.setResolver("internal");
+        configProps.setPath("classpath:/notification/uidam-notification-config.json");
+        
+        // Configure notification properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notifProps = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .NotificationProperties();
+        notifProps.setEmail(emailProps);
+        notifProps.setTemplate(templateProps);
+        notifProps.setConfig(configProps);
+        
+        // Configure tenant properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .UserManagementTenantProperties tenantProps = new org.eclipse.ecsp.uidam.usermanagement
+            .config.tenantproperties.UserManagementTenantProperties();
+        tenantProps.setNotification(notifProps);
+        
+        org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties())
+            .thenReturn(tenantProps);
+    }
+
+    @Test
+    void testSuccess() throws MessagingException {
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());
@@ -123,7 +189,6 @@ class InternalEmailNotificationTest {
 
     @Test
     void testDefaultLocale() throws MessagingException {
-        doReturn(new MimeMessage((Session) null)).when(javaMailSender).createMimeMessage();
         NotificationNonRegisteredUser request = new NotificationNonRegisteredUser();
         request.setNotificationId("UIDAM_USER_VERIFY_ACCOUNT");
         request.setRequestId(UUID.randomUUID().toString());

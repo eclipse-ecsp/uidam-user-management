@@ -18,11 +18,12 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.service;
 
-import org.eclipse.ecsp.uidam.usermanagement.config.TenantContext;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +35,7 @@ import java.util.Set;
  * Follows the same method signatures as the Auth Server TenantConfigurationService.
  */
 @Service
+@RefreshScope
 @Profile("!test")
 public class TenantConfigurationService {
     
@@ -89,23 +91,5 @@ public class TenantConfigurationService {
      */
     public Set<String> getAllTenantIds() {
         return multiTenantProperties.getAllTenantIds();
-    }
-    
-    /**
-     * Get the default tenant ID.
-     *
-     * @return default tenant ID
-     */
-    public String getDefaultTenantId() {
-        return multiTenantProperties.getDefaultTenantId();
-    }
-    
-    /**
-     * Get the default tenant properties.
-     *
-     * @return UserManagementTenantProperties for the default tenant
-     */
-    public UserManagementTenantProperties getDefaultTenantProperties() {
-        return multiTenantProperties.getDefaultTenantProperties();
     }
 }

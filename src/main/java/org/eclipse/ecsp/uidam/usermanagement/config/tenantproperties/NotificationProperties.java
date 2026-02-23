@@ -37,6 +37,9 @@ public class NotificationProperties {
     // Email Provider Configuration
     private EmailProviderProperties email;
     
+    // Notification Configuration
+    private NotificationConfigProperties config;
+    
     // Template Engine Configuration
     private TemplateEngineProperties template;
     
@@ -52,6 +55,16 @@ public class NotificationProperties {
         private String username;
         private String password;
         private Map<String, String> properties;
+    }
+    
+    /**
+     * Notification configuration for template and configuration resolution.
+     */
+    @Getter
+    @Setter
+    public static class NotificationConfigProperties {
+        private String resolver = "internal";
+        private String path = "classpath:/notification/uidam-notification-config.json";
     }
     
     /**

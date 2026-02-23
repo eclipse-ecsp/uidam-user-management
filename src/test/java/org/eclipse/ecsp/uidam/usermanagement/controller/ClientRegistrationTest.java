@@ -59,6 +59,11 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("test")
 @TestPropertySource("classpath:application-test.properties")
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class ClientRegistrationTest {
 
     private static final int INTEGER_300 = 300;
@@ -92,10 +97,18 @@ class ClientRegistrationTest {
     private static final int TWO_THOUSAN_INT = 2000;
 
     @BeforeEach
+    public void setup() {
+        CollectorRegistry.defaultRegistry.clear();
+        // Configure WebTestClient with default tenantId header for all requests
+        webTestClient = webTestClient.mutate()
+                .defaultHeader("tenantId", "ecsp")
+                .build();
+        setupTenantConfiguration();
+    }
+
     @AfterEach
     public void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
-        setupTenantConfiguration();
     }
     
     private void setupTenantConfiguration() {

@@ -178,6 +178,9 @@ class UsersServiceV2Test {
     @MockBean
     UidamMetricsService uidamMetricsService;
 
+    @MockBean
+    org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
+
     private String passwordEncoder = "SHA-256";
 
     private static final long TEST_ROLE_ID_1 = 1L;

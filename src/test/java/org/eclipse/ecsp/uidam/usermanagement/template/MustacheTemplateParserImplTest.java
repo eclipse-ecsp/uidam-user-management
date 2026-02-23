@@ -19,15 +19,18 @@
 package org.eclipse.ecsp.uidam.usermanagement.template;
 
 import io.prometheus.client.CollectorRegistry;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService;
 import org.eclipse.ecsp.uidam.security.policy.service.PasswordPolicyService;
 import org.eclipse.ecsp.uidam.usermanagement.exception.TemplateNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.notification.parser.TemplateParser;
+import org.eclipse.ecsp.uidam.usermanagement.service.TenantConfigurationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,9 +52,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(classes = MustacheTemplateParserImplTest.AppConfig.class)
 @TestPropertySource("classpath:application-mustache.properties")
 @MockBean(AccountRepository.class)
+@org.springframework.test.context.TestExecutionListeners(
+    listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
+    mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
+)
+@org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class MustacheTemplateParserImplTest {
 
     @Autowired
+    @Qualifier("mustacheTemplateParserImpl")
     private TemplateParser templateManager;
 
     @MockBean
@@ -59,6 +68,9 @@ class MustacheTemplateParserImplTest {
     
     @MockBean
     PasswordPolicyService passwordPolicyService;
+    
+    @MockBean
+    TenantConfigurationService tenantConfigurationService;
     
     /**
      * application test config.
@@ -72,6 +84,38 @@ class MustacheTemplateParserImplTest {
     @AfterEach
     public void cleanup() {
         CollectorRegistry.defaultRegistry.clear();
+    }
+    
+    @BeforeEach
+    public void setup() {
+        // Set up tenant context
+        TenantContext.setCurrentTenant("ecsp");
+        
+        // Configure template engine properties for Mustache
+        org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            .TemplateEngineProperties templateProps = new org.eclipse.ecsp.uidam.usermanagement.config
+            .tenantproperties.NotificationProperties.TemplateEngineProperties();
+        templateProps.setEngine("mustache");
+        templateProps.setFormat("HTML");
+        templateProps.setResolver("CLASSPATH");
+        templateProps.setPrefix("/templates/");
+        templateProps.setSuffix(".html");
+        
+        // Configure notification properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.NotificationProperties
+            notifProps = new org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .NotificationProperties();
+        notifProps.setTemplate(templateProps);
+        
+        // Configure tenant properties
+        final org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties
+            .UserManagementTenantProperties tenantProps = new org.eclipse.ecsp.uidam.usermanagement
+            .config.tenantproperties.UserManagementTenantProperties();
+        tenantProps.setNotification(notifProps);
+        
+        // Mock tenant configuration service
+        org.mockito.Mockito.when(tenantConfigurationService.getTenantProperties())
+            .thenReturn(tenantProps);
     }
 
     @Test
@@ -95,7 +139,7 @@ class MustacheTemplateParserImplTest {
                  () -> templateManager.parseTemplate("abc",
                          Map.of("username", "Abhishek", "verificationCode", UUID.randomUUID().toString()))
         );
-        assertTrue(exception.getMessage().contains("Template : abc.html not found"));
+        assertTrue(exception.getMessage().contains("Template : abc not found"));
     }
 
     @Test

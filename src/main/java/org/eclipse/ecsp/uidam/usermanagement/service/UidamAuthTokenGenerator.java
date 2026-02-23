@@ -77,8 +77,13 @@ public class UidamAuthTokenGenerator {
                 tenantConfigurationService.getTenantProperties().getAuthServer().getClientSecret());
 
         try {
+            // Get tenant-specific auth server properties DOTO need to revert previous changes
+            String baseUrl = tenantConfigurationService.getTenantProperties().getAuthServer().getHostName();
+            String tokenPath = tenantConfigurationService.getTenantProperties().getAuthServer().getTokenUrl();
+            String fullUrl = baseUrl + tokenPath;
+            
             AccessTokenDetails response = webClient.method(POST)
-                .uri(tenantConfigurationService.getTenantProperties().getAuthServer().getTokenUrl())
+                .uri(fullUrl)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                 .body(BodyInserters.fromFormData(map))
                 .retrieve()

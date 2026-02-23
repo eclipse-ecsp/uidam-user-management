@@ -2,6 +2,8 @@ package org.eclipse.ecsp.uidam.common.metrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.eclipse.ecsp.sql.multitenancy.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,9 +25,18 @@ public class UidamMetricsServiceTest {
     private MeterRegistry meterRegistry;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        // Set tenant context for all tests
+        TenantContext.setCurrentTenant("ecsp");
+        
         meterRegistry = new SimpleMeterRegistry();
         uidamMetricsService = new UidamMetricsService(meterRegistry);
+    }
+
+    @AfterEach
+    void cleanup() {
+        // Clear tenant context after each test
+        TenantContext.clear();
     }
 
     @Test

@@ -84,9 +84,8 @@ public class ScopesService {
     }
 
     private ScopeListRepresentation prepareResponse(List<Scope> scopeDtos, String message) {
-        Set<Scope> scopeSet = null;
+        Set<Scope> scopeSet = new HashSet<>();
         if (scopeDtos != null && !scopeDtos.isEmpty()) {
-            scopeSet = new HashSet<>();
             for (Scope scopeDto : scopeDtos) {
                 scopeSet.add(scopeDto);
             }
@@ -212,10 +211,18 @@ public class ScopesService {
      */
     public ScopeListRepresentation filterScopes(Set<String> scopeNames, Integer pageNumber, Integer pageSize) {
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
-        List<ScopesEntity> scopesEntities = scopesRepository.findByNameIn(scopeNames, pageable);
+        
+        List<ScopesEntity> scopesEntities;
+        
+        // If scopeNames is null or empty, fetch all scopes
+        if (scopeNames == null || scopeNames.isEmpty()) {
+            scopesEntities = scopesRepository.findAll(pageable).getContent();
+        } else {
+            scopesEntities = scopesRepository.findByNameIn(scopeNames, pageable);
+        }
+        
         if (scopesEntities == null || scopesEntities.isEmpty()) {
-            logger.error(LoggerMessages.SCOPE_NOT_EXISTS, scopeNames);
-            throw new EntityNotFoundException(LocalizationKey.GET_ENTITY_FAILURE);
+            return prepareResponse(new ArrayList<>(), LocalizationKey.SUCCESS_KEY);
         }
 
         List<Scope> scopes = ScopeMapper.MAPPER.mapToScope(scopesEntities);
