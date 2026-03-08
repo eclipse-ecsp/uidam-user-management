@@ -73,6 +73,19 @@ public class TenantResolutionFilter implements Filter {
     private static final int JWT_PARTS_COUNT = 3; // JWT has 3 parts: header.payload.signature
     private static final String TENANT_SESSION_KEY = "RESOLVED_TENANT_ID";
 
+    // Source IP related constants
+    private static final String SOURCE_IP = "sourceIp";
+    private static final String X_FORWARDED_FOR_HEADER = "X-Forwarded-For";
+    private static final String X_REAL_IP_HEADER = "X-Real-IP";
+    private static final String PROXY_CLIENT_IP_HEADER = "Proxy-Client-IP";
+    private static final String WL_PROXY_CLIENT_IP_HEADER = "WL-Proxy-Client-IP";
+    private static final String HTTP_CLIENT_IP_HEADER = "HTTP_CLIENT_IP";
+    private static final String HTTP_X_FORWARDED_FOR_HEADER = "HTTP_X_FORWARDED_FOR";
+    private static final int NOT_FOUND_INDEX = -1;
+
+    @Value("${source.ip.logging.enabled:false}")
+    private boolean sourceIpLoggingEnabled;
+
     @Value("${tenant.multitenant.enabled}")
     private boolean multiTenantEnabled;
 
@@ -102,6 +115,13 @@ public class TenantResolutionFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String requestUri = httpRequest.getRequestURI();
+        
+        // Extract and log source IP address only if enabled
+        if (sourceIpLoggingEnabled) {
+            String sourceIp = extractClientIp(httpRequest);
+            MDC.put(SOURCE_IP, sourceIp);
+            LOGGER.debug("Source IP for User Management request: {}", sourceIp);
+        }
         
         // Skip tenant resolution for static resources and health endpoints
         if (isStaticResource(requestUri)) {
@@ -162,6 +182,9 @@ public class TenantResolutionFilter implements Filter {
             TenantContext.clear();
             LOGGER.debug("Tenant context cleared for User Management request: {}", requestUri);
             MDC.remove(TENANT_HEADER);
+            if (sourceIpLoggingEnabled) {
+                MDC.remove(SOURCE_IP);
+            }
         }
     }
 
@@ -206,6 +229,78 @@ public class TenantResolutionFilter implements Filter {
             request.getSession(true).setAttribute(TENANT_SESSION_KEY, tenantId);
             LOGGER.debug("Stored tenant '{}' in session for future User Management requests", tenantId);
         }
+    }
+
+    /**
+     * Extract the client IP address from the request.
+     * This method checks various headers to handle proxy and load balancer scenarios:
+     * 1. X-Forwarded-For (standard proxy header, may contain multiple IPs)
+     * 2. X-Real-IP (common in nginx reverse proxies)
+     * 3. Proxy-Client-IP (WebLogic and other proxies)
+     * 4. WL-Proxy-Client-IP (WebLogic specific)
+     * 5. HTTP_CLIENT_IP (some proxies)
+     * 6. HTTP_X_FORWARDED_FOR (alternative header name)
+     * 7. RemoteAddr (fallback to direct connection IP)
+     *
+     * @param request The HTTP servlet request
+     * @return The client IP address, or "unknown" if not found
+     */
+    private String extractClientIp(HttpServletRequest request) {
+        String ip = request.getHeader(X_FORWARDED_FOR_HEADER);
+        if (isValidIp(ip)) {
+            // X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
+            // The first IP is typically the original client
+            int commaIndex = ip.indexOf(',');
+            if (commaIndex != NOT_FOUND_INDEX) {
+                ip = ip.substring(0, commaIndex).trim();
+            }
+            return ip;
+        }
+        
+        ip = request.getHeader(X_REAL_IP_HEADER);
+        if (isValidIp(ip)) {
+            return ip;
+        }
+        
+        ip = request.getHeader(PROXY_CLIENT_IP_HEADER);
+        if (isValidIp(ip)) {
+            return ip;
+        }
+        
+        ip = request.getHeader(WL_PROXY_CLIENT_IP_HEADER);
+        if (isValidIp(ip)) {
+            return ip;
+        }
+        
+        ip = request.getHeader(HTTP_CLIENT_IP_HEADER);
+        if (isValidIp(ip)) {
+            return ip;
+        }
+        
+        ip = request.getHeader(HTTP_X_FORWARDED_FOR_HEADER);
+        if (isValidIp(ip)) {
+            return ip;
+        }
+        
+        // Fallback to remote address
+        ip = request.getRemoteAddr();
+        if (isValidIp(ip)) {
+            return ip;
+        }
+        
+        return "unknown";
+    }
+
+    /**
+     * Validate if the IP address is valid and not a placeholder value.
+     * Note: Localhost IPs (127.0.0.1, ::1) are considered valid for local development/testing.
+     *
+     * @param ip The IP address to validate
+     * @return true if the IP is valid, false otherwise
+     */
+    private boolean isValidIp(String ip) {
+        return StringUtils.hasText(ip) 
+            && !"unknown".equalsIgnoreCase(ip);
     }
 
     /**

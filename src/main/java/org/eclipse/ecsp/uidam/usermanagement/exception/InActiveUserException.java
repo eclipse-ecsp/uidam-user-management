@@ -30,6 +30,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 public class InActiveUserException extends Exception {
     private final String errorCode;
     private final String message;
+    private final Long minutesLeftToUnlock;
+    private final Boolean isTemporaryLock;
 
     /**
      * Constructor for InActiveUserException.
@@ -41,5 +43,23 @@ public class InActiveUserException extends Exception {
         super(String.format("%s", message));
         this.errorCode = errorCode;
         this.message = message;
+        this.minutesLeftToUnlock = null;
+        this.isTemporaryLock = false;
+    }
+
+    /**
+     * Constructor for InActiveUserException with temporary lock information.
+     *
+     * @param message Exception message
+     * @param errorCode Error Code
+     * @param minutesLeftToUnlock Minutes remaining until user is unlocked (null if not applicable)
+     * @param isTemporaryLock Whether this is a temporary lock
+     */
+    public InActiveUserException(String message, String errorCode, Long minutesLeftToUnlock, Boolean isTemporaryLock) {
+        super(String.format("%s", message));
+        this.errorCode = errorCode;
+        this.message = message;
+        this.minutesLeftToUnlock = minutesLeftToUnlock;
+        this.isTemporaryLock = isTemporaryLock;
     }
 }

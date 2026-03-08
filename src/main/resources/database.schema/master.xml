@@ -20,4 +20,7 @@
     <!-- Release 1.2 - Audit Log -->
     <include file="changesets/1_2_release/audit_log_schema.xml" relativeToChangelogFile="true"/>
 
+    <!-- Release 1.4 - Temporary Lock Feature -->
+    <include file="changesets/1_4_release/temporary_lock_schema.xml" relativeToChangelogFile="true"/>
+
 </databaseChangeLog>

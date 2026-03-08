@@ -36,6 +36,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterBase
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.AssociateAccountAndRolesResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.PasswordPolicyResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserDetailsResponse;
+import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserEventResponseDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserMetaDataResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
@@ -74,7 +75,7 @@ public interface UsersService {
 
     List<UserMetaDataResponse> getUserMetaData();
 
-    void addUserEvent(UserEventsDto userEventsDto, String userId);
+    UserEventResponseDto addUserEvent(UserEventsDto userEventsDto, String userId);
 
     List<UserMetaDataResponse> putUserMetaData(List<UserMetaDataRequest> userMetaDataRequests);
 
@@ -99,5 +100,17 @@ public interface UsersService {
     boolean hasUserPermissionForScope(BigInteger loggedInUserId, Set<String> scopes);
 
     PasswordPolicyResponse getPasswordPolicy();
+
+    /**
+     * Process and unlock blocked users for scheduled unlock.
+     * This method is called by the scheduler to unlock users whose temporary lock period has expired.
+     *
+     * @param blockedUsers list of blocked users to process
+     * @param temporaryLockPeriodMinutes the lock period in minutes
+     * @return number of users successfully unlocked
+     */
+    int processBlockedUsersForScheduledUnlock(
+            List<org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity> blockedUsers,
+            Integer temporaryLockPeriodMinutes);
 
 }

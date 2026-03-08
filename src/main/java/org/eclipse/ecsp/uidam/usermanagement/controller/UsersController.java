@@ -60,6 +60,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.AssociateAccountA
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.PasswordPolicyResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.SelfAddUserResponseV1;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserDetailsResponse;
+import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserEventResponseDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserMetaDataResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
 import org.slf4j.Logger;
@@ -603,14 +604,14 @@ public class UsersController {
      *
      * @param userId userId of the user.
      * @param userEventsDto userEvents received during login attempts.
-     * @return 201 if userEvent added to db.
+     * @return UserEventResponseDto with user status and lock duration information.
      */
     @PostMapping(value = USER_EVENTS_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> addUserEvent(@PathVariable(ID) String userId,
+    public ResponseEntity<UserEventResponseDto> addUserEvent(@PathVariable(ID) String userId,
                                                @RequestBody UserEventsDto userEventsDto) {
         LOGGER.info("Add user event Started, user id: {}", userId);
-        usersService.addUserEvent(userEventsDto, userId);
-        return new ResponseEntity<>(HttpStatus.CREATED);
+        UserEventResponseDto response = usersService.addUserEvent(userEventsDto, userId);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
 
     }
 

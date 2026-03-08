@@ -109,6 +109,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.AssociateAccountA
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.PasswordPolicyResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserDetailsResponse;
+import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserEventResponseDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserMetaDataResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
@@ -228,6 +229,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.IN
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MANAGE_USERS_SCOPE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MISSING_MANDATORY_PARAMETERS;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.USER_IS_BLOCKED;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.USER_NOT_ACTIVE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.USER_NOT_VERIFIED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.USER_ROLES_NOT_FOUND;
 import static org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterBase.UserGetFilterEnum.ACCOUNTIDS;
@@ -279,6 +281,9 @@ public class UsersServiceImpl implements UsersService {
         Map.entry("time", Time.class), Map.entry("timetz", Time.class), Map.entry("timestamp", Timestamp.class),
         Map.entry("_abc", List.class), Map.entry("uuid", UUID.class), Map.entry("json", String.class),
         Map.entry("jsonb", JsonNode.class));
+    
+    private static final int DEFAULT_MAX_LOCK_ATTEMPTS = 5;
+    
     @Autowired
     private TenantConfigurationService tenantConfigurationService;
     private UsersRepository userRepository;
@@ -892,24 +897,30 @@ public class UsersServiceImpl implements UsersService {
             captcha.put(CAPTCHA_REQUIRED, null);
         }
         captcha.put(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES, getTenantProperties().getCaptchaEnforceAfterNoOfFailures());
-        int failedLoginAttempts = 0;
+        
+        // Calculate consecutive failed login attempts since last unlock/success
         int allowedLoginAttempts = Integer.parseInt(getTenantProperties().getMaxAllowedLoginAttempts());
+        int failedLoginAttempts = calculateConsecutiveFailedLoginAttempts(userEntity.getId(), allowedLoginAttempts);
+        if (failedLoginAttempts == allowedLoginAttempts) {
+            failedLoginAttempts = 0; // Reset to 0 if user is currently locked
+        }
+        
+        // Get last successful login time
         List<UserEvents> userEventList = userEventRepository.findUserEventsByUserIdAndEventType(userEntity.getId(),
             UserEventType.LOGIN_ATTEMPT.getValue(), allowedLoginAttempts);
         for (UserEvents e : userEventList) {
-            if (UserEventStatus.FAILURE.getValue().equals(e.getEventStatus())) {
-                failedLoginAttempts++;
-            } else {
+            if (UserEventStatus.SUCCESS.getValue().equals(e.getEventStatus())) {
                 userDetailsResponse.setLastSuccessfulLoginTime(e.getEventGeneratedAt().toString());
                 break;
             }
         }
+        
         userDetailsResponse.setFailureLoginAttempts(failedLoginAttempts);
         return userDetailsResponse;
     }
 
     /**
-     * Method to add additional details to userDetailsResponse from userEntity
+     * Method add additional details to userDetailsResponse from userEntity
      * object.
      *
      * @param userDetailsResponse user details to be returned as response.
@@ -942,9 +953,178 @@ public class UsersServiceImpl implements UsersService {
         } else if (userEntity.getStatus().equals(UserStatus.PENDING)) {
             throw new InActiveUserException(USER_NOT_VERIFIED, "USER_NOT_VERIFIED");
         } else if (userEntity.getStatus().equals(UserStatus.BLOCKED)) {
+            // Check if temporary lock feature is enabled and user is eligible for unlock
+            if (checkAndUnlockIfEligible(userEntity)) {
+                LOGGER.info("User {} automatically unlocked during login attempt", userName);
+                // User has been unlocked, continue with login
+                return;
+            }
+            
+            // User is still blocked - check if it's a temporary lock
+            Boolean temporaryLockEnabled = getTenantProperties().getTemporaryLockEnabled();
+            // Default to true if not explicitly configured (for backward compatibility)
+            
+            Timestamp lockTimestamp = userEntity.getTemporaryLockTimestamp();
+            
+            LOGGER.info("User {} is BLOCKED. temporaryLockEnabled={}, lockTimestamp={}", 
+                userName, temporaryLockEnabled, lockTimestamp);
+            
+            if (Boolean.TRUE.equals(temporaryLockEnabled) && lockTimestamp != null) {
+                // Calculate minutes left to unlock
+                LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
+                LocalDateTime now = LocalDateTime.now();
+                long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
+                
+                LOGGER.debug("User {} temporary lock check: lockUntil={}, now={}, minutesLeft={}", 
+                    userName, lockUntil, now, minutesLeft);
+                
+                if (minutesLeft > 0) {
+                    String temporaryLockMessage = String.format(
+                        "User account is temporarily locked. Please try again in %d minute(s).", 
+                        minutesLeft
+                    );
+                    LOGGER.info("Throwing temporary lock exception for user {} with {} minutes left", 
+                        userName, minutesLeft);
+                    throw new InActiveUserException(temporaryLockMessage, "USER_TEMPORARILY_BLOCKED", 
+                        minutesLeft, true);
+                }
+            }
+            
+            // Permanent block or temporary lock with no timestamp
+            LOGGER.info("Throwing permanent block exception for user {}. temporaryLockEnabled={}, lockTimestamp={}", 
+                userName, temporaryLockEnabled, lockTimestamp);
             throw new InActiveUserException(USER_IS_BLOCKED, "USER_IS_BLOCKED");
+        } else if (!userEntity.getStatus().equals(UserStatus.ACTIVE)) {
+            throw new InActiveUserException(USER_NOT_ACTIVE, "USER_NOT_ACTIVE");
         }
 
+    }
+
+    /**
+     * Check if a blocked user is eligible for automatic unlock based on temporary lock configuration.
+     * If eligible, unlock the user and generate audit event.
+     *
+     * @param userEntity the user entity to check
+     * @return true if user was unlocked, false if user remains blocked
+     */
+    private boolean checkAndUnlockIfEligible(UserEntity userEntity) {
+        try {
+            // Check if temporary lock feature is enabled
+            Boolean temporaryLockEnabled = getTenantProperties().getTemporaryLockEnabled();
+            if (temporaryLockEnabled == null || !temporaryLockEnabled) {
+                LOGGER.debug("Temporary lock feature is disabled for user: {}", userEntity.getUserName());
+                return false;
+            }
+
+            // Check if temporary_lock_timestamp is set
+            Timestamp lockTimestamp = userEntity.getTemporaryLockTimestamp();
+            if (lockTimestamp == null) {
+                // No timestamp set - keep user blocked (requires admin intervention or password reset)
+                LOGGER.debug("No temporary lock timestamp set for user {}. User remains blocked.",
+                    userEntity.getUserName());
+                return false;
+            }
+
+            // Check if lock period has expired based on temporary_lock_timestamp
+            LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
+            LocalDateTime now = LocalDateTime.now();
+
+            LOGGER.debug("User {} lock expires at: {}. Current time: {}",
+                userEntity.getUserName(), lockUntil, now);
+
+            // Check if current time is past the lock expiration
+            if (now.isAfter(lockUntil) || now.equals(lockUntil)) {
+                UserStatus previousStatus = userEntity.getStatus();
+                // Unlock user using common method
+                unlockBlockedUser(userEntity, previousStatus, now);
+                LOGGER.info("Successfully unlocked user {} during login attempt (lock expired at {})",
+                    userEntity.getUserName(), lockUntil);
+                return true;
+            } else {
+                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
+                LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
+                    userEntity.getUserName(), remainingMinutes);
+                return false;
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error checking/unlocking user {}: {}", userEntity.getUserName(), e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Unlock a blocked user and generate audit event.
+     * This method contains the common logic for unlocking users, used by both
+     * the login flow and the scheduled unlock process.
+     *
+     * @param userEntity the user entity to unlock
+     * @param previousStatus the previous status of the user
+     * @param unlockTime the time when the unlock occurs
+     */
+    public void unlockBlockedUser(UserEntity userEntity, UserStatus previousStatus, LocalDateTime unlockTime) {
+
+        LOGGER.info("Unlocking user {}", userEntity.getUserName());
+
+        // Update user status
+        userEntity.setStatus(UserStatus.ACTIVE);
+        userEntity.setUpdateDate(Timestamp.valueOf(unlockTime));
+        userEntity.setUpdatedBy("SYSTEM");
+        userEntity.setTemporaryLockTimestamp(null); // Clear temporary lock timestamp
+
+        // Save updated user
+        UserEntity savedUser = userRepository.save(userEntity);
+
+        // Generate audit event
+        userAuditHelper.logUserStatusChangedAudit(
+            savedUser,
+            null, // loggedInUserId is null for system actions
+            previousStatus,
+            UserStatus.ACTIVE,
+            accountIdToNameMapping
+        );
+
+        // Update metrics
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+            .uidamMetrics(UidamMetrics.TOTAL_UNBLOCK_USERS_EVENT_BY_EXPIRATION)
+            .build());
+
+        LOGGER.info("Successfully unlocked user: {} (ID: {})",
+            userEntity.getUserName(), userEntity.getId());
+    }
+
+    /**
+     * Process and unlock blocked users for scheduled unlock.
+     * This method is called by the scheduler to unlock users whose temporary lock period has expired.
+     *
+     * @param blockedUsers list of blocked users to process
+     * @param temporaryLockPeriodMinutes the lock period in minutes
+     * @return number of users successfully unlocked
+     */
+    @Transactional
+    public int processBlockedUsersForScheduledUnlock(List<UserEntity> blockedUsers, 
+                                                      Integer temporaryLockPeriodMinutes) {
+        LOGGER.debug("Processing {} blocked users for scheduled unlock", blockedUsers.size());
+
+        int unlockedCount = 0;
+        LocalDateTime now = LocalDateTime.now();
+
+        for (UserEntity user : blockedUsers) {
+            try {
+                UserStatus previousStatus = user.getStatus();
+                unlockBlockedUser(user, previousStatus, now);
+                unlockedCount++;
+                
+                // Send unlock notification
+                sendUserLockNotification(user, false, 0, false, false);
+            } catch (Exception e) {
+                LOGGER.error("Failed to unlock user: {}. Continuing with next user.",
+                    user.getUserName(), e);
+            }
+        }
+
+        LOGGER.info("Successfully unlocked {} out of {} users in scheduled process",
+            unlockedCount, blockedUsers.size());
+        return unlockedCount;
     }
 
     /**
@@ -2001,47 +2181,184 @@ public class UsersServiceImpl implements UsersService {
      *
      * @param userEventsDto received as request during login.
      * @param userId        user unique id.
+     * @return UserEventResponseDto containing user status and lock duration
      */
     @Override
-    public void addUserEvent(UserEventsDto userEventsDto, String userId) {
+    public UserEventResponseDto addUserEvent(UserEventsDto userEventsDto, String userId) {
         int allowedLoginAttempts = Integer.parseInt(getTenantProperties().getMaxAllowedLoginAttempts());
         if (Optional.ofNullable(userEventsDto).isPresent()
             && Optional.ofNullable(userEventsDto.getEventType()).isPresent()
             && Optional.ofNullable(userEventsDto.getEventMessage()).isPresent()
             && Optional.ofNullable(userEventsDto.getEventStatus()).isPresent()) {
-            UserEvents userEvents = new UserEvents();
-            userEvents.setUserId(new BigInteger(userId));
-            userEvents.setEventType(userEventsDto.getEventType());
-            userEvents.setEventStatus(userEventsDto.getEventStatus());
-            userEvents.setEventMessage(userEventsDto.getEventMessage());
-            LOGGER.debug("saving user event details for userId: {} and events: {} ", userId, userEvents);
-            userEventRepository.save(userEvents);
-            List<UserEvents> userEventList = userEventRepository.findUserEventsByUserIdAndEventType(
-                new BigInteger(userId), UserEventType.LOGIN_ATTEMPT.getValue(), allowedLoginAttempts);
-            LOGGER.debug("user event list: {}", userEventList);
-            if (userEventList.size() >= allowedLoginAttempts) {
-                List<UserEvents> failedLoginAttemptsList = userEventList.stream()
-                    .filter(a -> a.getEventType().equals(UserEventType.LOGIN_ATTEMPT.getValue())
-                        && a.getEventStatus().equals(UserEventStatus.FAILURE.getValue()))
-                    .toList();
-                LOGGER.debug("user event list for failed login attempt: {}", failedLoginAttemptsList);
-                if (failedLoginAttemptsList.size() >= allowedLoginAttempts) {
-                    Optional<UserEntity> userEntity = userRepository.findById(new BigInteger(userId));
-                    if (userEntity.isPresent() && UserStatus.ACTIVE.equals(userEntity.get().getStatus())) {
-                        UserEntity userEntityObject = userEntity.get();
-                        userEntityObject.setStatus(UserStatus.BLOCKED);
-                        userRepository.save(userEntityObject);
-                        uidamMetricsService.incrementCounter(MetricInfo.builder()
-                                .uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT).build());
-                        LOGGER.info("user status updated to BLOCKED for userId {}", userId);
-                    }
-                }
+            
+            // Save the user event
+            saveUserEvent(userEventsDto, userId);
+            
+            // Get current user and calculate status/lock duration
+            Optional<UserEntity> userEntityOpt = userRepository.findById(new BigInteger(userId));
+            if (!userEntityOpt.isPresent()) {
+                return createDefaultResponse();
             }
+            
+            UserEntity currentUser = userEntityOpt.get();
+            return processUserStatusAndLockDuration(currentUser, allowedLoginAttempts);
 
         } else {
             LOGGER.error("events data missing for userId {}!", userId);
             throw new ApplicationRuntimeException("events", BAD_REQUEST);
         }
+    }
+    
+    /**
+     * Creates a default user event response.
+     *
+     * @return default UserEventResponseDto
+     */
+    private UserEventResponseDto createDefaultResponse() {
+        return UserEventResponseDto.builder()
+            .userStatus(UserStatus.ACTIVE.name())
+            .lockDurationMinutes(0)
+            .message("Event recorded successfully")
+            .build();
+    }
+    
+    /**
+     * Saves the user event to the database.
+     *
+     * @param userEventsDto the user events DTO
+     * @param userId the user ID
+     */
+    private void saveUserEvent(UserEventsDto userEventsDto, String userId) {
+        UserEvents userEvents = new UserEvents();
+        userEvents.setUserId(new BigInteger(userId));
+        userEvents.setEventType(userEventsDto.getEventType());
+        userEvents.setEventStatus(userEventsDto.getEventStatus());
+        userEvents.setEventMessage(userEventsDto.getEventMessage());
+        LOGGER.debug("saving user event details for userId: {} and events: {} ", userId, userEvents);
+        userEventRepository.save(userEvents);
+    }
+    
+    /**
+     * Processes user status and calculates lock duration.
+     *
+     * @param currentUser the current user entity
+     * @param allowedLoginAttempts the allowed login attempts
+     * @return UserEventResponseDto with status and lock duration
+     */
+    private UserEventResponseDto processUserStatusAndLockDuration(UserEntity currentUser, 
+                                                                  int allowedLoginAttempts) {
+        String currentStatus = currentUser.getStatus().name();
+        long lockDurationMinutes = 0;
+        
+        // Calculate consecutive failed login attempts since last unlock/success
+        int consecutiveFailedAttempts = calculateConsecutiveFailedLoginAttempts(
+            currentUser.getId(), allowedLoginAttempts);
+        
+        LOGGER.debug("Consecutive failed login attempts for user {}: {}/{}", 
+            currentUser.getId(), consecutiveFailedAttempts, allowedLoginAttempts);
+        
+        // Check if user should be locked based on consecutive failures
+        if (consecutiveFailedAttempts >= allowedLoginAttempts) {
+            if (UserStatus.ACTIVE.equals(currentUser.getStatus())) {
+                lockDurationMinutes = lockUserAccount(currentUser, allowedLoginAttempts);
+                currentStatus = currentUser.getStatus().name();
+            }
+        } else if (UserStatus.BLOCKED.equals(currentUser.getStatus()) 
+                   && currentUser.getTemporaryLockTimestamp() != null) {
+            lockDurationMinutes = calculateRemainingLockDuration(currentUser);
+        }
+        
+        // Return response with current user status and lock duration
+        return UserEventResponseDto.builder()
+            .userStatus(currentStatus)
+            .lockDurationMinutes(lockDurationMinutes)
+            .message("Event recorded successfully")
+            .build();
+    }
+    
+    /**
+     * Locks a user account and returns the lock duration.
+     *
+     * @param currentUser the user to lock
+     * @param allowedLoginAttempts the allowed login attempts
+     * @return lock duration in minutes
+     */
+    private long lockUserAccount(UserEntity currentUser, int allowedLoginAttempts) {
+        long lockDurationMinutes;
+        int lockCount = calculateLockCount(currentUser.getId(), allowedLoginAttempts);
+        
+        // Check if max lock attempts reached
+        UserManagementTenantProperties tenantProperties = getTenantProperties();
+        Integer maxLockAttempts = tenantProperties.getTemporaryLockMaxAttempts();
+        if (maxLockAttempts == null) {
+            maxLockAttempts = DEFAULT_MAX_LOCK_ATTEMPTS; // default value
+        }
+        
+        // Check if temporary lock is enabled at tenant level
+        Boolean temporaryLockEnabled = tenantProperties.getTemporaryLockEnabled();
+        if (temporaryLockEnabled == null) {
+            temporaryLockEnabled = true; // default to true for backward compatibility
+        }
+        
+        boolean isTemporaryLock = false;
+        boolean isDeactivated = false;
+        
+        if (temporaryLockEnabled && lockCount >= maxLockAttempts) {
+            // Set status to DEACTIVATED instead of BLOCKED
+            currentUser.setStatus(UserStatus.DEACTIVATED);
+            currentUser.setTemporaryLockTimestamp(null);
+            lockDurationMinutes = 0; // Permanent deactivation
+            isDeactivated = true;
+            LOGGER.info("User {} exceeded max lock attempts ({}). Status set to DEACTIVATED",
+                currentUser.getId(), maxLockAttempts);
+        } else if (!temporaryLockEnabled) {
+            // Temporary lock is disabled - simply BLOCK the user permanently
+            currentUser.setStatus(UserStatus.BLOCKED);
+            currentUser.setTemporaryLockTimestamp(null);
+            lockDurationMinutes = 0; // No temporary lock duration
+            LOGGER.info("User {} blocked permanently (temporary lock disabled at tenant level). Lock count: {}/{}",
+                currentUser.getId(), lockCount, maxLockAttempts);
+        } else {
+            // Set status to BLOCKED with temporary lock timestamp
+            currentUser.setStatus(UserStatus.BLOCKED);
+            isTemporaryLock = true;
+            
+            // Calculate lock duration with exponential backoff
+            lockDurationMinutes = calculateLockDuration(lockCount, tenantProperties);
+            LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockDurationMinutes);
+            currentUser.setTemporaryLockTimestamp(Timestamp.valueOf(lockUntil));
+            
+            LOGGER.info("User {} blocked temporarily (attempt {}/{}). Lock duration: {} minutes. Lock expires at: {}",
+                currentUser.getId(), lockCount, maxLockAttempts, lockDurationMinutes, lockUntil);
+        }
+        
+        userRepository.save(currentUser);
+        uidamMetricsService.incrementCounter(MetricInfo.builder()
+                .uidamMetrics(UidamMetrics.TOTAL_BLOCKED_USERS_EVENT).build());
+        LOGGER.info("user status updated to {} for userId {}", currentUser.getStatus(), currentUser.getId());
+        
+        // Send notification to user
+        sendUserLockNotification(currentUser, true, lockDurationMinutes, isTemporaryLock, isDeactivated);
+        
+        return lockDurationMinutes;
+    }
+    
+    /**
+     * Calculates the remaining lock duration for a blocked user.
+     *
+     * @param currentUser the current user entity
+     * @return remaining lock duration in minutes
+     */
+    private long calculateRemainingLockDuration(UserEntity currentUser) {
+        LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
+        LocalDateTime now = LocalDateTime.now();
+        if (lockUntil.isAfter(now)) {
+            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
+            LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
+                currentUser.getId(), remaining);
+            return remaining;
+        }
+        return 0;
     }
 
     /**
@@ -2426,10 +2743,11 @@ public class UsersServiceImpl implements UsersService {
 
         // Hardcoding VERSION_1 here because this api is only for v1
         UserResponseBase userResponseBase = addRoleNamesAndMapToUserResponse(userEntity, VERSION_1);
-        if (!ObjectUtils.isEmpty(externalUserDto.getAdditionalAttributes()) && isValidAdditionalAttributes(
-            externalUserDto.getAdditionalAttributes(), userAttributeEntities, true)) {
-            userResponseBase.setAdditionalAttributes(
-                persistAdditionalAttributes(externalUserDto, savedUser).get(savedUser.getId()));
+
+        if (!ObjectUtils.isEmpty(externalUserDto.getAdditionalAttributes())
+            && isValidAdditionalAttributes(externalUserDto.getAdditionalAttributes(), userAttributeEntities, true)) {
+            userResponseBase.setAdditionalAttributes(persistAdditionalAttributes(externalUserDto, savedUser)
+                .get(savedUser.getId()));
         }
         LOGGER.debug("##Add external user end for user :{}", userResponseBase.getUserName());
         uidamMetricsService.incrementCounter(MetricInfo.builder()
@@ -2693,6 +3011,9 @@ public class UsersServiceImpl implements UsersService {
 
         validateRoles(federatedUserDto.getRoles());
 
+        final List<UserAttributeEntity> userAttributeEntities =
+            validateMissingMandatoryAttributes(federatedUserDto.getAdditionalAttributes());
+
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(federatedUserDto);
         userEntity.setAccountRoleMapping(mapToAccountsAndRoles(federatedUserDto, loggedInUserId));
         //Set the identity provider name because userdto object in mapToUser method cannot access this field
@@ -2713,9 +3034,6 @@ public class UsersServiceImpl implements UsersService {
 
         //Hardcoding VERSION_1 here because this api is only for v1
         UserResponseBase userResponseBase = addRoleNamesAndMapToUserResponse(userEntity, VERSION_1);
-
-        List<UserAttributeEntity> userAttributeEntities =
-                validateMissingMandatoryAttributes(federatedUserDto.getAdditionalAttributes());
 
         if (!ObjectUtils.isEmpty(federatedUserDto.getAdditionalAttributes())
             && isValidAdditionalAttributes(federatedUserDto.getAdditionalAttributes(), userAttributeEntities, true)) {
@@ -2806,4 +3124,319 @@ public class UsersServiceImpl implements UsersService {
     }
     
     // Removed audit helper methods - moved to UserAuditHelper utility class
+
+    /**
+     * Calculate the lock count based on user event history.
+     * Lock count is determined by counting consecutive failed login blocks.
+     *
+     * @param userId the user ID
+     * @param allowedLoginAttempts the maximum allowed login attempts before blocking
+     * @return the current lock count
+     */
+    private int calculateLockCount(BigInteger userId, int allowedLoginAttempts) {
+        // Get the maximum number of events to check (max lock attempts * allowed login attempts)
+        UserManagementTenantProperties tenantProperties = getTenantProperties();
+        Integer maxLockAttempts = tenantProperties.getTemporaryLockMaxAttempts();
+        if (maxLockAttempts == null) {
+            maxLockAttempts = DEFAULT_MAX_LOCK_ATTEMPTS; // default value
+        }
+        
+        int limit = maxLockAttempts * allowedLoginAttempts;
+        
+        // Get recent login events
+        List<UserEvents> recentEvents = userEventRepository.findUserEventsByUserIdAndEventType(
+            userId, UserEventType.LOGIN_ATTEMPT.getValue(), limit);
+        
+        if (recentEvents.isEmpty()) {
+            return 1; // First lock
+        }
+        
+        // Count consecutive failed attempts in blocks of allowedLoginAttempts
+        int lockCount = 0;
+        int consecutiveFailures = 0;
+        
+        for (UserEvents event : recentEvents) {
+            if (UserEventStatus.FAILURE.getValue().equals(event.getEventStatus())) {
+                consecutiveFailures++;
+                if (consecutiveFailures >= allowedLoginAttempts) {
+                    lockCount++;
+                    consecutiveFailures = 0; // Reset for next block
+                }
+            } else if (UserEventStatus.SUCCESS.getValue().equals(event.getEventStatus())) {
+                // Successful login resets the lock count
+                break;
+            }
+        }
+        
+        // Include current block
+        return lockCount;
+    }
+    
+    /**
+     * Calculate lock duration with exponential backoff.
+     * Formula: lockDuration = basePeriod × (exponentialFactor ^ (lockCount - 1))
+     *
+     * @param lockCount the current lock count
+     * @param tenantProperties tenant configuration properties
+     * @return lock duration in minutes
+     */
+    private long calculateLockDuration(int lockCount, UserManagementTenantProperties tenantProperties) {
+        final int defaultBasePeriod = 60;
+        final int defaultExponentialFactor = 2;
+        
+        Integer basePeriod = tenantProperties.getTemporaryLockPeriodMinutes();
+        Integer exponentialFactor = tenantProperties.getTemporaryLockExponentialFactor();
+        
+        if (basePeriod == null || basePeriod <= 0) {
+            basePeriod = defaultBasePeriod; // default 60 minutes
+        }
+        
+        if (exponentialFactor == null || exponentialFactor <= 0) {
+            exponentialFactor = defaultExponentialFactor; // default factor of 2
+        }
+        
+        // Calculate: basePeriod × (exponentialFactor ^ (lockCount - 1))
+        long duration = (long) (basePeriod * Math.pow(exponentialFactor, lockCount - 1));
+        
+        LOGGER.debug("Calculated lock duration: {} minutes (base: {}, factor: {}, count: {})",
+            duration, basePeriod, exponentialFactor, lockCount);
+        
+        return duration;
+    }
+
+    /**
+     * Calculate the current consecutive failed login attempts since the last unlock or successful login.
+     * This method checks the user events to count how many consecutive failed login attempts have occurred
+     * since the last successful login or user unlock event.
+     * Returns the remainder after dividing by allowedLoginAttempts to get the count towards the next lock.
+     *
+     * @param userId the user ID
+     * @param allowedLoginAttempts the maximum allowed login attempts
+     * @return the count of consecutive failed login attempts (remainder after last lock)
+     */
+    private int calculateConsecutiveFailedLoginAttempts(BigInteger userId, int allowedLoginAttempts) {
+        UserManagementTenantProperties tenantProperties = getTenantProperties();
+        Integer maxLockAttempts = tenantProperties.getTemporaryLockMaxAttempts();
+        if (maxLockAttempts == null) {
+            maxLockAttempts = DEFAULT_MAX_LOCK_ATTEMPTS; // default
+        }
+        
+        // Fetch events: maxLockAttempts * allowedLoginAttempts to cover multiple lock cycles
+        int limit = maxLockAttempts * allowedLoginAttempts;
+        List<UserEvents> recentEvents = userEventRepository.findUserEventsByUserIdAndEventType(
+            userId, UserEventType.LOGIN_ATTEMPT.getValue(), limit);
+        
+        if (recentEvents.isEmpty()) {
+            return 0;
+        }
+        
+        int consecutiveFailures = 0;
+        
+        // Iterate through events (most recent first) and count consecutive failures
+        for (UserEvents event : recentEvents) {
+            if (UserEventStatus.FAILURE.getValue().equals(event.getEventStatus())) {
+                consecutiveFailures++;
+            } else if (UserEventStatus.SUCCESS.getValue().equals(event.getEventStatus())) {
+                // Stop counting at the first successful login
+                break;
+            }
+        }
+        
+        // Return the remainder to get current failed attempts after last unlock/lock
+        int remainderFailures = consecutiveFailures % allowedLoginAttempts;
+        if (consecutiveFailures > 0 && remainderFailures == 0) {
+            remainderFailures = allowedLoginAttempts;
+        }
+        LOGGER.debug("Calculated consecutive failed login attempts for user {}: total={}, remainder={}", 
+            userId, consecutiveFailures, remainderFailures);
+        
+        return remainderFailures;
+    }
+
+    /**
+     * Method to send user lock/unlock notification via email.
+     *
+     * @param userEntity     UserEntity object containing user details
+     * @param isLocked       true if user is locked, false if unlocked
+     * @param lockDuration   duration of lock in minutes (0 for permanent lock or unlock)
+     * @param isTemporaryLock true if temporary lock is enabled, false for permanent block
+     * @param isDeactivated  true if account is deactivated due to exceeding max lock attempts
+     */
+    private void sendUserLockNotification(UserEntity userEntity, boolean isLocked, 
+                                         long lockDuration, boolean isTemporaryLock, 
+                                         boolean isDeactivated) {
+        try {
+            UserManagementTenantProperties tenantProperties = getTenantProperties();
+            
+            if (!isNotificationEnabled(tenantProperties)) {
+                return;
+            }
+            
+            String email = userEntity.getEmail();
+            if (StringUtils.isEmpty(email)) {
+                LOGGER.warn("Cannot send lock notification for user {} - no email address", 
+                    userEntity.getId());
+                return;
+            }
+            
+            Map<String, String> userDetailsMap = prepareUserDetailsMap(userEntity, email);
+            Map<String, Object> notificationData = prepareNotificationData(userEntity, email);
+            
+            String notificationId = determineNotificationId(tenantProperties, isLocked, 
+                isDeactivated, isTemporaryLock, lockDuration, notificationData, email);
+            
+            emailNotificationService.sendNotification(userDetailsMap, notificationId, notificationData);
+            
+        } catch (Exception e) {
+            LOGGER.error("Failed to send lock/unlock notification for user {}. Error: {}", 
+                userEntity.getId(), e.getMessage(), e);
+            // Don't throw exception - notification failure should not fail the lock/unlock operation
+        }
+    }
+    
+    /**
+     * Check if notification is enabled in tenant properties.
+     *
+     * @param tenantProperties tenant configuration properties
+     * @return true if notification is enabled
+     */
+    private boolean isNotificationEnabled(UserManagementTenantProperties tenantProperties) {
+        Boolean notificationEnabled = tenantProperties.getUserLockNotificationEnabled();
+        if (notificationEnabled == null || !notificationEnabled) {
+            LOGGER.debug("User lock notification is disabled for tenant");
+            return false;
+        }
+        return true;
+    }
+    
+    /**
+     * Prepare user details map for notification.
+     *
+     * @param userEntity user entity
+     * @param email user email
+     * @return user details map
+     */
+    private Map<String, String> prepareUserDetailsMap(UserEntity userEntity, String email) {
+        Map<String, String> userDetailsMap = new HashMap<>();
+        userDetailsMap.put(ApiConstants.EMAIL_ADDRESS, email);
+        
+        String name = buildUserFullName(userEntity);
+        userDetailsMap.put(ApiConstants.EMAIL_TO_NAME, name.trim());
+        
+        return userDetailsMap;
+    }
+    
+    /**
+     * Prepare notification data map.
+     *
+     * @param userEntity user entity
+     * @param email user email
+     * @return notification data map
+     */
+    private Map<String, Object> prepareNotificationData(UserEntity userEntity, String email) {
+        Map<String, Object> notificationData = new HashMap<>();
+        notificationData.put("email", email);
+        
+        String name = buildUserFullName(userEntity);
+        if (StringUtils.isNotEmpty(name)) {
+            notificationData.put(ApiConstants.EMAIL_TO_NAME, name.trim());
+        }
+        
+        return notificationData;
+    }
+    
+    /**
+     * Build user's full name from first and last name.
+     *
+     * @param userEntity user entity
+     * @return full name
+     */
+    private String buildUserFullName(UserEntity userEntity) {
+        String name = "";
+        if (StringUtils.isNotEmpty(userEntity.getFirstName())) {
+            name = userEntity.getFirstName();
+        }
+        if (StringUtils.isNotEmpty(userEntity.getLastName())) {
+            name = name + " " + userEntity.getLastName();
+        }
+        return name;
+    }
+    
+    /**
+     * Determine notification ID and populate notification data based on lock status.
+     *
+     * @param tenantProperties tenant properties
+     * @param isLocked whether user is locked
+     * @param isDeactivated whether user is deactivated
+     * @param isTemporaryLock whether it's a temporary lock
+     * @param lockDuration lock duration in minutes
+     * @param notificationData notification data map to populate
+     * @param email user email
+     * @return notification ID
+     */
+    private String determineNotificationId(UserManagementTenantProperties tenantProperties, 
+                                          boolean isLocked, boolean isDeactivated, 
+                                          boolean isTemporaryLock, long lockDuration,
+                                          Map<String, Object> notificationData, String email) {
+        if (isLocked) {
+            return handleLockNotification(tenantProperties, isDeactivated, isTemporaryLock, 
+                lockDuration, notificationData, email);
+        } else {
+            return handleUnlockNotification(tenantProperties, email);
+        }
+    }
+    
+    /**
+     * Handle lock notification ID and data.
+     *
+     * @param tenantProperties tenant properties
+     * @param isDeactivated whether user is deactivated
+     * @param isTemporaryLock whether it's a temporary lock
+     * @param lockDuration lock duration in minutes
+     * @param notificationData notification data map to populate
+     * @param email user email
+     * @return notification ID
+     */
+    private String handleLockNotification(UserManagementTenantProperties tenantProperties,
+                                         boolean isDeactivated, boolean isTemporaryLock,
+                                         long lockDuration, Map<String, Object> notificationData,
+                                         String email) {
+        String notificationId;
+        String lockType;
+        
+        if (isDeactivated) {
+            // Account deactivated due to exceeding max lock attempts
+            notificationId = "UIDAM_USER_ACCOUNT_DEACTIVATED";
+            lockType = "Account Deactivated";
+        } else if (isTemporaryLock && lockDuration > 0) {
+            // Temporary lock with duration
+            notificationId = "UIDAM_USER_ACCOUNT_LOCKED_TEMPORARY";
+            lockType = "Temporary Account Lock";
+            notificationData.put("lockDuration", lockDuration);
+        } else {
+            // Permanent block
+            notificationId = "UIDAM_USER_ACCOUNT_LOCKED";
+            lockType = "Account Blocked";
+        }
+        
+        LOGGER.debug("Sending lock notification to user. Email: {}, Type: {}, Duration: {} minutes, "
+            + "Deactivated: {}", email, lockType, lockDuration, isDeactivated);
+        
+        return notificationId;
+    }
+    
+    /**
+     * Handle unlock notification ID.
+     *
+     * @param tenantProperties tenant properties
+     * @param email user email
+     * @return notification ID
+     */
+    private String handleUnlockNotification(UserManagementTenantProperties tenantProperties, String email) {
+        String notificationId = "UIDAM_USER_ACCOUNT_UNLOCKED";
+        
+        LOGGER.debug("Sending unlock notification to user. Email: {}", email);
+        
+        return notificationId;
+    }
 }

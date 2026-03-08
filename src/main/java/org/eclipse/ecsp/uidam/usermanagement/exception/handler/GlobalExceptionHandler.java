@@ -235,6 +235,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ErrorDetails> handleInActiveUserException(InActiveUserException exception,
                                                                     WebRequest webRequest) {
         ErrorDetails errorDetails = new ErrorDetails(ERROR, exception.getErrorCode(), exception.getMessage());
+        
+        // Add temporary lock information if available
+        if (Boolean.TRUE.equals(exception.getIsTemporaryLock()) && exception.getMinutesLeftToUnlock() != null) {
+            errorDetails.setMinutesLeftToUnlock(exception.getMinutesLeftToUnlock());
+            errorDetails.setIsTemporaryLock(true);
+        }
+        
         logger.error(INACTIVE_USER_ERROR_MESSAGE, exception);
         return new ResponseEntity<>(errorDetails, HttpStatus.FORBIDDEN);
     }

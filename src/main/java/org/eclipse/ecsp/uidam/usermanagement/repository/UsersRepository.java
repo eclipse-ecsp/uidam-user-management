@@ -49,4 +49,20 @@ public interface UsersRepository extends JpaRepository<UserEntity, BigInteger>, 
         @Param("userStatus") UserStatus userStatus);
 
     List<UserEntity> findByUserName(String userName);
+
+    /**
+     * Find all users with BLOCKED status whose temporary lock timestamp is not null
+     * and is before the specified timestamp.
+     * Used for temporary lock feature to find users eligible for auto-unlock.
+     *
+     * @param status the user status to filter by
+     * @param lockTimestamp the timestamp to compare against
+     * @return list of blocked users eligible for unlock based on temporary lock timestamp
+     */
+    @Query("SELECT u FROM UserEntity u WHERE u.status = :status " 
+        + "AND u.temporaryLockTimestamp IS NOT NULL " 
+        + "AND u.temporaryLockTimestamp <= :lockTimestamp")
+    List<UserEntity> findByStatusAndTemporaryLockTimestampBefore(
+        @Param("status") UserStatus status,
+        @Param("lockTimestamp") java.sql.Timestamp lockTimestamp);
 }

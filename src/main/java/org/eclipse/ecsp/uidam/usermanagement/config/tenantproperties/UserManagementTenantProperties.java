@@ -45,6 +45,13 @@ public class UserManagementTenantProperties {
     private String userDefaultAccountName;
     private Boolean additionalAttrCheckEnabledForSignUp;
     
+    // Temporary Lock Properties
+    private Boolean temporaryLockEnabled;
+    private Integer temporaryLockPeriodMinutes;
+    private Integer temporaryLockExponentialFactor;
+    private Integer temporaryLockMaxAttempts;
+    private Boolean userLockNotificationEnabled;
+    
     // Email Verification Properties
     private Boolean isEmailVerificationEnabled;
     private String emailVerificationUrl;

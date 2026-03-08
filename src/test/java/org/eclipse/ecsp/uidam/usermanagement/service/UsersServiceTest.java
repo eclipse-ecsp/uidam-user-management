@@ -267,9 +267,9 @@ class UsersServiceTest {
     private static final int CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES_VALUE = 3;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int ADDITIONAL_ATTRIBUTE_SIZE = 3;
-    private static final int USER_META_RESPONSE_SIZE_1 = 30;
+    private static final int USER_META_RESPONSE_SIZE_1 = 31;
     private static final int MANDATORY_ATTRIBUTE_COUNT_1 = 12;
-    private static final int USER_META_RESPONSE_SIZE_2 = 27;
+    private static final int USER_META_RESPONSE_SIZE_2 = 28;
     private static final int MANDATORY_ATTRIBUTE_COUNT_2 = 11;
     private static final String SCOPE_ID = "1";
     private static final int ONE_HUNDRED_INT = 100;
