@@ -1198,6 +1198,8 @@ public class UsersServiceImpl implements UsersService {
             // Capture account-role mappings before modifications for audit
             final String beforeAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(user, 
                 accountIdToNameMapping, roleIdToNameMapping);
+            // Capture status before patch to detect status changes
+            final UserStatus statusBeforePatch = user.getStatus();
             
             UserEntity userEntity = applyPatchToUser(JsonPatch.fromJson(objectMapper.valueToTree(operations)), user);
             
@@ -1210,6 +1212,12 @@ public class UsersServiceImpl implements UsersService {
             // Audit log: User updated
             userAuditHelper.logUserUpdatedAudit(savedUser, loggedInUserId, beforeValue, 
                 loggedInUserId.equals(userId), accountIdToNameMapping, roleIdToNameMapping);
+            
+            // Audit log: User status changed (only if status was modified)
+            if (statusBeforePatch != savedUser.getStatus()) {
+                userAuditHelper.logUserStatusChangedAudit(savedUser, loggedInUserId,
+                    statusBeforePatch, savedUser.getStatus(), accountIdToNameMapping);
+            }
             
             // Audit log: Account-role associations changed (only if modified)
             String afterAccountRoleValue = userAuditHelper.buildAccountRoleMappingsJson(savedUser, 
