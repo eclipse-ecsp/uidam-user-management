@@ -2622,9 +2622,11 @@ public class UsersServiceImpl implements UsersService {
                 RoleListRepresentation roleListDto = rolesService.getRoleById(roleIds);
                 UserEntity savedUser = userRepository.save(user);
                 
-                // Audit log: User status changed
-                userAuditHelper.logUserStatusChangedAudit(savedUser, loggedInUserId, currentStatus, newStatus,
-                    accountIdToNameMapping);
+                // Audit log: User status changed (only if status actually changed)
+                if (!currentStatus.equals(newStatus)) {
+                    userAuditHelper.logUserStatusChangedAudit(savedUser, loggedInUserId, currentStatus, newStatus,
+                        accountIdToNameMapping);
+                }
                 UserResponseV1 userResponse = (UserResponseV1) UserMapper.USER_MAPPER.mapToUserResponseV1(savedUser);
                 Map<BigInteger, Map<String, Object>> additionalAttributes = findAdditionalAttributeData(
                     List.of(user.getId()));
