@@ -3379,17 +3379,16 @@ public class UsersServiceImpl implements UsersService {
                                           boolean isTemporaryLock, long lockDuration,
                                           Map<String, Object> notificationData, String email) {
         if (isLocked) {
-            return handleLockNotification(tenantProperties, isDeactivated, isTemporaryLock, 
+            return handleLockNotification(isDeactivated, isTemporaryLock, 
                 lockDuration, notificationData, email);
         } else {
-            return handleUnlockNotification(tenantProperties, email);
+            return handleUnlockNotification(email);
         }
     }
     
     /**
      * Handle lock notification ID and data.
      *
-     * @param tenantProperties tenant properties
      * @param isDeactivated whether user is deactivated
      * @param isTemporaryLock whether it's a temporary lock
      * @param lockDuration lock duration in minutes
@@ -3397,8 +3396,7 @@ public class UsersServiceImpl implements UsersService {
      * @param email user email
      * @return notification ID
      */
-    private String handleLockNotification(UserManagementTenantProperties tenantProperties,
-                                         boolean isDeactivated, boolean isTemporaryLock,
+    private String handleLockNotification(boolean isDeactivated, boolean isTemporaryLock,
                                          long lockDuration, Map<String, Object> notificationData,
                                          String email) {
         String notificationId;
@@ -3428,11 +3426,10 @@ public class UsersServiceImpl implements UsersService {
     /**
      * Handle unlock notification ID.
      *
-     * @param tenantProperties tenant properties
      * @param email user email
      * @return notification ID
      */
-    private String handleUnlockNotification(UserManagementTenantProperties tenantProperties, String email) {
+    private String handleUnlockNotification(String email) {
         String notificationId = "UIDAM_USER_ACCOUNT_UNLOCKED";
         
         LOGGER.debug("Sending unlock notification to user. Email: {}", email);

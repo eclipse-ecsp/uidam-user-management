@@ -113,7 +113,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should send permanent lock notification with correct notification ID")
-    void testSendPermanentLockNotification() throws Exception {
+    void testSendPermanentLockNotification() {
         // Given
         boolean isLocked = true;
         long lockDuration = 0L;
@@ -144,7 +144,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should send temporary lock notification with lock duration")
-    void testSendTemporaryLockNotification() throws Exception {
+    void testSendTemporaryLockNotification() {
         // Given
         boolean isLocked = true;
         long lockDuration = TEMPORARY_LOCK_DURATION;
@@ -173,7 +173,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should send deactivated notification when max lock attempts exceeded")
-    void testSendDeactivatedNotification() throws Exception {
+    void testSendDeactivatedNotification() {
         // Given
         boolean isLocked = true;
         long lockDuration = 0L;
@@ -199,7 +199,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should send unlock notification with correct notification ID")
-    void testSendUnlockNotification() throws Exception {
+    void testSendUnlockNotification() {
         // Given
         boolean isLocked = false;
         long lockDuration = 0L;
@@ -225,7 +225,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not send notification when notification is disabled")
-    void testNotificationDisabled() throws Exception {
+    void testNotificationDisabled() {
         // Given
         tenantProperties.setUserLockNotificationEnabled(false);
         boolean isLocked = true;
@@ -243,7 +243,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not send notification when notification enabled is null")
-    void testNotificationEnabledNull() throws Exception {
+    void testNotificationEnabledNull() {
         // Given
         tenantProperties.setUserLockNotificationEnabled(null);
         boolean isLocked = true;
@@ -261,7 +261,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not send notification when user email is null")
-    void testUserEmailNull() throws Exception {
+    void testUserEmailNull() {
         // Given
         userEntity.setEmail(null);
         boolean isLocked = true;
@@ -279,7 +279,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not send notification when user email is empty")
-    void testUserEmailEmpty() throws Exception {
+    void testUserEmailEmpty() {
         // Given
         userEntity.setEmail("");
         boolean isLocked = true;
@@ -297,7 +297,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should handle user with only first name")
-    void testUserWithOnlyFirstName() throws Exception {
+    void testUserWithOnlyFirstName() {
         // Given
         userEntity.setLastName(null);
         boolean isLocked = true;
@@ -324,7 +324,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should handle user with only last name")
-    void testUserWithOnlyLastName() throws Exception {
+    void testUserWithOnlyLastName() {
         // Given
         userEntity.setFirstName(null);
         boolean isLocked = true;
@@ -351,7 +351,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should handle user with no first or last name")
-    void testUserWithNoName() throws Exception {
+    void testUserWithNoName() {
         // Given
         userEntity.setFirstName(null);
         userEntity.setLastName(null);
@@ -379,7 +379,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not throw exception when email service fails")
-    void testEmailServiceException() throws Exception {
+    void testEmailServiceException() {
         // Given
         doThrow(new RuntimeException("Email service unavailable"))
             .when(emailNotificationService).sendNotification(anyMap(), anyString(), anyMap());
@@ -398,7 +398,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should include email in notification data")
-    void testEmailInNotificationData() throws Exception {
+    void testEmailInNotificationData() {
         // Given
         boolean isLocked = true;
         long lockDuration = 0L;
@@ -424,7 +424,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should include user name in notification data when available")
-    void testUserNameInNotificationData() throws Exception {
+    void testUserNameInNotificationData() {
         // Given
         boolean isLocked = true;
         long lockDuration = 0L;
@@ -451,7 +451,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not include lock duration for permanent lock")
-    void testNoLockDurationForPermanentLock() throws Exception {
+    void testNoLockDurationForPermanentLock() {
         // Given
         boolean isLocked = true;
         long lockDuration = 0L;
@@ -477,7 +477,7 @@ class UsersServiceNotificationTest {
 
     @Test
     @DisplayName("Should not include lock duration for deactivated account")
-    void testNoLockDurationForDeactivatedAccount() throws Exception {
+    void testNoLockDurationForDeactivatedAccount() {
         // Given
         boolean isLocked = true;
         long lockDuration = 0L;
