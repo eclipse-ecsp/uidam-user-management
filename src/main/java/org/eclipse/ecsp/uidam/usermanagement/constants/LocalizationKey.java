@@ -30,6 +30,7 @@ public interface LocalizationKey {
     String INVALID_INPUT_PASSWORD_PATTERN = "invalid.input.password.pattern";
     String USER_PASSWORD_UPDATE_FAILED = "user.password.update.failed";
     String USER_NOT_VERIFIED = "user.not.verified";
+    String USER_NOT_ACTIVE = "user.not.active";
     String USER_NOT_FOUND = "user.not.found";
     String ATTRIBUTE_ALREADY_EXIST = "attribute.already.exist";
     String USER_IS_BLOCKED = "user.is.blocked";

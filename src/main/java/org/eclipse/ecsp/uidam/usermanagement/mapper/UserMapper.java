@@ -36,6 +36,7 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 import org.mapstruct.factory.Mappers;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
@@ -149,6 +150,7 @@ public interface UserMapper {
     @Mapping(target = "accountRoleMapping", ignore = true)
     @Mapping(target = "createDate", ignore = true)
     @Mapping(target = "updateDate", ignore = true)
+    @Mapping(target = "temporaryLockTimestamp", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateUserEntityData(Map<String, String> userMap, @MappingTarget UserEntity userEntity);
 
@@ -157,4 +159,21 @@ public interface UserMapper {
     @Mapping(target = "updateDate", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateUserAddressEntityData(Map<String, String> key, @MappingTarget UserAddressEntity userAddressEntity);
+
+    /**
+     * Convert String to Timestamp for MapStruct mapping.
+     *
+     * @param value String representation of timestamp
+     * @return Timestamp object or null if value is null or empty
+     */
+    default Timestamp map(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return Timestamp.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 }

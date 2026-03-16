@@ -81,6 +81,8 @@ class TenantResolutionFilterTest {
 
     private TenantResolutionFilter tenantResolutionFilter;
 
+    private static final int TIMESTAMP_TOLERANCE_MS = 5000; // 5 seconds tolerance for timestamp validation
+
     @BeforeEach
     void setUp() throws Exception {
         tenantResolutionFilter = new TenantResolutionFilter(tenantConfigurationService, objectMapper);
@@ -589,5 +591,306 @@ class TenantResolutionFilterTest {
         // Assert - should fail to resolve tenant
         verify(filterChain, never()).doFilter(request, response);
         verify(response).setStatus(org.apache.http.HttpStatus.SC_BAD_REQUEST);
+    }
+
+    // ==================== Tests for extractClientIp ====================
+
+    @Test
+    void testExtractClientIpFromForwardedForHeader() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.100");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - filter should proceed normally
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromForwardedForMultipleIps() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange - X-Forwarded-For with multiple IPs (client, proxy1, proxy2)
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.1, 198.51.100.1, 192.0.2.1");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - filter should proceed normally, using first IP
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromRealIpHeader() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn("10.0.0.50");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromProxyClientHeader() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn(null);
+        when(request.getHeader("Proxy-Client-IP")).thenReturn("172.16.0.100");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromWeblogicProxyHeader() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn(null);
+        when(request.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("WL-Proxy-Client-IP")).thenReturn("192.168.100.200");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromHttpClientHeader() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn(null);
+        when(request.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("WL-Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("HTTP_CLIENT_IP")).thenReturn("10.20.30.40");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromHttpForwardedForHeader() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn(null);
+        when(request.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("WL-Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("HTTP_CLIENT_IP")).thenReturn(null);
+        when(request.getHeader("HTTP_X_FORWARDED_FOR")).thenReturn("192.0.2.146");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpFromRemoteAddress() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange - All headers are null, fallback to remote address
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn(null);
+        when(request.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("WL-Proxy-Client-IP")).thenReturn(null);
+        when(request.getHeader("HTTP_CLIENT_IP")).thenReturn(null);
+        when(request.getHeader("HTTP_X_FORWARDED_FOR")).thenReturn(null);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpReturnsUnknownWhenNoValidAddress() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange - All headers return "unknown"
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn("unknown");
+        when(request.getHeader("X-Real-IP")).thenReturn("unknown");
+        when(request.getHeader("Proxy-Client-IP")).thenReturn("unknown");
+        when(request.getHeader("WL-Proxy-Client-IP")).thenReturn("unknown");
+        when(request.getHeader("HTTP_CLIENT_IP")).thenReturn("unknown");
+        when(request.getHeader("HTTP_X_FORWARDED_FOR")).thenReturn("unknown");
+        when(request.getRemoteAddr()).thenReturn(null);
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - Should still proceed (IP logging is informational only)
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpIgnoresEmptyHeaders() throws Exception {
+        // Enable source IP logging
+        java.lang.reflect.Field sourceIpField = TenantResolutionFilter.class.getDeclaredField("sourceIpLoggingEnabled");
+        sourceIpField.setAccessible(true);
+        sourceIpField.set(tenantResolutionFilter, true);
+
+        // Arrange - Empty string headers should be ignored
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+        when(request.getHeader("X-Forwarded-For")).thenReturn("");
+        when(request.getHeader("X-Real-IP")).thenReturn("  ");
+        when(request.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(request.getRemoteAddr()).thenReturn("192.168.1.1");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void testExtractClientIpDisabledWhenLoggingOff() throws Exception {
+        // Arrange - Source IP logging is disabled by default
+        when(request.getRequestURI()).thenReturn("/actuator/health");
+
+        // Act
+        tenantResolutionFilter.doFilter(request, response, filterChain);
+
+        // Assert - No IP headers should be checked
+        verify(request, never()).getHeader("X-Forwarded-For");
+        verify(request, never()).getRemoteAddr();
+        verify(filterChain).doFilter(request, response);
+    }
+
+    // ==================== Tests for UserManagementErrorResponse Getters ====================
+
+    @Test
+    void testUserManagementErrorResponse_Getters() throws Exception {
+        // Use reflection to access the inner class and test its getters
+        Class<?> errorResponseClass = Class.forName(
+            "org.eclipse.ecsp.uidam.usermanagement.filter.TenantResolutionFilter$UserManagementErrorResponse");
+        
+        // Create instance using constructor
+        java.lang.reflect.Constructor<?> constructor = errorResponseClass.getDeclaredConstructor(
+            String.class, String.class, int.class);
+        constructor.setAccessible(true);
+        
+        Object errorResponse = constructor.newInstance(
+            "TEST_ERROR", "Test error message", HttpStatus.SC_BAD_REQUEST);
+        
+        // Test getError()
+        java.lang.reflect.Method getError = errorResponseClass.getDeclaredMethod("getError");
+        getError.setAccessible(true);
+        assertEquals("TEST_ERROR", getError.invoke(errorResponse));
+        
+        // Test getMessage()
+        java.lang.reflect.Method getMessage = errorResponseClass.getDeclaredMethod("getMessage");
+        getMessage.setAccessible(true);
+        assertEquals("Test error message", getMessage.invoke(errorResponse));
+        
+        // Test getStatus()
+        java.lang.reflect.Method getStatus = errorResponseClass.getDeclaredMethod("getStatus");
+        getStatus.setAccessible(true);
+        assertEquals(HttpStatus.SC_BAD_REQUEST, getStatus.invoke(errorResponse));
+        
+        // Test getTimestamp()
+        java.lang.reflect.Method getTimestamp = errorResponseClass.getDeclaredMethod("getTimestamp");
+        getTimestamp.setAccessible(true);
+        long timestamp = (long) getTimestamp.invoke(errorResponse);
+        // Timestamp should be recent (within last second)
+        long currentTime = System.currentTimeMillis();
+        assertFalse(timestamp > currentTime, "Timestamp should not be in the future");
+        assertFalse((currentTime - timestamp) > TIMESTAMP_TOLERANCE_MS, 
+            "Timestamp should be within the last 5 seconds");
+    }
+
+    @Test
+    void testUserManagementErrorResponse_TimestampIsUnique() throws Exception {
+        // Use reflection to access the inner class
+        Class<?> errorResponseClass = Class.forName(
+            "org.eclipse.ecsp.uidam.usermanagement.filter.TenantResolutionFilter$UserManagementErrorResponse");
+        
+        java.lang.reflect.Constructor<?> constructor = errorResponseClass.getDeclaredConstructor(
+            String.class, String.class, int.class);
+        constructor.setAccessible(true);
+        
+        // Create two instances
+        Object errorResponse1 = constructor.newInstance(
+            "ERROR1", "Message 1", HttpStatus.SC_BAD_REQUEST);
+        
+        Object errorResponse2 = constructor.newInstance(
+            "ERROR2", "Message 2", HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        
+        // Get timestamps
+        java.lang.reflect.Method getTimestamp = errorResponseClass.getDeclaredMethod("getTimestamp");
+        getTimestamp.setAccessible(true);
+        
+        long timestamp1 = (long) getTimestamp.invoke(errorResponse1);
+        long timestamp2 = (long) getTimestamp.invoke(errorResponse2);
+        
+        // Both timestamps should be valid recent timestamps
+        assertFalse(timestamp1 > System.currentTimeMillis());
+        assertFalse(timestamp2 > System.currentTimeMillis());
+        // Timestamps should be within reasonable range (last 5 seconds)
+        long currentTime = System.currentTimeMillis();
+        assertFalse((currentTime - timestamp1) > TIMESTAMP_TOLERANCE_MS);
+        assertFalse((currentTime - timestamp2) > TIMESTAMP_TOLERANCE_MS);
     }
 }

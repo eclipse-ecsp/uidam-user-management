@@ -130,4 +130,6 @@ public class UserEntity {
     @LastModifiedDate
     @Column(name = "update_date")
     private Timestamp updateDate;
+    @Column(name = "temporary_lock_timestamp")
+    private Timestamp temporaryLockTimestamp;
 }

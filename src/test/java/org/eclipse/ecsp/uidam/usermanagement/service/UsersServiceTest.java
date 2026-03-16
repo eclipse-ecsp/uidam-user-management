@@ -188,6 +188,9 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -267,9 +270,9 @@ class UsersServiceTest {
     private static final int CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES_VALUE = 3;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int ADDITIONAL_ATTRIBUTE_SIZE = 3;
-    private static final int USER_META_RESPONSE_SIZE_1 = 30;
+    private static final int USER_META_RESPONSE_SIZE_1 = 31;
     private static final int MANDATORY_ATTRIBUTE_COUNT_1 = 12;
-    private static final int USER_META_RESPONSE_SIZE_2 = 27;
+    private static final int USER_META_RESPONSE_SIZE_2 = 28;
     private static final int MANDATORY_ATTRIBUTE_COUNT_2 = 11;
     private static final String SCOPE_ID = "1";
     private static final int ONE_HUNDRED_INT = 100;
@@ -3168,6 +3171,124 @@ class UsersServiceTest {
         assertDoesNotThrow(() -> {
             usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, false, API_VERSION_2);
         });
+    }
+
+    @Test
+    void editUser_StatusChanged_ShouldLogStatusChangedAudit() throws IOException, ResourceNotFoundException,
+        UserAccountRoleMappingException {
+
+        UserEntity userEntity = new UserEntity();
+        userEntity.setFirstName("John");
+        userEntity.setStatus(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        userEntity.setUserName("test");
+        userEntity.setIsExternalUser(true);
+        UserAddressEntity userAddress = new UserAddressEntity();
+        userAddress.setAddress1("address1");
+        userAddress.setCity("City");
+        List<UserAccountRoleMappingEntity> accountRoleMapping = getAccountRoleMapping(userEntity);
+        userEntity.setAccountRoleMapping(accountRoleMapping);
+        List<UserAddressEntity> addresses = new ArrayList<>();
+        addresses.add(userAddress);
+        userEntity.setUserAddresses(addresses);
+        when(userRepository.findByIdAndStatusNot(USER_ID_VALUE, UserStatus.DELETED)).thenReturn(userEntity);
+        RoleCreateResponse role = new RoleCreateResponse();
+        role.setId(ROLE_ID_1);
+        role.setName("BUSINESS_ADMIN");
+        role.setDescription("roles");
+        Set<RoleCreateResponse> roles = new HashSet<>();
+        roles.add(role);
+        List<Scope> scopes = new ArrayList<>();
+        Scope scope = new Scope();
+        scope.setId("1");
+        scope.setName("IgniteSystem");
+        scopes.add(scope);
+        role.setScopes(scopes);
+        RoleListRepresentation roleRepresentation = new RoleListRepresentation();
+        roleRepresentation.setRoles(roles);
+        roleRepresentation.setMessages(new ArrayList<>());
+        when(rolesService.getRoleById(anySet())).thenReturn(roleRepresentation);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
+            .thenReturn(new ArrayList<>());
+        when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
+            Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
+            .thenReturn(getAdminUserRole());
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
+
+        // Save returns whatever entity is passed (status already changed by JSON patch)
+        when(userRepository.save(Mockito.any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String decryptValue = "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"DEACTIVATED\"}]";
+        JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
+        JsonPatch jsonPatch = JsonPatch.fromJson(node);
+        usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1");
+
+        // Verify ADMIN_USER_STATUS_CHANGED audit was logged
+        verify(userAuditHelper, times(1)).logUserStatusChangedAudit(
+            any(UserEntity.class), eq(USER_ID_VALUE),
+            eq(UserStatus.ACTIVE), eq(UserStatus.DEACTIVATED), any());
+    }
+
+    @Test
+    void editUser_StatusNotChanged_ShouldNotLogStatusChangedAudit() throws IOException, ResourceNotFoundException,
+        UserAccountRoleMappingException {
+
+        UserEntity userEntity = new UserEntity();
+        userEntity.setFirstName("John");
+        userEntity.setStatus(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        userEntity.setUserName("test");
+        userEntity.setIsExternalUser(true);
+        UserAddressEntity userAddress = new UserAddressEntity();
+        userAddress.setAddress1("address1");
+        userAddress.setCity("City");
+        List<UserAccountRoleMappingEntity> accountRoleMapping = getAccountRoleMapping(userEntity);
+        userEntity.setAccountRoleMapping(accountRoleMapping);
+        List<UserAddressEntity> addresses = new ArrayList<>();
+        addresses.add(userAddress);
+        userEntity.setUserAddresses(addresses);
+        when(userRepository.findByIdAndStatusNot(USER_ID_VALUE, UserStatus.DELETED)).thenReturn(userEntity);
+        RoleCreateResponse role = new RoleCreateResponse();
+        role.setId(ROLE_ID_1);
+        role.setName("BUSINESS_ADMIN");
+        role.setDescription("roles");
+        Set<RoleCreateResponse> roles = new HashSet<>();
+        roles.add(role);
+        List<Scope> scopes = new ArrayList<>();
+        Scope scope = new Scope();
+        scope.setId("1");
+        scope.setName("IgniteSystem");
+        scopes.add(scope);
+        role.setScopes(scopes);
+        RoleListRepresentation roleRepresentation = new RoleListRepresentation();
+        roleRepresentation.setRoles(roles);
+        roleRepresentation.setMessages(new ArrayList<>());
+        when(rolesService.getRoleById(anySet())).thenReturn(roleRepresentation);
+        when(tenantProperties.getExternalUserPermittedRoles()).thenReturn("BUSINESS_ADMIN");
+        when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
+            .thenReturn(new ArrayList<>());
+        when(rolesService.filterRoles(Mockito.any(), Mockito.eq(Integer.valueOf(ApiConstants.PAGE_NUMBER_DEFAULT)),
+            Mockito.eq(Integer.valueOf(ApiConstants.PAGE_SIZE_DEFAULT)), Mockito.eq(false)))
+            .thenReturn(getAdminUserRole());
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
+
+        // Save returns whatever entity is passed (firstName changed by JSON patch)
+        when(userRepository.save(Mockito.any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String decryptValue = "[{\"op\":\"replace\",\"path\":\"/firstName\",\"value\":\"JohnSEorro\"}]";
+        JsonNode node = objectMapper.readValue(decryptValue, JsonNode.class);
+        JsonPatch jsonPatch = JsonPatch.fromJson(node);
+        usersService.editUser(USER_ID_VALUE, jsonPatch, USER_ID_VALUE, true, "v1");
+
+        // Verify ADMIN_USER_STATUS_CHANGED audit was NOT logged
+        verify(userAuditHelper, never()).logUserStatusChangedAudit(
+            any(), any(), any(), any(), any());
+        // But ADMIN_USER_UPDATED should still be logged
+        verify(userAuditHelper, times(1)).logUserUpdatedAudit(
+            any(), any(), any(), anyBoolean(), any(), any());
     }
 
     @Test

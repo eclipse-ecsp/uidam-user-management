@@ -51,5 +51,109 @@
                 }
             ]
         }
+    },
+    {
+        "notificationId": "UIDAM_USER_ACCOUNT_LOCKED",
+        "enabled": true,
+        "email": {
+            "enabled": true,
+            "templates": [
+                {
+                    "locale": "en_US",
+                    "default": "true",
+                    "from": "admin@harman.com",
+                    "subject": "UIDAM Account Security Alert - Account Blocked",
+                    "reference-html": "htmls/thymeleaf-template.html",
+                    "images": {
+                        "Image-hdr_brand": "images/harman.png",
+                        "Image-hdr_picture": "images/header_pic.png"
+                    },
+                    "body": {
+                        "salutation": "Greetings [[${name}]]!",
+                        "body": "Your account has been BLOCKED due to multiple failed login attempts.<br/>Please contact support to unlock your account.",
+                        "footer": "Thanks",
+                        "sender": "admin@harman.com"
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "notificationId": "UIDAM_USER_ACCOUNT_LOCKED_TEMPORARY",
+        "enabled": true,
+        "email": {
+            "enabled": true,
+            "templates": [
+                {
+                    "locale": "en_US",
+                    "default": "true",
+                    "from": "admin@harman.com",
+                    "subject": "UIDAM Account Security Alert - Temporary Account Lock",
+                    "reference-html": "htmls/thymeleaf-template.html",
+                    "images": {
+                        "Image-hdr_brand": "images/harman.png",
+                        "Image-hdr_picture": "images/header_pic.png"
+                    },
+                    "body": {
+                        "salutation": "Greetings [[${name}]]!",
+                        "body": "Your account has been temporarily locked due to multiple failed login attempts.<br/>Lock Duration: [[${lockDuration}]] minutes<br/>Your account will be automatically unlocked after this period.<br/>If you believe this is an error or need immediate access, please contact support.",
+                        "footer": "Thanks",
+                        "sender": "admin@harman.com"
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "notificationId": "UIDAM_USER_ACCOUNT_DEACTIVATED",
+        "enabled": true,
+        "email": {
+            "enabled": true,
+            "templates": [
+                {
+                    "locale": "en_US",
+                    "default": "true",
+                    "from": "admin@harman.com",
+                    "subject": "UIDAM Account Security Alert - Account Deactivated",
+                    "reference-html": "htmls/thymeleaf-template.html",
+                    "images": {
+                        "Image-hdr_brand": "images/harman.png",
+                        "Image-hdr_picture": "images/header_pic.png"
+                    },
+                    "body": {
+                        "salutation": "Greetings [[${name}]]!",
+                        "body": "Your account has been DEACTIVATED due to exceeding the maximum number of failed login attempts.<br/>For security reasons, your account requires administrator intervention to be reactivated.<br/>Please contact support immediately to restore access to your account.",
+                        "footer": "Thanks",
+                        "sender": "admin@harman.com"
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "notificationId": "UIDAM_USER_ACCOUNT_UNLOCKED",
+        "enabled": true,
+        "email": {
+            "enabled": true,
+            "templates": [
+                {
+                    "locale": "en_US",
+                    "default": "true",
+                    "from": "admin@harman.com",
+                    "subject": "UIDAM Account Unlocked",
+                    "reference-html": "htmls/thymeleaf-template.html",
+                    "images": {
+                        "Image-hdr_brand": "images/harman.png",
+                        "Image-hdr_picture": "images/header_pic.png"
+                    },
+                    "body": {
+                        "salutation": "Greetings [[${name}]]!",
+                        "body": "Your account has been automatically unlocked. You can now log in to your account.<br/>If you did not attempt to login recently or suspect unauthorized access, please contact support immediately.",
+                        "footer": "Thanks",
+                        "sender": "admin@harman.com"
+                    }
+                }
+            ]
+        }
     }
 ]
