@@ -283,6 +283,8 @@ public class UsersServiceImpl implements UsersService {
         Map.entry("jsonb", JsonNode.class));
     
     private static final int DEFAULT_MAX_LOCK_ATTEMPTS = 5;
+    private static final int MAX_LOG_LENGTH = 100;
+    private static final int LOG_TRUNCATE_LENGTH = 97;
     
     @Autowired
     private TenantConfigurationService tenantConfigurationService;
@@ -331,6 +333,27 @@ public class UsersServiceImpl implements UsersService {
     
     @Autowired
     private UserAuditHelper userAuditHelper;
+    
+    /**
+     * Sanitize user-controlled data to prevent log injection attacks.
+     * Removes or replaces characters that could be used for log forging (newlines, carriage returns, etc.).
+     *
+     * @param input the user-controlled input to sanitize
+     * @return sanitized string safe for logging, or "[null]" if input is null
+     */
+    private String sanitizeForLogging(String input) {
+        if (input == null) {
+            return "[null]";
+        }
+        // Replace newlines, carriage returns, and tabs with spaces to prevent log injection
+        // Also limit the length to prevent log flooding
+        String sanitized = input.replaceAll("[\n\r\t]", " ");
+        // Limit to reasonable length to prevent log flooding
+        if (sanitized.length() > MAX_LOG_LENGTH) {
+            sanitized = sanitized.substring(0, LOG_TRUNCATE_LENGTH) + "...";
+        }
+        return sanitized;
+    }
     
     /**
      * Helper method to get current tenant properties.
@@ -955,7 +978,9 @@ public class UsersServiceImpl implements UsersService {
         } else if (userEntity.getStatus().equals(UserStatus.BLOCKED)) {
             // Check if temporary lock feature is enabled and user is eligible for unlock
             if (checkAndUnlockIfEligible(userEntity)) {
-                LOGGER.info("User {} automatically unlocked during login attempt", userName);
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("User {} automatically unlocked during login attempt", sanitizeForLogging(userName));
+                }
                 // User has been unlocked, continue with login
                 return;
             }
@@ -966,8 +991,10 @@ public class UsersServiceImpl implements UsersService {
             
             Timestamp lockTimestamp = userEntity.getTemporaryLockTimestamp();
             
-            LOGGER.info("User {} is BLOCKED. temporaryLockEnabled={}, lockTimestamp={}", 
-                userName, temporaryLockEnabled, lockTimestamp);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("User {} is BLOCKED. temporaryLockEnabled={}, lockTimestamp={}", 
+                    sanitizeForLogging(userName), temporaryLockEnabled, lockTimestamp);
+            }
             
             if (Boolean.TRUE.equals(temporaryLockEnabled) && lockTimestamp != null) {
                 // Calculate minutes left to unlock
@@ -975,24 +1002,31 @@ public class UsersServiceImpl implements UsersService {
                 LocalDateTime now = LocalDateTime.now();
                 long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
                 
-                LOGGER.debug("User {} temporary lock check: lockUntil={}, now={}, minutesLeft={}", 
-                    userName, lockUntil, now, minutesLeft);
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("User {} temporary lock check: lockUntil={}, now={}, minutesLeft={}", 
+                        sanitizeForLogging(userName), lockUntil, now, minutesLeft);
+                }
                 
                 if (minutesLeft > 0) {
                     String temporaryLockMessage = String.format(
                         "User account is temporarily locked. Please try again in %d minute(s).", 
                         minutesLeft
                     );
-                    LOGGER.info("Throwing temporary lock exception for user {} with {} minutes left", 
-                        userName, minutesLeft);
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info("Throwing temporary lock exception for user {} with {} minutes left", 
+                            sanitizeForLogging(userName), minutesLeft);
+                    }
                     throw new InActiveUserException(temporaryLockMessage, "USER_TEMPORARILY_BLOCKED", 
                         minutesLeft, true);
                 }
             }
             
             // Permanent block or temporary lock with no timestamp
-            LOGGER.info("Throwing permanent block exception for user {}. temporaryLockEnabled={}, lockTimestamp={}", 
-                userName, temporaryLockEnabled, lockTimestamp);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Throwing permanent block exception for user {}. "
+                    + "temporaryLockEnabled={}, lockTimestamp={}", 
+                    sanitizeForLogging(userName), temporaryLockEnabled, lockTimestamp);
+            }
             throw new InActiveUserException(USER_IS_BLOCKED, "USER_IS_BLOCKED");
         } else if (!userEntity.getStatus().equals(UserStatus.ACTIVE)) {
             throw new InActiveUserException(USER_NOT_ACTIVE, "USER_NOT_ACTIVE");
@@ -3206,7 +3240,7 @@ public class UsersServiceImpl implements UsersService {
         }
         
         // Calculate: basePeriod × (exponentialFactor ^ (lockCount - 1))
-        long duration = (long) (basePeriod * Math.pow(exponentialFactor, lockCount - 1));
+        long duration = (long) (basePeriod * Math.pow(exponentialFactor, (double) lockCount - 1));
         
         LOGGER.debug("Calculated lock duration: {} minutes (base: {}, factor: {}, count: {})",
             duration, basePeriod, exponentialFactor, lockCount);
