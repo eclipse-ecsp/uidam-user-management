@@ -22,5 +22,7 @@
 
     <!-- Release 1.4 - Temporary Lock Feature -->
     <include file="changesets/1_4_release/temporary_lock_schema.xml" relativeToChangelogFile="true"/>
+    <!-- Release 1.4 - Performance Indexes -->
+    <include file="changesets/1_4_release/performance_indexes_schema.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

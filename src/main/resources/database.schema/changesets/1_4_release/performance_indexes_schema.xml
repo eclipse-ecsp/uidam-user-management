@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create-index-role-upper-name" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_role_upper_name" tableName="role"/>
+            </not>
+        </preConditions>
+        <createIndex indexName="idx_role_upper_name" tableName="role">
+            <column name="role_name" type="VARCHAR(255)" computed="true">
+                <![CDATA[upper(role_name)]]>
+            </column>
+        </createIndex>
+        <rollback>
+            <dropIndex indexName="idx_role_upper_name" tableName="role"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="create-index-role-name" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_role_name" tableName="role"/>
+            </not>
+        </preConditions>
+        <createIndex indexName="idx_role_name" tableName="role">
+            <column name="role_name"/>
+        </createIndex>
+        <rollback>
+            <dropIndex indexName="idx_role_name" tableName="role"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="create-index-role-scope-mapping" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_role_scope_mapping_role_scope" tableName="role_scope_mapping"/>
+            </not>
+        </preConditions>
+        <createIndex indexName="idx_role_scope_mapping_role_scope" tableName="role_scope_mapping">
+            <column name="role_id"/>
+            <column name="scope_id"/>
+        </createIndex>
+        <rollback>
+            <dropIndex indexName="idx_role_scope_mapping_role_scope" tableName="role_scope_mapping"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="create-index-scope-upper-name" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_scope_upper_name" tableName="scope"/>
+            </not>
+        </preConditions>
+        <createIndex indexName="idx_scope_upper_name" tableName="scope">
+            <column name="scope_name" type="VARCHAR(255)" computed="true">
+                <![CDATA[upper(scope_name)]]>
+            </column>
+        </createIndex>
+        <rollback>
+            <dropIndex indexName="idx_scope_upper_name" tableName="scope"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="create-index-user-upper-name" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_user_upper_name" tableName="user"/>
+            </not>
+        </preConditions>
+        <createIndex indexName="idx_user_upper_name" tableName="user">
+            <column name="user_name" type="VARCHAR(255)" computed="true">
+                <![CDATA[upper(user_name)]]>
+            </column>
+        </createIndex>
+        <rollback>
+            <dropIndex indexName="idx_user_upper_name" tableName="user"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
