@@ -29,7 +29,6 @@ import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
 
 /**
  *  Password Encryption Utility.
@@ -41,6 +40,7 @@ public class PasswordUtils {
     }
 
     private static final int SALT_SIZE = 16;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /**
      * Get encrypted password hash.
@@ -70,8 +70,7 @@ public class PasswordUtils {
      */
     public static String getSalt() {
         byte[] salt = new byte[SALT_SIZE];
-        Random random = new SecureRandom();
-        random.nextBytes(salt);
+        SECURE_RANDOM.nextBytes(salt);
         return Base64Utils.encode(salt);
     }
 

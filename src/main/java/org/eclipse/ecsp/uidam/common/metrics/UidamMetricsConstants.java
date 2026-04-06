@@ -21,15 +21,19 @@ package org.eclipse.ecsp.uidam.common.metrics;
 /**
  * Constants for UIDAM metrics.
  */
-public interface UidamMetricsConstants {
-    String USER_TYPE_SELF = "self";
-    String USER_TYPE_EXTERNAL = "external";
-    String USER_TYPE_FEDERATED = "federated";
-    String USER_TYPE_ADMIN = "admin";
+public class UidamMetricsConstants {
+    private UidamMetricsConstants() {
+        // Private constructor to prevent instantiation
+    }
 
-    String TAG_NAME_APPLICATION = "application";
-    String TAG_NAME_TENANT_ID = "tenantId";
-    String TAG_NAME_API_VERSION = "apiVersion";
-    String TAG_VALUE_APPLICATION = "uidam-user-management";
-    String DEFAULT_API_VERSION = "v1";
+    public static final String USER_TYPE_SELF = "self";
+    public static final String USER_TYPE_EXTERNAL = "external";
+    public static final String USER_TYPE_FEDERATED = "federated";
+    public static final String USER_TYPE_ADMIN = "admin";
+
+    public static final String TAG_NAME_APPLICATION = "application";
+    public static final String TAG_NAME_TENANT_ID = "tenantId";
+    public static final String TAG_NAME_API_VERSION = "apiVersion";
+    public static final String TAG_VALUE_APPLICATION = "uidam-user-management";
+    public static final String DEFAULT_API_VERSION = "v1";
 }

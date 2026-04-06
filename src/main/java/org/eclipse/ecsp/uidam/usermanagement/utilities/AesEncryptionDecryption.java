@@ -54,6 +54,7 @@ public class AesEncryptionDecryption {
     private static final int IV_LENGTH_BYTE = 12;
     private static final int AES_KEY_BIT = 256;
     private static final int ITERATION_COUNT = 65536;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Autowired
     private TenantConfigurationService tenantConfigurationService;
@@ -156,7 +157,7 @@ public class AesEncryptionDecryption {
      */
     public static byte[] getRandomNonce(int numBytes) {
         byte[] nonce = new byte[numBytes];
-        new SecureRandom().nextBytes(nonce);
+        SECURE_RANDOM.nextBytes(nonce);
         return nonce;
     }
 }
