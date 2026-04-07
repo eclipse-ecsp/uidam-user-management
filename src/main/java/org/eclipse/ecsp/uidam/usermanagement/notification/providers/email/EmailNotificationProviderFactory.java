@@ -46,6 +46,9 @@ import org.springframework.util.StringUtils;
 @Component
 public class EmailNotificationProviderFactory {
 
+    private static final String PROVIDER_TYPE_INTERNAL = "internal";
+    private static final String PROVIDER_TYPE_IGNITE = "ignite";
+
     private final TenantConfigurationService tenantConfigurationService;
     private final InternalEmailNotificationProvider internalProvider;
     private final IgniteEmailNotificationProvider igniteProvider;
@@ -102,14 +105,14 @@ public class EmailNotificationProviderFactory {
         
         if (notificationProps == null || notificationProps.getEmail() == null) {
             log.warn("Email notification configuration not found, defaulting to 'internal' provider");
-            return "internal";
+            return PROVIDER_TYPE_INTERNAL;
         }
 
         String providerType = notificationProps.getEmail().getProvider();
         
         if (!StringUtils.hasText(providerType)) {
             log.debug("Provider type not specified, defaulting to 'internal'");
-            return "internal";
+            return PROVIDER_TYPE_INTERNAL;
         }
 
         return providerType.toLowerCase().trim();
@@ -125,19 +128,19 @@ public class EmailNotificationProviderFactory {
      */
     private EmailNotificationProvider selectProvider(String providerType, String tenantId) {
         switch (providerType) {
-            case "internal":
+            case PROVIDER_TYPE_INTERNAL:
                 log.info("Using InternalEmailNotificationProvider for tenant '{}'", tenantId);
                 return internalProvider;
                 
-            case "ignite":
+            case PROVIDER_TYPE_IGNITE:
                 log.info("Using IgniteEmailNotificationProvider for tenant '{}'", tenantId);
                 return igniteProvider;
                 
             default:
                 String errorMsg = String.format(
                         "Unsupported email provider type '%s' for tenant '%s'. "
-                        + "Supported types are: 'internal', 'ignite'",
-                        providerType, tenantId);
+                        + "Supported types are: '%s', '%s'",
+                        providerType, tenantId, PROVIDER_TYPE_INTERNAL, PROVIDER_TYPE_IGNITE);
                 log.error(errorMsg);
                 throw new ApplicationRuntimeException(errorMsg);
         }

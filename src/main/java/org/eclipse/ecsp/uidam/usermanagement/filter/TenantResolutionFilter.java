@@ -452,7 +452,7 @@ public class TenantResolutionFilter implements Filter {
             java.util.Map<String, Object> claims = objectMapper.readValue(payload, java.util.Map.class);
             
             // Check for "tenantId" claim (standard UIDAM claim name)
-            Object tenantId = claims.get("tenantId");
+            Object tenantId = claims.get(TENANT_HEADER);
             if (tenantId != null) {
                 LOGGER.debug("Found 'tenantId' claim in JWT payload: {}", tenantId);
                 return tenantId.toString();

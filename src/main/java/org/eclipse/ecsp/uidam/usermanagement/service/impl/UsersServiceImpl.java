@@ -311,6 +311,7 @@ public class UsersServiceImpl implements UsersService {
     private EmailVerificationRepository emailVerificationRepository;
     private PasswordHistoryRepository passwordHistoryRepository;
     public static final String POLICY_VALIDATION_FAILED = "um.password.policy.validation.failed";
+    private static final String METRIC_TAG_USER_TYPE = "userType";
     private static final Logger LOGGER = LoggerFactory.getLogger(UsersServiceImpl.class);
     @Autowired
     private PasswordValidationService passwordValidationService;
@@ -434,7 +435,7 @@ public class UsersServiceImpl implements UsersService {
         uidamMetricsService.incrementCounter(MetricInfo.builder()
                 .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
                 .tags(Stream.of("version", version,
-                        "userType", userType))
+                        METRIC_TAG_USER_TYPE, userType))
                 .build());
         UserResponseBase userResponseBase = addRoleNamesAndMapToUserResponse(userEntity, version);
 
@@ -973,65 +974,106 @@ public class UsersServiceImpl implements UsersService {
         throws ResourceNotFoundException, InActiveUserException {
         if (Objects.isNull(userEntity)) {
             throw new ResourceNotFoundException(USER, USERNAME_FOR_ERROR_MSG, userName);
-        } else if (userEntity.getStatus().equals(UserStatus.PENDING)) {
+        }
+        
+        UserStatus status = userEntity.getStatus();
+        
+        if (status.equals(UserStatus.PENDING)) {
             throw new InActiveUserException(USER_NOT_VERIFIED, "USER_NOT_VERIFIED");
-        } else if (userEntity.getStatus().equals(UserStatus.BLOCKED)) {
-            // Check if temporary lock feature is enabled and user is eligible for unlock
-            if (checkAndUnlockIfEligible(userEntity)) {
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("User {} automatically unlocked during login attempt", sanitizeForLogging(userName));
-                }
-                // User has been unlocked, continue with login
-                return;
-            }
-            
-            // User is still blocked - check if it's a temporary lock
-            Boolean temporaryLockEnabled = getTenantProperties().getTemporaryLockEnabled();
-            // Default to true if not explicitly configured (for backward compatibility)
-            
-            Timestamp lockTimestamp = userEntity.getTemporaryLockTimestamp();
-            
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("User {} is BLOCKED. temporaryLockEnabled={}, lockTimestamp={}", 
-                    sanitizeForLogging(userName), temporaryLockEnabled, lockTimestamp);
-            }
-            
-            if (Boolean.TRUE.equals(temporaryLockEnabled) && lockTimestamp != null) {
-                // Calculate minutes left to unlock
-                LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-                LocalDateTime now = LocalDateTime.now();
-                long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
-                
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("User {} temporary lock check: lockUntil={}, now={}, minutesLeft={}", 
-                        sanitizeForLogging(userName), lockUntil, now, minutesLeft);
-                }
-                
-                if (minutesLeft > 0) {
-                    String temporaryLockMessage = String.format(
-                        "User account is temporarily locked. Please try again in %d minute(s).", 
-                        minutesLeft
-                    );
-                    if (LOGGER.isInfoEnabled()) {
-                        LOGGER.info("Throwing temporary lock exception for user {} with {} minutes left", 
-                            sanitizeForLogging(userName), minutesLeft);
-                    }
-                    throw new InActiveUserException(temporaryLockMessage, "USER_TEMPORARILY_BLOCKED", 
-                        minutesLeft, true);
-                }
-            }
-            
-            // Permanent block or temporary lock with no timestamp
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("Throwing permanent block exception for user {}. "
-                    + "temporaryLockEnabled={}, lockTimestamp={}", 
-                    sanitizeForLogging(userName), temporaryLockEnabled, lockTimestamp);
-            }
-            throw new InActiveUserException(USER_IS_BLOCKED, "USER_IS_BLOCKED");
-        } else if (!userEntity.getStatus().equals(UserStatus.ACTIVE)) {
+        }
+        
+        if (status.equals(UserStatus.BLOCKED)) {
+            handleBlockedUserStatus(userEntity, userName);
+            return;
+        }
+        
+        if (!status.equals(UserStatus.ACTIVE)) {
             throw new InActiveUserException(USER_NOT_ACTIVE, "USER_NOT_ACTIVE");
         }
+    }
 
+    /**
+     * Handle blocked user status by checking temporary lock eligibility and throwing appropriate exceptions.
+     *
+     * @param userEntity the blocked user entity
+     * @param userName the username for logging
+     * @throws InActiveUserException if user remains blocked
+     */
+    private void handleBlockedUserStatus(UserEntity userEntity, String userName) 
+        throws InActiveUserException {
+        // Check if temporary lock feature is enabled and user is eligible for unlock
+        if (checkAndUnlockIfEligible(userEntity)) {
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("User {} automatically unlocked during login attempt", sanitizeForLogging(userName));
+            }
+            // User has been unlocked, continue with login
+            return;
+        }
+        
+        // User is still blocked - check if it's a temporary lock
+        Boolean temporaryLockEnabled = getTenantProperties().getTemporaryLockEnabled();
+        Timestamp lockTimestamp = userEntity.getTemporaryLockTimestamp();
+        
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("User {} is BLOCKED. temporaryLockEnabled={}, lockTimestamp={}", 
+                sanitizeForLogging(userName), temporaryLockEnabled, lockTimestamp);
+        }
+        
+        if (isTemporaryLockActive(temporaryLockEnabled, lockTimestamp)) {
+            handleTemporaryLock(userName, lockTimestamp);
+            return;
+        }
+        
+        // Permanent block or temporary lock with no timestamp
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("Throwing permanent block exception for user {}. "
+                + "temporaryLockEnabled={}, lockTimestamp={}", 
+                sanitizeForLogging(userName), temporaryLockEnabled, lockTimestamp);
+        }
+        throw new InActiveUserException(USER_IS_BLOCKED, "USER_IS_BLOCKED");
+    }
+
+    /**
+     * Check if temporary lock is active.
+     *
+     * @param temporaryLockEnabled whether temporary lock feature is enabled
+     * @param lockTimestamp the lock timestamp
+     * @return true if temporary lock is active
+     */
+    private boolean isTemporaryLockActive(Boolean temporaryLockEnabled, Timestamp lockTimestamp) {
+        return Boolean.TRUE.equals(temporaryLockEnabled) && lockTimestamp != null;
+    }
+
+    /**
+     * Handle temporary lock by calculating minutes left and throwing appropriate exception.
+     *
+     * @param userName the username for logging
+     * @param lockTimestamp the lock timestamp
+     * @throws InActiveUserException with temporary lock details if lock is still active
+     */
+    private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
+        throws InActiveUserException {
+        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
+        LocalDateTime now = LocalDateTime.now();
+        long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
+        
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("User {} temporary lock check: lockUntil={}, now={}, minutesLeft={}", 
+                sanitizeForLogging(userName), lockUntil, now, minutesLeft);
+        }
+        
+        if (minutesLeft > 0) {
+            String temporaryLockMessage = String.format(
+                "User account is temporarily locked. Please try again in %d minute(s).", 
+                minutesLeft
+            );
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Throwing temporary lock exception for user {} with {} minutes left", 
+                    sanitizeForLogging(userName), minutesLeft);
+            }
+            throw new InActiveUserException(temporaryLockMessage, "USER_TEMPORARILY_BLOCKED", 
+                minutesLeft, true);
+        }
     }
 
     /**
@@ -2772,7 +2814,8 @@ public class UsersServiceImpl implements UsersService {
 
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(externalUserDto);
         userEntity.setAccountRoleMapping(mapToAccountsAndRoles(externalUserDto, loggedInUserId));
-        userEntity.getUserAddresses().forEach(userAddressEntity -> userAddressEntity.setUserEntity(userEntity));
+        userEntity.getUserAddresses().forEach(userAddressEntity ->
+            userAddressEntity.setUserEntity(userEntity));
 
         UserEntity savedUser = userRepository.save(userEntity);
         // UserAccountRoleMapping would not have got the new userId now.
@@ -2796,7 +2839,7 @@ public class UsersServiceImpl implements UsersService {
         LOGGER.debug("##Add external user end for user :{}", userResponseBase.getUserName());
         uidamMetricsService.incrementCounter(MetricInfo.builder()
                 .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
-                .tags(Stream.of("userType", UidamMetricsConstants.USER_TYPE_EXTERNAL))
+                .tags(Stream.of(METRIC_TAG_USER_TYPE, UidamMetricsConstants.USER_TYPE_EXTERNAL))
                 .build());
         return userResponseBase;
     }
@@ -3087,7 +3130,7 @@ public class UsersServiceImpl implements UsersService {
         LOGGER.debug("Add federated user end for user :{}", userResponseBase.getUserName());
         uidamMetricsService.incrementCounter(MetricInfo.builder()
                 .uidamMetrics(UidamMetrics.TOTAL_ADDED_USERS)
-                .tags(Stream.of("userType", UidamMetricsConstants.USER_TYPE_FEDERATED))
+                .tags(Stream.of(METRIC_TAG_USER_TYPE, UidamMetricsConstants.USER_TYPE_FEDERATED))
                 .build());
         return userResponseBase;
     }
@@ -3185,11 +3228,9 @@ public class UsersServiceImpl implements UsersService {
             maxLockAttempts = DEFAULT_MAX_LOCK_ATTEMPTS; // default value
         }
         
-        int limit = maxLockAttempts * allowedLoginAttempts;
-        
         // Get recent login events
         List<UserEvents> recentEvents = userEventRepository.findUserEventsByUserIdAndEventType(
-            userId, UserEventType.LOGIN_ATTEMPT.getValue(), limit);
+            userId, UserEventType.LOGIN_ATTEMPT.getValue(), maxLockAttempts * allowedLoginAttempts);
         
         if (recentEvents.isEmpty()) {
             return 1; // First lock
