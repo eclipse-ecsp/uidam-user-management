@@ -83,10 +83,11 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.LoggerMessages.VAL
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @Override
+    @Nullable
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
-                                                                  @Nullable HttpHeaders headers, 
+                                                                  HttpHeaders headers, 
                                                                   HttpStatusCode status,
-                                                                  @Nullable WebRequest request) {
+                                                                  WebRequest request) {
         Map<String, String> errors = new HashMap<>();
         List<ObjectError> errorList = ex.getBindingResult().getAllErrors();
 
