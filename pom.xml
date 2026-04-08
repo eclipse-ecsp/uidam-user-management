@@ -65,7 +65,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <spring.version>3.5.12</spring.version>
+        <spring.version>3.5.13</spring.version>
         <microservice.name>uidam-user-management</microservice.name>
         <microservice.version>${project.version}</microservice.version>
         <sql.dao.version>1.2.2</sql.dao.version>
@@ -167,7 +167,7 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-config</artifactId>
-			<version>4.3.0</version>
+			<version>4.3.2</version>
 		</dependency>	  
         <dependency>
             <groupId>org.eclipse.ecsp</groupId>
