@@ -50,16 +50,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -68,7 +67,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ACCOUNT_ID_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ATTR_ID_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ATTR_ID_VALUE_1;
@@ -93,37 +91,37 @@ import static org.mockito.Mockito.when;
 }, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 @org.springframework.context.annotation.Import(org.eclipse.ecsp.uidam.common.test.TestTenantConfiguration.class)
 class UserEventTest {
-    @MockBean
+    @MockitoBean
     UsersRepository usersRepository;
 
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     CacheTokenService cacheTokenService;
 
-    @MockBean
+    @MockitoBean
     AuthorizationServerClient authorizationServerClient;
 
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
 
-    @MockBean
+    @MockitoBean
     private UserAttributeValueRepository userAttributeValueRepository;
 
-    @MockBean
+    @MockitoBean
     private UserAttributeRepository userAttributeRepository;
 
-    @MockBean
+    @MockitoBean
     private UserEventRepository userEventRepository;
 
-    @MockBean
+    @MockitoBean
     AccountRepository accountRepository;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
     private static final long ROLE_ID = 2L;
@@ -240,7 +238,7 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.OK);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch)).exchange().expectStatus().isEqualTo(HttpStatus.OK);
     }
 
     private List<UserAccountRoleMappingEntity> getAccountRoleMapping(UserEntity userEntity) {
@@ -314,7 +312,7 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.OK);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch)).exchange().expectStatus().isEqualTo(HttpStatus.OK);
     }
 
     @Test
@@ -368,7 +366,8 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -421,7 +420,8 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.NOT_FOUND);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
@@ -474,7 +474,8 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -527,7 +528,8 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -582,7 +584,8 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -640,7 +643,7 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.OK);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch)).exchange().expectStatus().isEqualTo(HttpStatus.OK);
     }
 
     private Set<RoleCreateResponse> getUserRole() {
@@ -711,7 +714,7 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.OK);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch)).exchange().expectStatus().isEqualTo(HttpStatus.OK);
     }
 
     @Test
@@ -767,7 +770,8 @@ class UserEventTest {
             http.add("Content-Type", "application/json-patch+json");
             http.add("user-id", String.valueOf(USER_ID_VALUE));
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     private List<UserAttributeValueEntity> getUserAttributeValueDetails(String userId) {

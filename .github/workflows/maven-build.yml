@@ -2,7 +2,7 @@ name: Maven Build & Sonar Analysis
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main","springupgrade" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:

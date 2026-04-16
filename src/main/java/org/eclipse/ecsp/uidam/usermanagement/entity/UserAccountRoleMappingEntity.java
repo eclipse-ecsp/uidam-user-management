@@ -31,11 +31,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.Date;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ACCOUNT_ROLE_MAPPING_TABLE_NAME;
 /**
  * Entity class for user-account-role scope mapping.

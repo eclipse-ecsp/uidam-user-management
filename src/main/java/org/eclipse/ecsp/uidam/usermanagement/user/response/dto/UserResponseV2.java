@@ -23,9 +23,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoV2.UserAccountsAndRoles;
-
 import java.util.Set;
-
 import static lombok.AccessLevel.PROTECTED;
 
 /**

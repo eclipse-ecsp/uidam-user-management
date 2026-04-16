@@ -24,7 +24,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.springframework.stereotype.Component;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;

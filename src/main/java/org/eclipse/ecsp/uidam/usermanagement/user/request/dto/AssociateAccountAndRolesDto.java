@@ -25,10 +25,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.eclipse.ecsp.uidam.usermanagement.enums.OperationPriority;
-
 import java.math.BigInteger;
 import java.util.UUID;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ASSOCIATE_USER_ACCOUNT_ROLE_REGEX;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_OP_PATTERN;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_PATH_PATTERN;
