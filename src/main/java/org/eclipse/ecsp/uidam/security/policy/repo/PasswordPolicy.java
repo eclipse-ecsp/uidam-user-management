@@ -29,7 +29,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;

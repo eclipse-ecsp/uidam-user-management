@@ -28,10 +28,8 @@ import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria;
 import org.springframework.data.jpa.domain.Specification;
-
 import java.io.Serial;
 import java.util.List;
-
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ESCAPE_CHARACTER;
 import static org.eclipse.ecsp.uidam.usermanagement.enums.SearchType.CONTAINS;
 import static org.eclipse.ecsp.uidam.usermanagement.enums.SearchType.PREFIX;

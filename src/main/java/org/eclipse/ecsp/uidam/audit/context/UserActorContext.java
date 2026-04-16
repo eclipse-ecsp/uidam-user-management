@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.audit.context;
 import lombok.Builder;
 import lombok.Data;
 import org.eclipse.ecsp.audit.context.ActorContext;
-
 import java.util.HashMap;
 import java.util.Map;
 

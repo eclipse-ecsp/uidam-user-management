@@ -18,7 +18,6 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.entity;
 
-import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -31,7 +30,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
-import org.hibernate.annotations.Type;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
@@ -59,7 +59,7 @@ public class CloudProfileEntity {
     @Column(length = 100, nullable = false)
     private String cloudProfileName;
 
-    @Type(value = JsonType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> cloudProfileData = new HashMap<>();
 

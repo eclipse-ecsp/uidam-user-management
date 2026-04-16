@@ -36,10 +36,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -49,7 +50,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +59,7 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("test")
 @TestPropertySource("classpath:application-test.properties")
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient
 @org.springframework.test.context.TestExecutionListeners(
     listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
     mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
@@ -70,25 +71,25 @@ class ClientRegistrationTest {
 
     private static final int INTEGER_3600 = 3600;
 
-    @MockBean
+    @MockitoBean
     ClientRepository clientRepository;
 
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     AccountRepository accountRepository;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
-    @MockBean
+    @MockitoBean
     AesEncryptionDecryption aesEncryptionDecryption;
     
-    @MockBean
+    @MockitoBean
     TenantConfigurationService tenantConfigurationService;
     
     private static final Long ONE_HUNDRED = 100L;

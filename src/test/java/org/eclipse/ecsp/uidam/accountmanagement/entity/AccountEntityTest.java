@@ -19,10 +19,8 @@
 package org.eclipse.ecsp.uidam.accountmanagement.entity;
 
 import org.junit.jupiter.api.Test;
-
 import java.sql.Timestamp;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.PARENT_ID_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ROLE_ID_1;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ROLE_ID_2;

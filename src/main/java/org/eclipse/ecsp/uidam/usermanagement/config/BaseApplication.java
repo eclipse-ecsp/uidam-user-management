@@ -18,6 +18,7 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -35,9 +36,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.http.client.reactive.ReactorResourceFactory;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -45,6 +48,7 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 import javax.net.ssl.SSLException;
 import java.time.Duration;
+import java.util.List;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.BUILDER_NAME;
 
 /**
@@ -56,6 +60,9 @@ public abstract class BaseApplication {
 
     @Autowired
     TenantConfigurationService tenantConfigurationService;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @Value("${webclient.max.connections:50}")
     private int webClientMaxConnections;
@@ -87,6 +94,13 @@ public abstract class BaseApplication {
                 registry.addInterceptor(new CorrelationIdInterceptor());
             }
 
+            @Override
+            public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+                // Ensure MappingJackson2HttpMessageConverter (Jackson 2) takes priority so
+                // application/json-patch+json and Jackson-2-annotated types are handled correctly
+                converters.removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
+                converters.add(0, new MappingJackson2HttpMessageConverter(objectMapper));
+            }
         };
     }
 

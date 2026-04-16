@@ -31,13 +31,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration;
+import org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(classes = MustacheTemplateParserImplTest.AppConfig.class)
 @TestPropertySource(properties = { "template.resolver=file", "template.prefix=./src/test/resources/templates/" },
         locations = "classpath:application-thymeleaf.properties")
-@MockBean(AccountRepository.class)
+@MockitoBean(types = AccountRepository.class)
 @org.springframework.test.context.TestExecutionListeners(
     listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
     mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
@@ -63,15 +63,15 @@ class ThymeleafTemplateParserImplFailureTest {
     @Qualifier("thymeleafTemplateParserImpl")
     private TemplateParser templateManager;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
     /**
      * password policy service.
      */
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
-    @MockBean
+    @MockitoBean
     TenantConfigurationService tenantConfigurationService;
     
     /**

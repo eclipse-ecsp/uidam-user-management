@@ -34,7 +34,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USERNAME2;
 import static org.springframework.http.HttpMethod.POST;
 

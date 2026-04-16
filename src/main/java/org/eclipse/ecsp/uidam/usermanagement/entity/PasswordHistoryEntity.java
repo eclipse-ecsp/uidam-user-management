@@ -34,10 +34,8 @@ import lombok.Setter;
 import lombok.ToString;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
-
 import java.math.BigInteger;
 import java.sql.Timestamp;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_PASSWORD_HISTORY_TABLE_NAME;
 
 /**

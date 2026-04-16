@@ -62,10 +62,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -75,8 +74,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
@@ -157,43 +156,43 @@ class UsersControllerV2Test {
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     private AccountRepository accountRepository;
 
-    @MockBean
+    @MockitoBean
     private UsersRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private RolesRepository rolesRepository;
 
-    @MockBean
+    @MockitoBean
     private UserAttributeValueRepository userAttributeValueRepository;
 
-    @MockBean
+    @MockitoBean
     private UserAttributeRepository userAttributeRepository;
 
-    @MockBean
+    @MockitoBean
     private EmailVerificationService emailVerificationService;
 
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
 
-    @MockBean
+    @MockitoBean
     private UserManagementTenantProperties tenantProperties;
 
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
 
-    @MockBean
+    @MockitoBean
     private PasswordHistoryRepository passwordHistoryRepository;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
     
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
 
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     private String passwordEncoder = "SHA-256";
@@ -775,7 +774,8 @@ class UsersControllerV2Test {
             http.add("Content-Type", "application/json");
             http.add(ApiConstants.CORRELATION_ID, UUID.randomUUID().toString());
             http.add(ApiConstants.LOGGED_IN_USER_ID, String.valueOf(LOGGED_IN_USER_ID_VALUE));
-        }).bodyValue(jsonPatch).exchange().expectStatus().isEqualTo(HttpStatus.OK).expectBody().returnResult()
+        }).bodyValue(objectMapper.writeValueAsBytes(jsonPatch))
+                .exchange().expectStatus().isEqualTo(HttpStatus.OK).expectBody().returnResult()
                 .getResponseBody();
     }
 

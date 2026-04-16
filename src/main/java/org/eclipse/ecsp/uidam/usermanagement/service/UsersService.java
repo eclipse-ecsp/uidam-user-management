@@ -40,7 +40,6 @@ import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserEventResponse
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserMetaDataResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
-
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.MalformedURLException;

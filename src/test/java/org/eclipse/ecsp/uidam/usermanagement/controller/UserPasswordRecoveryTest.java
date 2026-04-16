@@ -44,23 +44,21 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
-
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.PASSWORD_ENCODER;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.RECOVERY_SECRET_EXPIRE_IN_MINUTES;
 import static org.mockito.ArgumentMatchers.any;
@@ -85,44 +83,44 @@ class UserPasswordRecoveryTest {
     private static final BigInteger USER_ID_2 = new BigInteger("145911385590649019822702644100150");
     private static final BigInteger USER_ID_3 = new BigInteger("145911385690649019822702644100150");
     private static final BigInteger ROLE_ID = new BigInteger("145911385590649014822702644100150");
-    @MockBean
+    @MockitoBean
     UsersRepository usersRepository;
 
-    @MockBean
+    @MockitoBean
     UserRecoverySecretRepository userRecoverySecretRepository;
 
-    @MockBean
+    @MockitoBean
     EmailNotificationService emailNotificationService;
 
-    @MockBean
+    @MockitoBean
     private PasswordHistoryRepository passwordHistoryRepository;
     
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     CacheTokenService tokenCache;
 
-    @MockBean
+    @MockitoBean
     UidamAuthTokenGenerator uidamAuthTokenGenerator;
-    @MockBean
+    @MockitoBean
     AuthorizationServerClient authorizationServerClient;
-    @MockBean
+    @MockitoBean
     CloudProfilesRepository cloudProfilesRepository;
-    @MockBean
+    @MockitoBean
     TenantConfigurationService tenantConfigurationService;
-    @MockBean
+    @MockitoBean
     UserManagementTenantProperties tenantProperties;
-    @MockBean
+    @MockitoBean
     AccountRepository accountRepository;
 
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
     
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     @BeforeEach

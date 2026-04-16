@@ -90,8 +90,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -99,10 +98,10 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestTemplate;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
@@ -197,64 +196,64 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.OK;
 
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = {UsersServiceImpl.class, JacksonAutoConfiguration.class})
-@MockBean(JpaMetamodelMappingContext.class)
+@ContextConfiguration(classes = {UsersServiceImpl.class, Jackson2AutoConfiguration.class})
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class UsersServiceTest {
 
     @Autowired
     private UsersService usersService;
-    @MockBean
+    @MockitoBean
     private UsersRepository userRepository;
-    @MockBean
+    @MockitoBean
     private AccountRepository accountRepository;
-    @MockBean
+    @MockitoBean
     private UserAttributeRepository userAttributeRepository;
-    @MockBean
+    @MockitoBean
     private UserAttributeValueRepository userAttributeValueRepository;
-    @MockBean
+    @MockitoBean
     private UserEventRepository userEventRepository;
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
-    @MockBean
+    @MockitoBean
     private UserManagementTenantProperties tenantProperties;
-    @MockBean
+    @MockitoBean
     private EntityManagerFactory entityManagerFactory;
-    @MockBean
+    @MockitoBean
     private UserManagementDao userManagementDao;
-    @MockBean
+    @MockitoBean
     private EntityManager entityManager;
-    @MockBean
+    @MockitoBean
     private UserRecoverySecretRepository userRecoverySecretRepository;
-    @MockBean
+    @MockitoBean
     private EmailNotificationService emailNotificationService;
-    @MockBean
+    @MockitoBean
     private CacheTokenService cacheTokenService;
-    @MockBean
+    @MockitoBean
     private AuthorizationServerClient authorizationServerClient;
-    @MockBean
+    @MockitoBean
     protected RestTemplate restTemplate;
-    @MockBean
+    @MockitoBean
     RolesRepository rolesRepository;
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
-    @MockBean
+    @MockitoBean
     ClientRegistration clientRegistrationService;
-    @MockBean
+    @MockitoBean
     CloudProfilesRepository cloudProfilesRepository;
-    @MockBean
+    @MockitoBean
     EmailVerificationRepository emailVerificationRepository;
-    @MockBean
+    @MockitoBean
     PasswordHistoryRepository passwordHistoryRepository;
 
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
-    @MockBean
+    @MockitoBean
     PasswordPolicyRepository passwordPolicyRepository;
 
-    @MockBean
+    @MockitoBean
     UidamMetricsService uidamMetricsService;
 
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     private String passwordEncoder = "SHA-256";

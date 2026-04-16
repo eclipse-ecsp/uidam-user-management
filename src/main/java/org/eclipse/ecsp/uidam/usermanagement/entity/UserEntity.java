@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
-import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,7 +41,8 @@ import lombok.Setter;
 import lombok.ToString;
 import org.eclipse.ecsp.uidam.usermanagement.enums.Gender;
 import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
-import org.hibernate.annotations.Type;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import java.math.BigInteger;
@@ -53,7 +53,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ENTITY_TABLE_NAME;
 
 /**
@@ -109,7 +108,7 @@ public class UserEntity {
     @OneToMany(mappedBy = "userEntity", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<UserAddressEntity> userAddresses;
-    @Type(value = JsonType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "device_ids", columnDefinition = "jsonb", nullable = false)
     private Set<String> devIds = new HashSet<>();
     @Column(name = "notification_consent")
