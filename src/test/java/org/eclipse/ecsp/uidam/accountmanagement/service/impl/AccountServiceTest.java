@@ -50,11 +50,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
@@ -67,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ACCOUNT_ALREADY_EXISTS;
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ACCOUNT_ALREADY_EXISTS_MSG;
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ACCOUNT_DOES_NOT_EXIST;
@@ -107,7 +105,7 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = { AccountServiceImpl.class })
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AccountServiceTest {
     private static final String ACCOUNT_NAME = "Test Account";
@@ -116,25 +114,25 @@ class AccountServiceTest {
     @Autowired
     private AccountServiceImpl accountsService;
 
-    @MockBean
+    @MockitoBean
     private UsersService userService;
 
-    @MockBean
+    @MockitoBean
     private AccountRepository accountRepository;
 
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
     
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
 
-    @MockBean
+    @MockitoBean
     private UserManagementTenantProperties tenantProperties;
 
-    @MockBean
+    @MockitoBean
     private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
     
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
 
     private static final String USER_DEFAULT_ACCOUNTID = "112313385530649019824702444100150";

@@ -40,12 +40,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
 import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.sql.Timestamp;
@@ -53,7 +52,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -75,85 +73,85 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {UsersServiceImpl.class, JacksonAutoConfiguration.class})
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class UsersServiceLockUnlockTest {
 
     @Autowired
     private UsersServiceImpl usersService;
 
-    @MockBean
+    @MockitoBean
     private UsersRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private UserEventRepository userEventRepository;
 
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
 
-    @MockBean
+    @MockitoBean
     private UserManagementTenantProperties tenantProperties;
 
-    @MockBean
+    @MockitoBean
     private UidamMetricsService uidamMetricsService;
 
-    @MockBean
+    @MockitoBean
     private UserAuditHelper userAuditHelper;
 
-    @MockBean
+    @MockitoBean
     private EmailNotificationService emailNotificationService;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.cache.CacheTokenService cacheTokenService;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeRepository userAttributeRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.UserAttributeValueRepository userAttributeValueRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.UserRecoverySecretRepository userRecoverySecretRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.dao.UserManagementDao userManagementDao;
 
-    @MockBean
+    @MockitoBean
     private AuthorizationServerClient authorizationServerClient;
 
-    @MockBean
+    @MockitoBean
     private jakarta.persistence.EntityManager entityManager;
 
-    @MockBean
+    @MockitoBean
     private jakarta.persistence.EntityManagerFactory entityManagerFactory;
 
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository passwordPolicyRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.RolesRepository rolesRepository;
 
-    @MockBean
+    @MockitoBean
     private ClientRegistration clientRegistrationService;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.CloudProfilesRepository cloudProfilesRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.EmailVerificationRepository emailVerificationRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepository passwordHistoryRepository;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     private org.eclipse.ecsp.uidam.accountmanagement.repository.AccountRepository accountRepository;
 
-    @MockBean
+    @MockitoBean
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private UsersServiceImpl usersServiceSpy;

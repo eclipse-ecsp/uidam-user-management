@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties;
 
 import lombok.Getter;
 import lombok.Setter;
-
 import java.util.Map;
 
 /**

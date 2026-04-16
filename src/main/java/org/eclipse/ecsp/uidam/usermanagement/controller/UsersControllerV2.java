@@ -56,7 +56,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.math.BigInteger;
 import java.util.List;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ASCENDING;

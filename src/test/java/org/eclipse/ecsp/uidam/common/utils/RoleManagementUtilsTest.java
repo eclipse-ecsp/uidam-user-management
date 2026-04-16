@@ -8,7 +8,6 @@ import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ROLE_2;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ROLE_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.SCOPE_SELF_MNG;

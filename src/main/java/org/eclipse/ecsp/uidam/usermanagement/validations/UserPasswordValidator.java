@@ -23,7 +23,6 @@ import jakarta.validation.ConstraintValidatorContext;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoBase;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ResponseMessage;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NULL_AND_EMPTY_USER_PASSWORD;
 
 /**

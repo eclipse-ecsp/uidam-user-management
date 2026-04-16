@@ -21,7 +21,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.Builder;
 import lombok.Data;
 import org.eclipse.ecsp.audit.context.RequestContext;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;

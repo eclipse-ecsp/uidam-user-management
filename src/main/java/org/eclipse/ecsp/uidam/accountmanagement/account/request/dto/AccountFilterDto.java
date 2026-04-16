@@ -27,10 +27,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
-
 import java.math.BigInteger;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.INVALID_COUNT;
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.INVALID_ELEMENT_LENGTH;
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.INVALID_NULL_ELEMENT;

@@ -28,9 +28,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
-
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ACCOUNTS_FIELD_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ROLE_FIELD_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MISSING_MANDATORY_PARAMETERS;

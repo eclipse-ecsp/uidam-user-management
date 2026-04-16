@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.usermanagement.cache;
 
 import lombok.Getter;
 import lombok.Setter;
-
 import java.time.Instant;
 
 /**

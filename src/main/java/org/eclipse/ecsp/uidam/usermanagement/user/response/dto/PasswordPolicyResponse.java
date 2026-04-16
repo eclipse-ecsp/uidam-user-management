@@ -21,7 +21,6 @@ package org.eclipse.ecsp.uidam.usermanagement.user.response.dto;
 import lombok.Getter;
 import lombok.Setter;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
-
 import java.util.List;
 import java.util.Map;
 

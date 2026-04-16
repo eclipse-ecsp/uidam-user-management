@@ -34,7 +34,6 @@ import org.eclipse.ecsp.uidam.accountmanagement.account.response.dto.FilterAccou
 import org.eclipse.ecsp.uidam.accountmanagement.account.response.dto.GetAccountApiResponse;
 import org.eclipse.ecsp.uidam.accountmanagement.exception.AccountManagementException;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
-
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 

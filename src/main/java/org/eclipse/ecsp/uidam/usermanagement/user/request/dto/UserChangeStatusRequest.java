@@ -23,10 +23,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-
 import java.math.BigInteger;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_IDS_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_LENGTH;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_NULL_ELEMENT;

@@ -21,6 +21,8 @@ package org.eclipse.ecsp.uidam.usermanagement.user.response.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.http.HttpStatus;
@@ -36,5 +38,6 @@ public class BaseResponse {
     private String code;
     private String message;
     private Object data;
+    @JsonSerialize(using = ToStringSerializer.class)
     private HttpStatus httpStatus;
 }

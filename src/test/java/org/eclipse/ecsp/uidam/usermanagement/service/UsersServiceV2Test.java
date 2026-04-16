@@ -64,15 +64,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.jackson2.autoconfigure.Jackson2AutoConfiguration;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -82,7 +81,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ASCENDING;
 import static org.eclipse.ecsp.uidam.usermanagement.enums.Gender.MALE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ACCOUNT_ID_VALUE;
@@ -123,62 +121,62 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = {UsersServiceImpl.class, JacksonAutoConfiguration.class})
-@MockBean(JpaMetamodelMappingContext.class)
+@ContextConfiguration(classes = {UsersServiceImpl.class, Jackson2AutoConfiguration.class})
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class UsersServiceV2Test {
     @Autowired
     private UsersService usersService;
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
-    @MockBean
+    @MockitoBean
     private UsersRepository userRepository;
-    @MockBean
+    @MockitoBean
     private RolesRepository rolesRepository;
-    @MockBean
+    @MockitoBean
     private AccountRepository accountRepository;
-    @MockBean
+    @MockitoBean
     private ClientRegistration clientRegistrationService;
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
-    @MockBean
+    @MockitoBean
     private UserManagementTenantProperties tenantProperties;
-    @MockBean
+    @MockitoBean
     CacheTokenService cacheTokenService;
-    @MockBean
+    @MockitoBean
     private UserAttributeRepository userAttributeRepository;
-    @MockBean
+    @MockitoBean
     private UserAttributeValueRepository userAttributeValueRepository;
-    @MockBean
+    @MockitoBean
     private UserEventRepository userEventRepository;
-    @MockBean
+    @MockitoBean
     private EntityManager entityManager;
-    @MockBean
+    @MockitoBean
     UserRecoverySecretRepository userRecoverySecretRepository;
-    @MockBean
+    @MockitoBean
     private EntityManagerFactory entityManagerFactory;
-    @MockBean
+    @MockitoBean
     private UserManagementDao userManagementDao;
-    @MockBean
+    @MockitoBean
     private AuthorizationServerClient authorizationServerClient;
-    @MockBean
+    @MockitoBean
     private EmailNotificationService emailNotificationService;
-    @MockBean
+    @MockitoBean
     private CloudProfilesRepository cloudProfilesRepository;
-    @MockBean
+    @MockitoBean
     private EmailVerificationRepository emailVerificationRepository;
-    @MockBean
+    @MockitoBean
     private PasswordHistoryRepository passwordHistoryRepository;
 
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
     
-    @MockBean
+    @MockitoBean
     PasswordPolicyRepository passwordPolicyRepository;
 
-    @MockBean
+    @MockitoBean
     UidamMetricsService uidamMetricsService;
 
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     private String passwordEncoder = "SHA-256";

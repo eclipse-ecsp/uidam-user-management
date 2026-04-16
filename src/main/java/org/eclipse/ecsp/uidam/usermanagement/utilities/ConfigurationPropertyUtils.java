@@ -33,7 +33,6 @@ package org.eclipse.ecsp.uidam.usermanagement.utilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

@@ -24,7 +24,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
-
 import java.sql.Timestamp;
 import java.util.Set;
 import static lombok.AccessLevel.PROTECTED;
