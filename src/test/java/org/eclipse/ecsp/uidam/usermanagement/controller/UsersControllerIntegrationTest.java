@@ -26,25 +26,23 @@ import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
-
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.LOGGED_IN_USER_ID_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.USER_ID_VALUE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -71,6 +69,10 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UsersControllerIntegrationTest {
 
+    static {
+        CollectorRegistry.defaultRegistry.clear();
+    }
+
     private Logger logger = LoggerFactory.getLogger(UsersControllerIntegrationTest.class);
 
     private static final int INDEX_1 = 1;
@@ -91,19 +93,19 @@ class UsersControllerIntegrationTest {
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     private AccountRepository accountRepository;
 
-    @MockBean
+    @MockitoBean
     private UsersRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private RolesRepository rolesRepository;
 
-    @MockBean
+    @MockitoBean
     private UserAttributeValueRepository userAttributeValueRepository;
 
-    @MockBean
+    @MockitoBean
     private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
 
     private ObjectMapper mapper = new ObjectMapper();
@@ -112,13 +114,13 @@ class UsersControllerIntegrationTest {
 
     private List<AccountEntity> accountEntities;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
     
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     /**

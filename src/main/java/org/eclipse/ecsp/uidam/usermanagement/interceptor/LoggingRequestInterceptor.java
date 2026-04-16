@@ -48,8 +48,8 @@ public class LoggingRequestInterceptor implements AsyncHandlerInterceptor {
     public static ExchangeFilterFunction interceptWebClientHttpRequestAndResponse() {
         return ExchangeFilterFunction.ofRequestProcessor(clientRequest -> {
             if (LOGGER.isInfoEnabled()) {
-                String headers = clientRequest.headers().keySet().stream()
-                    .map(key -> key + "=" + clientRequest.headers().get(key).get(0))
+                String headers = clientRequest.headers().headerNames().stream()
+                    .map(key -> key + "=" + clientRequest.headers().getFirst(key))
                     .collect(Collectors.joining(", ", "{", "}"));
                 Object body = null;
                 if (clientRequest.body() instanceof BodyInserterWrapper<?> bodyInserterWrapper) {

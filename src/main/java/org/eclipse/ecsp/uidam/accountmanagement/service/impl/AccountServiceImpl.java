@@ -58,7 +58,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.text.FieldPosition;
@@ -73,7 +72,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
 import static org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto.AccountFilterDtoEnum.ACCOUNT_NAMES;
 import static org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto.AccountFilterDtoEnum.IDS;
 import static org.eclipse.ecsp.uidam.accountmanagement.account.request.dto.AccountFilterDto.AccountFilterDtoEnum.PARENTIDS;

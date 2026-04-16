@@ -37,13 +37,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.HashMap;
 import java.util.List;
@@ -62,7 +62,7 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = InternalEmailNotificationTest.AppConfig.class)
 @TestPropertySource("classpath:application-notification.properties")
-@MockBean(AccountRepository.class)
+@MockitoBean(types = AccountRepository.class)
 @org.springframework.test.context.TestExecutionListeners(
     listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
     mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
@@ -73,19 +73,19 @@ class InternalEmailNotificationTest {
     @Autowired
     private NotificationManager notificationManager;
 
-    @MockBean
+    @MockitoBean
     private TenantAwareJavaMailSenderFactory tenantAwareJavaMailSenderFactory;
     
-    @MockBean
+    @MockitoBean
     private JavaMailSender javaMailSender;
     
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
     /**

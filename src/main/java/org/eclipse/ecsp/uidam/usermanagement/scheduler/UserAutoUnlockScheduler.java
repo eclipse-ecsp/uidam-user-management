@@ -32,7 +32,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;

@@ -21,7 +21,6 @@ package org.eclipse.ecsp.uidam.usermanagement.user.response.dto;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
-
 import static lombok.AccessLevel.PROTECTED;
 
 /**

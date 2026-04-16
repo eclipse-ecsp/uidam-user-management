@@ -51,10 +51,9 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -63,6 +62,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -76,7 +76,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ACCOUNT_ALREADY_EXISTS;
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ACCOUNT_ALREADY_EXISTS_MSG;
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.INVALID_INPUT_ACCOUNT_NAME_PATTERN;
@@ -137,35 +136,35 @@ class AccountManagementIntegrationTest {
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     private AccountRepository accountRepository;
 
     private ObjectMapper mapper = new ObjectMapper();
 
-    @MockBean
+    @MockitoBean
     private RolesService rolesService;
     
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
     private List<AccountEntity> accountEntityList;
 
-    @MockBean
+    @MockitoBean
     private UserAccountRoleMappingRepository userAccountRoleMappingRepository;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
     
-    @MockBean
+    @MockitoBean
     private UserManagementTenantProperties tenantProperties;
     
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.accountmanagement.utilities.AccountAuditHelper accountAuditHelper;
     
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @BeforeEach

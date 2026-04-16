@@ -34,7 +34,6 @@ import org.eclipse.ecsp.uidam.usermanagement.service.UsersService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
@@ -48,7 +47,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MANAGE_ACCOUNTS_SCOPE;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;

@@ -45,26 +45,24 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.util.Assert;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CORRELATION_ID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.DESCENDING;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.EXTERNAL_USER;
@@ -120,7 +118,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8_VALUE;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -134,7 +132,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @Slf4j
 @WebMvcTest({ UsersController.class })
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 public class UsersControllerTest {
 
     @Autowired
@@ -143,22 +141,22 @@ public class UsersControllerTest {
     @Autowired
     private UsersController usersController;
 
-    @MockBean
+    @MockitoBean
     private UsersService usersService;
 
-    @MockBean
+    @MockitoBean
     private EmailVerificationService emailVerificationService;
 
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
     private ApplicationContext applicationContext;
 
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     private static final String API_VERSION_1 = "v1";
@@ -368,7 +366,7 @@ public class UsersControllerTest {
                 .param(PAGE_NUMBER, PAGE_NUMBER_DEFAULT)
                 .param(PAGE_SIZE, PAGE_SIZE_DEFAULT)
                 .param(SORT_ORDER, DESCENDING)
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
             .andExpect(status().isOk());
     }
 
@@ -384,7 +382,7 @@ public class UsersControllerTest {
                 .param(PAGE_NUMBER, PAGE_NUMBER_DEFAULT)
                 .param(PAGE_SIZE, PAGE_SIZE_DEFAULT)
                 .param(SORT_ORDER, DESCENDING)
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
             .andExpect(status().isOk());
     }
 
@@ -402,7 +400,7 @@ public class UsersControllerTest {
                 .param(PAGE_SIZE, PAGE_SIZE_DEFAULT)
                 .param(SORT_ORDER, DESCENDING)
                 .param(IGNORE_CASE, "true")
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
             .andExpect(status().isOk());
     }
 
@@ -421,7 +419,7 @@ public class UsersControllerTest {
                 .param(SORT_ORDER, DESCENDING)
                 .param(IGNORE_CASE, "true")
                 .param(SEARCH_TYPE, SearchType.CONTAINS.toString())
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
             .andExpect(status().isOk());
     }
 
@@ -440,7 +438,7 @@ public class UsersControllerTest {
                 .param(SORT_ORDER, DESCENDING)
                 .param(IGNORE_CASE, "true")
                 .param(SEARCH_TYPE, SearchType.PREFIX.toString())
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
             .andExpect(status().isOk());
     }
 
@@ -459,7 +457,7 @@ public class UsersControllerTest {
                 .param(SORT_ORDER, DESCENDING)
                 .param(IGNORE_CASE, "true")
                 .param(SEARCH_TYPE, SearchType.SUFFIX.toString())
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
             .andExpect(status().isOk());
     }
 
@@ -473,7 +471,7 @@ public class UsersControllerTest {
                         .contentType(APPLICATION_JSON)
                         .header(CORRELATION_ID, "123").header(EXTERNAL_USER, false)
                     .header(LOGGED_IN_USER_ID, USER_ID_VALUE)
-                        .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                        .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
                 .andExpect(status().isNotFound()).andExpectAll(
                         MockMvcResultMatchers.jsonPath("$.message").value("User not found for " + "userId: "
                 + USER_ID_VALUE));
@@ -489,7 +487,7 @@ public class UsersControllerTest {
                 .perform(delete(VERSION_V1 + USER_RESOURCE_PATH + SLASH + USER_ID_VALUE_2).contentType(APPLICATION_JSON)
                         .header(CORRELATION_ID, "123").header(EXTERNAL_USER, false)
                         .header(LOGGED_IN_USER_ID, USER_ID_VALUE)
-                        .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                        .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
                 .andExpect(status().isOk())
                 .andExpectAll(MockMvcResultMatchers.jsonPath("$.status").value("DEACTIVATED"));
     }
@@ -501,7 +499,7 @@ public class UsersControllerTest {
         when(usersService.deleteUser(any(BigInteger.class), any(Boolean.class), any())).thenReturn(userResponse);
         this.mockMvc.perform(delete(VERSION_V1 + USER_RESOURCE_PATH + SLASH + USER_ID_VALUE)
                 .contentType(APPLICATION_JSON).header(EXTERNAL_USER, false).header(LOGGED_IN_USER_ID, USER_ID_VALUE)
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE))).andExpect(status().isOk());
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE))).andExpect(status().isOk());
     }
 
     @Test
@@ -553,7 +551,7 @@ public class UsersControllerTest {
         this.mockMvc
                 .perform(delete(VERSION_V1 + USER_RESOURCE_PATH + USERS_SELF_PATH).contentType(APPLICATION_JSON)
                         .header(CORRELATION_ID, "123").header(LOGGED_IN_USER_ID, USER_ID_VALUE)
-                        .header(EXTERNAL_USER, false).accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                        .header(EXTERNAL_USER, false).accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
                 .andExpect(status().isOk())
                 .andExpectAll(MockMvcResultMatchers.jsonPath("$.status").value("DEACTIVATED"));
     }
@@ -566,7 +564,7 @@ public class UsersControllerTest {
                 .thenReturn(userResponse);
         this.mockMvc.perform(delete(VERSION_V1 + USER_RESOURCE_PATH + USERS_SELF_PATH).contentType(APPLICATION_JSON)
                 .header(LOGGED_IN_USER_ID, USER_ID_VALUE).header(EXTERNAL_USER, false)
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE))).andExpect(status().isOk());
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE))).andExpect(status().isOk());
     }
 
     @Test
@@ -658,7 +656,7 @@ public class UsersControllerTest {
         when(usersService.deleteUsers(any(UsersDeleteFilter.class))).thenReturn(list);
         this.mockMvc.perform(delete(VERSION_V1 + USER_RESOURCE_PATH).contentType(APPLICATION_JSON)
                 .content(asJsonString(getUsersDeleteFilter())).header(CORRELATION_ID, "123")
-                .accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE))).andExpect(status().isOk());
+                .accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE))).andExpect(status().isOk());
     }
 
     private UserDtoV1 getUserDto() {
@@ -749,7 +747,7 @@ public class UsersControllerTest {
         when(usersService.deleteExternalUser(any(BigInteger.class), any(BigInteger.class))).thenReturn(userResponse);
         this.mockMvc.perform(delete(VERSION_V1 + USER_RESOURCE_PATH + PATH_EXTERNAL_USER + SLASH + USER_ID_VALUE)
                 .contentType(APPLICATION_JSON).header(CORRELATION_ID, "123").header(EXTERNAL_USER, false)
-                .header(LOGGED_IN_USER_ID, USER_ID_VALUE).accept(MediaType.parseMediaType(APPLICATION_JSON_UTF8_VALUE)))
+                .header(LOGGED_IN_USER_ID, USER_ID_VALUE).accept(MediaType.parseMediaType(APPLICATION_JSON_VALUE)))
                 .andExpect(status().isOk()).andExpectAll(MockMvcResultMatchers.jsonPath("$.status").value("DELETED"));
     }
 

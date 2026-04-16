@@ -29,7 +29,6 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.AssociateAccountAndRolesDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.math.BigInteger;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ADD_OPERATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ADD_ROLE_PATH_REGEX;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.AMPERSAND;

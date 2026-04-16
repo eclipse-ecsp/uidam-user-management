@@ -37,14 +37,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
@@ -77,29 +77,29 @@ class EmailVerificationServiceTest {
 
     private static final long LONG_7L = 7L;
 
-    @MockBean
+    @MockitoBean
     private UsersRepository usersRepository;
 
-    @MockBean
+    @MockitoBean
     private EmailVerificationRepository emailVerificationRepository;
 
     @Autowired
     private EmailVerificationService emailVerificationService;
-    @MockBean
+    @MockitoBean
     private EmailNotificationService emailNotificationService;
-    @MockBean
+    @MockitoBean
     UidamAuthTokenGenerator authorizationServerClient;
 
-    @MockBean
+    @MockitoBean
     AccountRepository accountRepository;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
-    @MockBean
+    @MockitoBean
     TenantConfigurationService tenantConfigurationService;
     
     private static final Long MINUS_DAYS = 8L;

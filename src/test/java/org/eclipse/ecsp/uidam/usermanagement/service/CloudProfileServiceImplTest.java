@@ -38,10 +38,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -64,16 +64,16 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {CloudProfileServiceImpl.class})
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class CloudProfileServiceImplTest {
 
     @Autowired
     private CloudProfileServiceImpl service;
 
-    @MockBean
+    @MockitoBean
     private UsersService usersService;
 
-    @MockBean
+    @MockitoBean
     private CloudProfilesRepository repository;
 
     private static final BigInteger CLOUD_PROFILE_ID = new BigInteger("157236105403847391232405464474353");
@@ -171,7 +171,7 @@ class CloudProfileServiceImplTest {
     void testAddCloudProfileFailure() throws ResourceNotFoundException {
         Mockito.when(usersService.getUsers(any(UsersGetFilterV1.class), anyInt(), anyInt(), any(),
             anyString(), anyBoolean(), any(SearchType.class))).thenThrow(new ResourceNotFoundException(
-            USER, "userId", "7f9a4cce-a373-4065-9502-7bf3882010e1"));
+                USER, "userId", "7f9a4cce-a373-4065-9502-7bf3882010e1"));
         assertThrows(
             ResourceNotFoundException.class,
             () -> service.addCloudProfile(getCloudProfileRequest()),
@@ -212,7 +212,7 @@ class CloudProfileServiceImplTest {
     void testUpdateCloudProfileFailureUserNotFound() throws ResourceNotFoundException {
         Mockito.when(usersService.getUsers(any(UsersGetFilterV1.class), anyInt(), anyInt(), any(),
             anyString(), anyBoolean(), any(SearchType.class))).thenThrow(new ResourceNotFoundException(
-            USER, "userId", "7f9a4cce-a373-4065-9502-7bf3882010e1"));
+                USER, "userId", "7f9a4cce-a373-4065-9502-7bf3882010e1"));
         assertThrows(
             ResourceNotFoundException.class,
             () -> service.updateCloudProfile(null, getCloudProfileRequest(),

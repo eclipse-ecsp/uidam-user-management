@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
