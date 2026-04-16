@@ -1,9 +1,5 @@
 # UIDAM User Management – Properties Reference
 
-> **Generated:** 2026-04-12  
-> **Component:** `uidam-user-management`  
-> **Source files:** `src/main/resources/application.properties`, `tenant-default.properties`, `tenant-<TENANTID>.properties`
-
 ---
 
 ## Table of Contents
