@@ -81,7 +81,7 @@
         <security-logging-logback.version>1.1.7</security-logging-logback.version>
         <hypersistence-utils-hibernate-73.version>3.15.2</hypersistence-utils-hibernate-73.version>
         <hibernate.version>7.3.1.Final</hibernate.version>
-        <api.registry.common.version>1.5.3</api.registry.common.version>
+        <api.registry.common.version>1.5.4</api.registry.common.version>
         <snakeyaml.version>2.2</snakeyaml.version>
         <h2database.version>2.2.224</h2database.version>
         <checkstyle.version>11.0.0</checkstyle.version>
