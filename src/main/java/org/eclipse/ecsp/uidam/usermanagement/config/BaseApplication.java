@@ -40,6 +40,7 @@ import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.HttpMessageConverters;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -95,11 +96,13 @@ public abstract class BaseApplication {
             }
 
             @Override
-            public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+            public void configureMessageConverters(HttpMessageConverters.ServerBuilder builder) {
                 // Ensure MappingJackson2HttpMessageConverter (Jackson 2) takes priority so
                 // application/json-patch+json and Jackson-2-annotated types are handled correctly
-                converters.removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
-                converters.add(0, new MappingJackson2HttpMessageConverter(objectMapper));
+                builder.configureMessageConvertersList(converters -> {
+                    converters.removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
+                    converters.add(0, new MappingJackson2HttpMessageConverter(objectMapper));
+                });
             }
         };
     }
