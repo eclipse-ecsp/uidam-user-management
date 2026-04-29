@@ -22,7 +22,6 @@ package org.eclipse.ecsp.uidam.accountmanagement.exception;
 import lombok.Getter;
 import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
 import org.springframework.http.HttpStatus;
-
 import java.io.Serializable;
 import java.util.List;
 

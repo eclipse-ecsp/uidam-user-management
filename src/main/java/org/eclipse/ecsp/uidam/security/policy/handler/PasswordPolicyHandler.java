@@ -19,7 +19,6 @@
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
-
 import java.util.HashSet;
 import java.util.Set;
 

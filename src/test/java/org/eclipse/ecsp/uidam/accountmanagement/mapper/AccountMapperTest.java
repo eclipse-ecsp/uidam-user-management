@@ -24,7 +24,6 @@ import org.eclipse.ecsp.uidam.accountmanagement.account.response.dto.CreateAccou
 import org.eclipse.ecsp.uidam.accountmanagement.entity.AccountEntity;
 import org.eclipse.ecsp.uidam.accountmanagement.enums.AccountStatus;
 import org.junit.jupiter.api.Test;
-
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.Arrays;
@@ -32,7 +31,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.ACCOUNT_ID_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.PARENT_ID_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.PARENT_ID_VALUE_1;

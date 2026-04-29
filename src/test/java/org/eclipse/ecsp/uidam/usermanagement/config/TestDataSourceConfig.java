@@ -21,10 +21,8 @@ package org.eclipse.ecsp.uidam.usermanagement.config;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-
 import java.util.HashMap;
 import java.util.Map;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 

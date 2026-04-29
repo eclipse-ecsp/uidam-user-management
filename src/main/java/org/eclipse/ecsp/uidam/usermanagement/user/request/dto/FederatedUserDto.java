@@ -24,7 +24,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.IDENTITY_PROVIDER_NAME_FIELD_DESCRIPTION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MISSING_MANDATORY_PARAMETERS;
 

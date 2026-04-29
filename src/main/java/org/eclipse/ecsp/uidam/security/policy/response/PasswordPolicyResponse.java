@@ -23,7 +23,6 @@ import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

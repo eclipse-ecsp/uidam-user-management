@@ -26,11 +26,10 @@ import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-
-import javax.xml.bind.DatatypeConverter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Map;
 
 /**
@@ -88,7 +87,7 @@ public class CompromisedPasswordPolicyHandler extends PasswordPolicyHandler {
         } else {
             localMessageDigest.update(password.getBytes(StandardCharsets.UTF_8));
             byte[] digest = localMessageDigest.digest();
-            return DatatypeConverter.printHexBinary(digest).toUpperCase();
+            return HexFormat.of().formatHex(digest).toUpperCase();
         }
     }
 

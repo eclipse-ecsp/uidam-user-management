@@ -22,7 +22,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.ecsp.uidam.security.policy.handler.PasswordValidationService.PasswordValidationInput;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
-
 import java.sql.Timestamp;
 import java.util.Map;
 

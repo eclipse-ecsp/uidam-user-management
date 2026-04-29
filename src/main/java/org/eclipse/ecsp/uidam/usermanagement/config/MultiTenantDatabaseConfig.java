@@ -32,7 +32,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.util.StringUtils;
-
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.InputStream;

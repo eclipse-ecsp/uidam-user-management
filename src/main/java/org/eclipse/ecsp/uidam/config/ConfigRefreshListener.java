@@ -30,6 +30,7 @@
 
 package org.eclipse.ecsp.uidam.config;
 
+import jakarta.annotation.PostConstruct;
 import org.eclipse.ecsp.sql.multitenancy.TenantAwareDataSource;
 import org.eclipse.ecsp.sql.multitenancy.TenantDatabaseProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.LiquibaseConfig;
@@ -41,8 +42,6 @@ import org.springframework.cloud.context.environment.EnvironmentChangeEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;

@@ -21,7 +21,6 @@ package org.eclipse.ecsp.uidam.usermanagement.exception;
 import lombok.Getter;
 import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
 import org.springframework.http.HttpStatus;
-
 import java.util.List;
 
 /**

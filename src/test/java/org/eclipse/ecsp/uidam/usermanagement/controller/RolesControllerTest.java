@@ -44,11 +44,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -70,7 +70,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(RolesController.class)
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class RolesControllerTest {
 
     private static final BigInteger SCOPE_ID_1 = new BigInteger("145911385530649019822702644100150");
@@ -79,13 +79,13 @@ class RolesControllerTest {
     private static final BigInteger ROLE_ID = new BigInteger("145911385590649014822702644100150");
 
     public static final int EXPECTED = 400;
-    @MockBean
+    @MockitoBean
     private RolesService roleService;
 
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
     
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
 
     @InjectMocks
@@ -604,7 +604,7 @@ class RolesControllerTest {
 
         ResponseEntity<RoleListRepresentation> response = rolesController.deleteRole(roleName, userId, scopes);
 
-        assertEquals(EXPECTED, response.getStatusCodeValue());
+        assertEquals(EXPECTED, response.getStatusCode().value());
         verify(roleService, times(0)).deleteRole(roleName, userId, scopes);
     }
 

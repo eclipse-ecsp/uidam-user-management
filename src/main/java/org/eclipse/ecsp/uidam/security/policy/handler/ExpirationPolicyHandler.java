@@ -27,7 +27,6 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.PasswordHistoryRepositor
 import org.eclipse.ecsp.uidam.usermanagement.utilities.PasswordUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
