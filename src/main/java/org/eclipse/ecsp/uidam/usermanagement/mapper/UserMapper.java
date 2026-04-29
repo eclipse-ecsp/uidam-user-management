@@ -35,7 +35,6 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 import org.mapstruct.factory.Mappers;
-
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;

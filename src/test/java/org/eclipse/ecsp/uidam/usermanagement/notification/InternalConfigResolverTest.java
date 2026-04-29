@@ -35,18 +35,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
 import java.util.List;
 import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,7 +58,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(classes = InternalConfigResolverTest.AppConfig.class)
 @TestPropertySource(properties = "notification.config.resolver=internal")
 @TestPropertySource("classpath:application-notification.properties")
-@MockBean(AccountRepository.class)
+@MockitoBean(types = AccountRepository.class)
 @org.springframework.test.context.TestExecutionListeners(
     listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
     mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
@@ -72,13 +70,13 @@ class InternalConfigResolverTest {
     @Qualifier("internalNotificationConfigResolver")
     private NotificationConfigResolver notificationConfigResolver;
 
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
     
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
-    @MockBean
+    @MockitoBean
     TenantConfigurationService tenantConfigurationService;
     
     /**

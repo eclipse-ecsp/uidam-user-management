@@ -35,15 +35,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -67,7 +67,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(classes = IgniteEmailNotificationTest.AppConfig.class)
 @TestPropertySource(properties = "notification.email.provider=ignite")
 @TestPropertySource("classpath:application-notification.properties")
-@MockBean(AccountRepository.class)
+@MockitoBean(types = AccountRepository.class)
 @org.springframework.test.context.TestExecutionListeners(
     listeners = org.eclipse.ecsp.uidam.common.test.TenantContextTestExecutionListener.class,
     mergeMode = org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS
@@ -78,7 +78,7 @@ class IgniteEmailNotificationTest {
     @Autowired
     private NotificationManager notificationManager;
 
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
 
     @Autowired
@@ -86,10 +86,10 @@ class IgniteEmailNotificationTest {
 
     private MockRestServiceServer mockRestServiceServer;
     
-    @MockBean
+    @MockitoBean
     PasswordValidationService passwordValidationService;
 
-    @MockBean
+    @MockitoBean
     PasswordPolicyService passwordPolicyService;
     
     /**

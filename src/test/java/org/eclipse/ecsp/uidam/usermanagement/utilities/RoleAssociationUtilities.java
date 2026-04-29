@@ -9,13 +9,11 @@ import org.eclipse.ecsp.uidam.usermanagement.entity.UserAccountRoleMappingEntity
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.RoleListRepresentation;
-
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.Constants.SCOPE_SELF_MNG;
 
 /**

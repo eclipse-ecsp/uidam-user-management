@@ -32,12 +32,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -45,14 +45,12 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
 import static java.util.Map.entry;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CORRELATION_ID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.CloudProfileApiConstants.CLOUD_PROFILE_API_PATH;
@@ -75,7 +73,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @Slf4j
 @WebMvcTest({CloudProfileController.class})
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class CloudProfileControllerTest {
 
     private static final String CLOUD_PROFILE_PATH = VERSION_V1 + USER_RESOURCE_PATH + CLOUD_PROFILE_API_PATH;
@@ -84,12 +82,12 @@ class CloudProfileControllerTest {
     private MockMvc mockMvc;
     @Autowired
     private CloudProfileController controller;
-    @MockBean
+    @MockitoBean
     private CloudProfileService cloudProfileService;
-    @MockBean
+    @MockitoBean
     private TenantConfigurationService tenantConfigurationService;
     
-    @MockBean
+    @MockitoBean
     org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper userAuditHelper;
     
     @Autowired

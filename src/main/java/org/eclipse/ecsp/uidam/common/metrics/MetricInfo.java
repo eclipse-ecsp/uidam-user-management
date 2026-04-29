@@ -20,7 +20,6 @@ package org.eclipse.ecsp.uidam.common.metrics;
 
 import lombok.Builder;
 import lombok.Getter;
-
 import java.util.stream.Stream;
 
 /**

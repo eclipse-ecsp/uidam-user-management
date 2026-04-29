@@ -22,9 +22,7 @@ import org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants;
 import org.eclipse.ecsp.uidam.usermanagement.exception.handler.ErrorProperty;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
-
 import java.util.Arrays;
-
 import static org.eclipse.ecsp.uidam.accountmanagement.constants.AccountApiConstants.ACCOUNT_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

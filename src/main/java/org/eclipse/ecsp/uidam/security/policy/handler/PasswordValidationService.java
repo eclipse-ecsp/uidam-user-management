@@ -18,14 +18,13 @@
 
 package org.eclipse.ecsp.uidam.security.policy.handler;
 
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicy;
 import org.eclipse.ecsp.uidam.security.policy.repo.PasswordPolicyRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
-import javax.annotation.PostConstruct;
 import java.sql.Timestamp;
 import java.util.LinkedList;
 import java.util.List;

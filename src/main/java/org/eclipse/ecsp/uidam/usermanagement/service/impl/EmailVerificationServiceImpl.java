@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
@@ -57,7 +56,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.EMAIL_VERIFY_ERROR;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.EMAIL_VERIFY_FAILED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.EMAIL_VERIFY_SUCCESS;

@@ -28,11 +28,10 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.doReturn;
@@ -42,13 +41,13 @@ import static org.mockito.Mockito.doReturn;
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {HashMapCacheTokenImpl.class})
-@MockBean(JpaMetamodelMappingContext.class)
+@MockitoBean(types = JpaMetamodelMappingContext.class)
 class HashMapCacheTokenTest {
 
     @Autowired
     private CacheTokenService cacheTokenService;
 
-    @MockBean
+    @MockitoBean
     UidamAuthTokenGenerator uidamAuthTokenGenerator;
 
     @BeforeEach

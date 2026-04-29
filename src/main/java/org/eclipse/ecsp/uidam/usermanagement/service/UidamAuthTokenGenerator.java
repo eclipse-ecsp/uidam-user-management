@@ -33,7 +33,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.GRANT_TYPE_KEY;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SCOPE_KEY;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.UIDAM_AUTH_CLIENT_CREDENTIALS;

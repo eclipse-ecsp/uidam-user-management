@@ -22,7 +22,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.EmailVerificationResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseBase;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;

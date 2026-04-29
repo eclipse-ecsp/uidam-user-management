@@ -1,4 +1,4 @@
-FROM azul/zulu-openjdk-alpine:17.0.10-jdk
+FROM azul/zulu-openjdk-alpine:25-latest
 WORKDIR /app
 
 RUN apk update && apk add --no-cache curl

@@ -18,6 +18,8 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -35,9 +37,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.http.client.reactive.ReactorResourceFactory;
+import org.springframework.http.converter.ByteArrayHttpMessageConverter;
+import org.springframework.http.converter.HttpMessageConverters;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -45,6 +51,8 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 import javax.net.ssl.SSLException;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.BUILDER_NAME;
 
 /**
@@ -56,6 +64,9 @@ public abstract class BaseApplication {
 
     @Autowired
     TenantConfigurationService tenantConfigurationService;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @Value("${webclient.max.connections:50}")
     private int webClientMaxConnections;
@@ -87,6 +98,35 @@ public abstract class BaseApplication {
                 registry.addInterceptor(new CorrelationIdInterceptor());
             }
 
+            @Override
+            @SuppressWarnings("deprecation") // MappingJackson2HttpMessageConverter is deprecated in Spring 7
+            // but required as a bridge for com.github.fge.jsonpatch which depends on Jackson 2 types
+            public void configureMessageConverters(HttpMessageConverters.ServerBuilder builder) {
+                // 1. Insert ByteArrayHttpMessageConverter at index 0 with application/json support so that
+                //    byte[] + application/json responses (e.g. springdoc /v3/api-docs) are written as raw
+                //    JSON bytes and not base64-encoded by Jackson (Spring Framework 7 / Spring Boot 4.x).
+                ByteArrayHttpMessageConverter byteArrayConverter = new ByteArrayHttpMessageConverter();
+                byteArrayConverter.setSupportedMediaTypes(
+                        Arrays.asList(MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+
+                // 2. Register a Jackson 2 MappingJackson2HttpMessageConverter for application/json-patch+json.
+                //    com.github.fge.jsonpatch.JsonPatch uses com.fasterxml.jackson.databind.JsonNode (Jackson 2)
+                //    which is incompatible with the Jackson 3 JacksonJsonHttpMessageConverter in Spring 7.
+                //    Also configure WRITE_DATES_AS_TIMESTAMPS=false so Timestamps serialize as ISO-8601 with
+                //    timezone offset (e.g. 2024-03-05T11:44:25.965+00:00) instead of the default 'Z' suffix.
+                objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                MappingJackson2HttpMessageConverter jackson2Converter =
+                        new MappingJackson2HttpMessageConverter(objectMapper);
+                jackson2Converter.setSupportedMediaTypes(List.of(
+                        MediaType.APPLICATION_JSON,
+                        MediaType.valueOf("application/json-patch+json"),
+                        MediaType.valueOf("application/merge-patch+json")));
+
+                builder.configureMessageConvertersList(converters -> {
+                    converters.add(0, byteArrayConverter);
+                    converters.add(1, jackson2Converter);
+                });
+            }
         };
     }
 
