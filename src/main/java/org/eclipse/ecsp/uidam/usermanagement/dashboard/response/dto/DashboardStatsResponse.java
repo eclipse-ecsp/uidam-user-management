@@ -1,0 +1,66 @@
+/*
+ * Copyright (c) 2023 - 2024 Harman International
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
+
+package org.eclipse.ecsp.uidam.usermanagement.dashboard.response.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.util.List;
+
+/**
+ * Response DTO for dashboard statistics.
+ */
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DashboardStatsResponse {
+    private long totalUsers;
+    private long activeUsers;
+    private long pendingUsers;
+    private long blockedUsers;
+    private long totalAccounts;
+    private long activeAccounts;
+    private long pendingAccounts;
+    private long totalRoles;
+    private long totalScopes;
+    private long externalUsers;
+    private long federatedUsers;
+    private long userAccountMappings;
+    private List<RecentActivityItem> recentActivity;
+
+    /**
+     * Recent activity item.
+     */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RecentActivityItem {
+        private String id;
+        private String type;
+        private String description;
+        private String user;
+        private String timestamp;
+    }
+}

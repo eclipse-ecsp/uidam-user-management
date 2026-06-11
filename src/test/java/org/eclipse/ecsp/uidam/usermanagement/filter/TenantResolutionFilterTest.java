@@ -83,6 +83,9 @@ class TenantResolutionFilterTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        // Initialize TenantContext multitenancy flag so setCurrentTenant accepts real values
+        TenantContext.initialize(true);
+
         tenantResolutionFilter = new TenantResolutionFilter(tenantConfigurationService, objectMapper);
         
         // Set default multiTenantEnabled=true and defaultTenant="ecsp" for all tests via reflection

@@ -25,4 +25,7 @@
     <!-- Release 1.4 - Performance Indexes -->
     <include file="changesets/1_4_release/performance_indexes_schema.xml" relativeToChangelogFile="true"/>
 
+    <!-- Release 2.1 - MFA (TOTP) Tables -->
+    <include file="changesets/2_1_release/mfa_schema.xml" relativeToChangelogFile="true"/>
+
 </databaseChangeLog>

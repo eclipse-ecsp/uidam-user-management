@@ -64,4 +64,15 @@ public interface UsersRepository extends JpaRepository<UserEntity, BigInteger>, 
     List<UserEntity> findByStatusAndTemporaryLockTimestampBefore(
         @Param("status") UserStatus status,
         @Param("lockTimestamp") java.sql.Timestamp lockTimestamp);
+
+    long countByStatusNot(UserStatus status);
+
+    long countByStatus(UserStatus status);
+
+    long countByIsExternalUserAndStatusNot(Boolean isExternalUser, UserStatus status);
+
+    long countByIdentityProviderNameIsNotNullAndStatusNot(UserStatus status);
+
+    @Query("SELECT u.status, COUNT(u) FROM UserEntity u GROUP BY u.status")
+    List<Object[]> countGroupByStatus();
 }
