@@ -19,6 +19,7 @@
 package org.eclipse.ecsp.uidam.usermanagement.repository;
 
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEvents;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -37,4 +38,5 @@ public interface UserEventRepository extends JpaRepository<UserEvents, BigIntege
                                                         @Param(value = "eventType") String eventType,
                                                         @Param(value = "limit") int limit);
 
+    List<UserEvents> findByOrderByEventGeneratedAtDesc(Pageable pageable);
 }

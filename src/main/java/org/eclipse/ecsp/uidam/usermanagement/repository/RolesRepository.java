@@ -120,4 +120,6 @@ public interface RolesRepository extends JpaRepository<RolesEntity, BigInteger>,
      * @return True if the role exists and is not deleted, false otherwise.
      */
     boolean existsByNameIgnoreCaseAndIsDeleted(String roleName, boolean deleted);
+
+    long countByIsDeleted(boolean deleted);
 }

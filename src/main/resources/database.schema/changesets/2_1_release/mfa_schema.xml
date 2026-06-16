@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!--
+        Release 2.1 – MFA (TOTP) Tables
+        Adds:
+          - user_mfa_secret  : stores per-user TOTP enrollment state (PENDING | ACTIVE | REVOKED)
+    -->
+
+    <changeSet id="create-user-mfa-secret-table" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="user_mfa_secret" schemaName="${schema}"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="user_mfa_secret" schemaName="${schema}">
+            <column name="id" type="NUMERIC(38)" defaultValueComputed="get_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="NUMERIC(38)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="username" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_mfa_username"/>
+            </column>
+            <column name="totp_secret" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(32)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="${DATE_TIME_TZ}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_date" type="${DATE_TIME_TZ}"/>
+            <column name="created_by" type="VARCHAR(255)" defaultValue="system"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="user_mfa_secret"
+                baseTableSchemaName="${schema}"
+                baseColumnNames="user_id"
+                referencedTableName="user"
+                referencedTableSchemaName="${schema}"
+                referencedColumnNames="id"
+                constraintName="fk_mfa_secret_user_id"
+                onDelete="CASCADE"/>
+
+        <createIndex tableName="user_mfa_secret" schemaName="${schema}"
+                     indexName="idx_mfa_username">
+            <column name="username"/>
+        </createIndex>
+
+        <createIndex tableName="user_mfa_secret" schemaName="${schema}"
+                     indexName="idx_mfa_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Add recovery key columns for email-based MFA recovery -->
+    <changeSet id="add-mfa-recovery-key-columns" author="System">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="user_mfa_secret" schemaName="${schema}"/>
+            <not>
+                <columnExists tableName="user_mfa_secret" schemaName="${schema}" columnName="recovery_key"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="user_mfa_secret" schemaName="${schema}">
+            <column name="recovery_key" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="user_mfa_secret" schemaName="${schema}">
+            <column name="recovery_key_expiry" type="${DATE_TIME_TZ}">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Backup codes for MFA recovery.
+        Each user can have a set of single-use, hashed backup codes generated at enrollment time.
+        A code is marked used (used_date set) once consumed; codes are never returned in plain text
+        after generation.
+    -->
+    <changeSet id="create-user-mfa-backup-code-table" author="System">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="user_mfa_backup_code" schemaName="${schema}"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="user_mfa_backup_code" schemaName="${schema}">
+            <column name="id" type="NUMERIC(38)" defaultValueComputed="get_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="NUMERIC(38)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="username" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code_hash" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="used" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="used_date" type="${DATE_TIME_TZ}"/>
+            <column name="created_date" type="${DATE_TIME_TZ}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)" defaultValue="system"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="user_mfa_backup_code"
+                baseTableSchemaName="${schema}"
+                baseColumnNames="user_id"
+                referencedTableName="user"
+                referencedTableSchemaName="${schema}"
+                referencedColumnNames="id"
+                constraintName="fk_mfa_backup_code_user_id"
+                onDelete="CASCADE"/>
+
+        <createIndex tableName="user_mfa_backup_code" schemaName="${schema}"
+                     indexName="idx_mfa_backup_code_username">
+            <column name="username"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

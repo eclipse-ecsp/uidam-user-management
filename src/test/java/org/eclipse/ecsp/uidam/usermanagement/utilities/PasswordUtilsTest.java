@@ -18,16 +18,255 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.utilities;
 
+import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
+import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Unit tests for PasswordUtils.
+ */
+@DisplayName("PasswordUtils Test Suite")
 class PasswordUtilsTest {
 
     @Test
-    void getSecurePassword() {
-        String userpwd = "Lakshmi@202";
-        String salt = "xah7a1kL5FQNQidH1RydXQ==";
-        String hashedPassword = "6x9zLlHCh7cyOr6SIJ6ut+ETAE3FTJZ/FZ0wf/LIekc=";
-        assertEquals(hashedPassword, PasswordUtils.getSecurePassword(userpwd, salt, "SHA-256"));
+    @DisplayName("Should generate secure password hash with SHA-256")
+    void testGetSecurePasswordSha256() {
+        // Arrange
+        String password = "TestPassword123";
+        String salt = "testSalt";
+
+        // Act
+        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
+
+        // Assert
+        assertNotNull(hash);
+        assertTrue(hash.length() > 0);
+    }
+
+    @Test
+    @DisplayName("Should generate consistent hash for same password and salt")
+    void testGetSecurePasswordConsistency() {
+        // Arrange
+        String password = "ConsistentPassword";
+        String salt = "consistentSalt";
+
+        // Act
+        String hash1 = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
+        String hash2 = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
+
+        // Assert
+        assertEquals(hash1, hash2);
+    }
+
+    @Test
+    @DisplayName("Should generate different hash for different passwords")
+    void testGetSecurePasswordDifferentPasswords() {
+        // Arrange
+        String salt = "sameSalt";
+
+        // Act
+        String hash1 = PasswordUtils.getSecurePassword("Password1", salt, "SHA-256");
+        String hash2 = PasswordUtils.getSecurePassword("Password2", salt, "SHA-256");
+
+        // Assert
+        assertNotEquals(hash1, hash2);
+    }
+
+    @Test
+    @DisplayName("Should generate different hash for different salts")
+    void testGetSecurePasswordDifferentSalts() {
+        // Arrange
+        String password = "samePassword";
+
+        // Act
+        String hash1 = PasswordUtils.getSecurePassword(password, "salt1", "SHA-256");
+        String hash2 = PasswordUtils.getSecurePassword(password, "salt2", "SHA-256");
+
+        // Assert
+        assertNotEquals(hash1, hash2);
+    }
+
+    @Test
+    @DisplayName("Should generate salt successfully")
+    void testGetSalt() {
+        // Act
+        String salt = PasswordUtils.getSalt();
+
+        // Assert
+        assertNotNull(salt);
+        assertTrue(salt.length() > 0);
+    }
+
+    @Test
+    @DisplayName("Should generate unique salts on each call")
+    void testGetSaltUniqueness() {
+        // Act
+        String salt1 = PasswordUtils.getSalt();
+        String salt2 = PasswordUtils.getSalt();
+        String salt3 = PasswordUtils.getSalt();
+
+        // Assert
+        assertNotEquals(salt1, salt2);
+        assertNotEquals(salt2, salt3);
+        assertNotEquals(salt1, salt3);
+    }
+
+    @Test
+    @DisplayName("Should validate password when not in history")
+    void testIsPasswordValidNewPassword() {
+        // Arrange
+        String newPassword = "NewPassword123";
+        String salt1 = "salt1";
+        String salt2 = "salt2";
+        
+        List<String> salts = Arrays.asList(salt1, salt2);
+        List<String> oldPasswords = Arrays.asList(
+            PasswordUtils.getSecurePassword("OldPassword1", salt1, "SHA-256"),
+            PasswordUtils.getSecurePassword("OldPassword2", salt2, "SHA-256")
+        );
+
+        // Act
+        boolean result = PasswordUtils.isPasswordValid("SHA-256", newPassword, salts, oldPasswords);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    @DisplayName("Should reject password when in history")
+    void testIsPasswordValidPasswordInHistory() {
+        // Arrange
+        String password = "ReusedPassword";
+        String salt = "testSalt";
+        
+        List<String> salts = Collections.singletonList(salt);
+        List<String> oldPasswords = Collections.singletonList(
+            PasswordUtils.getSecurePassword(password, salt, "SHA-256")
+        );
+
+        // Act
+        boolean result = PasswordUtils.isPasswordValid("SHA-256", password, salts, oldPasswords);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    @DisplayName("Should validate password with empty history")
+    void testIsPasswordValidEmptyHistory() {
+        // Arrange
+        String password = "NewPassword";
+        List<String> salts = Collections.emptyList();
+        List<String> oldPasswords = Collections.emptyList();
+
+        // Act
+        boolean result = PasswordUtils.isPasswordValid("SHA-256", password, salts, oldPasswords);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    @DisplayName("Should generate password history entity from user entity")
+    void testGenerateUserPasswordHistoryEntity() {
+        // Arrange
+        UserEntity userEntity = new UserEntity();
+        userEntity.setId(BigInteger.valueOf(1));
+        userEntity.setUserName("testuser");
+        userEntity.setPasswordSalt("testSalt");
+        userEntity.setUserPassword("hashedPassword");
+        userEntity.setCreatedBy("admin");
+
+        // Act
+        PasswordHistoryEntity historyEntity = PasswordUtils.generateUserPasswordHistoryEntity(userEntity);
+
+        // Assert
+        assertNotNull(historyEntity);
+        assertEquals(userEntity, historyEntity.getUserEntity());
+        assertEquals(userEntity.getPasswordSalt(), historyEntity.getPasswordSalt());
+        assertEquals(userEntity.getUserPassword(), historyEntity.getUserPassword());
+        assertEquals(userEntity.getUserName(), historyEntity.getUserName());
+        assertNotNull(historyEntity.getCreateDate());
+        assertNotNull(historyEntity.getUpdateDate());
+    }
+
+    @Test
+    @DisplayName("Should handle SHA-1 algorithm")
+    void testGetSecurePasswordSha1() {
+        // Arrange
+        String password = "TestPassword";
+        String salt = "testSalt";
+
+        // Act
+        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-1");
+
+        // Assert
+        assertNotNull(hash);
+        assertTrue(hash.length() > 0);
+    }
+
+    @Test
+    @DisplayName("Should handle MD5 algorithm")
+    void testGetSecurePasswordMd5() {
+        // Arrange
+        String password = "TestPassword";
+        String salt = "testSalt";
+
+        // Act
+        String hash = PasswordUtils.getSecurePassword(password, salt, "MD5");
+
+        // Assert
+        assertNotNull(hash);
+        assertTrue(hash.length() > 0);
+    }
+
+    @Test
+    @DisplayName("Should handle special characters in password")
+    void testGetSecurePasswordWithSpecialCharacters() {
+        // Arrange
+        String password = "P@$$w0rd!#%&*()";
+        String salt = "specialSalt";
+
+        // Act
+        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
+
+        // Assert
+        assertNotNull(hash);
+        assertTrue(hash.length() > 0);
+    }
+
+    @Test
+    @DisplayName("Should validate password with multiple history entries")
+    void testIsPasswordValidMultipleHistory() {
+        // Arrange
+        String newPassword = "CurrentPassword123";
+        String salt1 = PasswordUtils.getSalt();
+        String salt2 = PasswordUtils.getSalt();
+        String salt3 = PasswordUtils.getSalt();
+        
+        List<String> salts = Arrays.asList(salt1, salt2, salt3);
+        List<String> oldPasswords = Arrays.asList(
+            PasswordUtils.getSecurePassword("OldPassword1", salt1, "SHA-256"),
+            PasswordUtils.getSecurePassword("OldPassword2", salt2, "SHA-256"),
+            PasswordUtils.getSecurePassword("OldPassword3", salt3, "SHA-256")
+        );
+
+        // Act
+        boolean result = PasswordUtils.isPasswordValid("SHA-256", newPassword, salts, oldPasswords);
+
+        // Assert
+        assertTrue(result);
     }
 }

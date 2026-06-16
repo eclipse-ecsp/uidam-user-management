@@ -65,7 +65,7 @@
 
     <properties>
         <java.version>25</java.version>
-        <spring.version>4.0.5</spring.version>
+        <spring.version>4.0.6</spring.version>
         <microservice.name>uidam-user-management</microservice.name>
         <microservice.version>${project.version}</microservice.version>
         <sql.dao.version>1.2.3</sql.dao.version>
@@ -137,10 +137,18 @@
         <skipGpgSign>true</skipGpgSign>
         <nexus-staging-maven-plugin.version>1.6.13</nexus-staging-maven-plugin.version>
         <skipMavenPublishing>true</skipMavenPublishing>
-
+        <netty.version>4.2.15.Final</netty.version>
+        <tomcat.version>11.0.22</tomcat.version>
     </properties>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-parent</artifactId>
@@ -169,13 +177,19 @@
 
     <dependencies>
         <!-- Ignite Libraries -->
-		<!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-config -->
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-config</artifactId>
-			<version>5.0.2</version>
-		</dependency>	  
-        <dependency>
+        <!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-config -->
+	<dependency>
+	    <groupId>org.springframework.cloud</groupId>
+	    <artifactId>spring-cloud-starter-config</artifactId>
+	    <version>5.0.3</version>
+        <exclusions>
+            <exclusion>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+            </exclusion>
+        </exclusions>
+	</dependency>
+   <dependency>
             <groupId>org.eclipse.ecsp</groupId>
             <artifactId>sql-dao</artifactId>
             <version>${sql.dao.version}</version>
@@ -235,6 +249,10 @@
             		<groupId>com.fasterxml.jackson.core</groupId>
             		<artifactId>jackson-core</artifactId>
             	</exclusion>
+                <exclusion>
+            		<groupId>org.apache.tomcat.embed</groupId>
+            		<artifactId>tomcat-embed-core</artifactId>
+            	</exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -250,6 +268,36 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-el</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-websocket</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-annotations-api</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
+        <dependency>
+        <groupId>io.github.classgraph</groupId>
+            <artifactId>classgraph</artifactId>
+            <version>4.8.184</version>
+        </dependency>
+        <dependency>
+        <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.84</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -288,6 +336,7 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <version>42.7.11</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -402,6 +451,10 @@
                     <groupId>dev.morphia.morphia</groupId>
                     <artifactId>morphia-core</artifactId>
                 </exclusion>
+                <exclusion>
+            		<groupId>io.github.classgraph</groupId>
+            		<artifactId>classgraph</artifactId>
+            	</exclusion>
             </exclusions>
         </dependency>
         <dependency>

@@ -69,6 +69,14 @@ public class UserManagementTenantProperties {
     // Captcha Properties
     private Integer captchaEnforceAfterNoOfFailures;
     
+    // MFA Properties
+    /** Application/issuer name displayed in authenticator apps. Default: UIDAM. Overridable per tenant. */
+    private String mfaAppName = "UIDAM";
+    /** Whether MFA backup (recovery) codes are enabled for this tenant. Default: true. */
+    private Boolean mfaBackupCodesEnabled = Boolean.TRUE;
+    /** Number of backup codes generated per set. Default: 8. */
+    private Integer mfaBackupCodesCount = 8;
+    
     // Nested Configuration Objects
     private DatabaseProperties database;
     private NotificationProperties notification;
