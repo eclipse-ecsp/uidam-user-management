@@ -40,7 +40,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.VERSI
 /**
  * REST controller exposing MFA (TOTP) enrollment management endpoints.
  *
- * <h3>Two groups of endpoints:</h3>
+ * <h2>Two groups of endpoints:</h2>
  * <ol>
  *   <li><strong>Internal auth-server endpoints</strong> ({@code /v1/users/{username}/mfa/**}) –
  *       called only from the authorization server (server-to-server, no API-gateway JWT
