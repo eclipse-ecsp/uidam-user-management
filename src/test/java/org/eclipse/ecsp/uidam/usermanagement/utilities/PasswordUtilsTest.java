@@ -22,11 +22,15 @@ import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,19 +44,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DisplayName("PasswordUtils Test Suite")
 class PasswordUtilsTest {
 
-    @Test
-    @DisplayName("Should generate secure password hash with SHA-256")
-    void testGetSecurePasswordSha256() {
-        // Arrange
-        String password = "TestPassword123";
-        String salt = "testSalt";
-
+    @ParameterizedTest
+    @DisplayName("Should generate secure password hash with various algorithms and inputs")
+    @MethodSource("provideSecurePasswordInputs")
+    void testGetSecurePassword(String password, String salt, String algorithm) {
         // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
+        String hash = PasswordUtils.getSecurePassword(password, salt, algorithm);
 
         // Assert
         assertNotNull(hash);
         assertTrue(hash.length() > 0);
+    }
+
+    static Stream<Arguments> provideSecurePasswordInputs() {
+        return Stream.of(
+            Arguments.of("TestPassword123", "testSalt", "SHA-256"),
+            Arguments.of("TestPassword", "testSalt", "SHA-1"),
+            Arguments.of("TestPassword", "testSalt", "MD5"),
+            Arguments.of("P@$$w0rd!#%&*()", "specialSalt", "SHA-256")
+        );
     }
 
     @Test
@@ -202,50 +212,8 @@ class PasswordUtilsTest {
         assertNotNull(historyEntity.getUpdateDate());
     }
 
-    @Test
-    @DisplayName("Should handle SHA-1 algorithm")
-    void testGetSecurePasswordSha1() {
-        // Arrange
-        String password = "TestPassword";
-        String salt = "testSalt";
 
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-1");
 
-        // Assert
-        assertNotNull(hash);
-        assertTrue(hash.length() > 0);
-    }
-
-    @Test
-    @DisplayName("Should handle MD5 algorithm")
-    void testGetSecurePasswordMd5() {
-        // Arrange
-        String password = "TestPassword";
-        String salt = "testSalt";
-
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "MD5");
-
-        // Assert
-        assertNotNull(hash);
-        assertTrue(hash.length() > 0);
-    }
-
-    @Test
-    @DisplayName("Should handle special characters in password")
-    void testGetSecurePasswordWithSpecialCharacters() {
-        // Arrange
-        String password = "P@$$w0rd!#%&*()";
-        String salt = "specialSalt";
-
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
-
-        // Assert
-        assertNotNull(hash);
-        assertTrue(hash.length() > 0);
-    }
 
     @Test
     @DisplayName("Should validate password with multiple history entries")

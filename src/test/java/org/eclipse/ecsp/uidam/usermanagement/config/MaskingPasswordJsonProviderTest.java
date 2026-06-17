@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.usermanagement.config;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.fasterxml.jackson.core.JsonGenerator;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -248,8 +249,8 @@ class MaskingPasswordJsonProviderTest {
         // Act
         provider.setPatternsProperty(patterns);
 
-        // Assert - No exception thrown means patterns were parsed successfully
-        // Actual assertion happens when writeTo is called
+        // Assert
+        Assertions.assertNotNull(provider);
     }
 
     @Test

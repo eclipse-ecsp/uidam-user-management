@@ -24,9 +24,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -107,56 +112,37 @@ class ExternalUserPasswordValidatorTest {
         verify(context).buildConstraintViolationWithTemplate("External users cannot have passwords");
     }
 
-    @Test
-    @DisplayName("Should return false when external user has password")
-    void testIsValidExternalUserWithPassword() {
+    @ParameterizedTest
+    @DisplayName("Should validate external user password correctly")
+    @MethodSource("provideIsValidInputs")
+    void testIsValid(Boolean isExternalUser, String password, boolean expectedResult) {
         // Arrange
         UserDtoBase userDto = new UserDtoBase();
-        userDto.setIsExternalUser(true);
-        userDto.setPassword("somePassword");
+        userDto.setIsExternalUser(isExternalUser);
+        userDto.setPassword(password);
 
-        ExternalUserPasswordValidation annotation = mock(ExternalUserPasswordValidation.class);
-        when(annotation.message()).thenReturn("External users cannot have password");
-        validator.initialize(annotation);
+        if (Boolean.TRUE.equals(isExternalUser) && password != null) {
+            ExternalUserPasswordValidation annotation = mock(ExternalUserPasswordValidation.class);
+            when(annotation.message()).thenReturn("External users cannot have password");
+            validator.initialize(annotation);
+        }
 
         // Act
         boolean result = validator.isValid(userDto, context);
 
         // Assert
-        assertFalse(result);
-        verify(context).disableDefaultConstraintViolation();
-        verify(context).buildConstraintViolationWithTemplate("External users cannot have password");
+        assertEquals(expectedResult, result);
     }
 
-    @Test
-    @DisplayName("Should return true when external user has no password")
-    void testIsValidExternalUserWithoutPassword() {
-        // Arrange
-        UserDtoBase userDto = new UserDtoBase();
-        userDto.setIsExternalUser(true);
-        userDto.setPassword(null);
-
-        // Act
-        boolean result = validator.isValid(userDto, context);
-
-        // Assert
-        assertTrue(result);
+    static Stream<Arguments> provideIsValidInputs() {
+        return Stream.of(
+            Arguments.of(Boolean.TRUE, "somePassword", false),
+            Arguments.of(Boolean.TRUE, null, true),
+            Arguments.of(Boolean.FALSE, "somePassword", true)
+        );
     }
 
-    @Test
-    @DisplayName("Should return true when internal user has password")
-    void testIsValidInternalUserWithPassword() {
-        // Arrange
-        UserDtoBase userDto = new UserDtoBase();
-        userDto.setIsExternalUser(false);
-        userDto.setPassword("somePassword");
 
-        // Act
-        boolean result = validator.isValid(userDto, context);
-
-        // Assert
-        assertTrue(result);
-    }
 
     @Test
     @DisplayName("Should return true when internal user has no password")

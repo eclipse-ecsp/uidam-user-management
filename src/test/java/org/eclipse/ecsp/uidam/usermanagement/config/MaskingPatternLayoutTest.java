@@ -26,8 +26,11 @@ import ch.qos.logback.classic.spi.LoggingEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,13 +52,11 @@ class MaskingPatternLayoutTest {
         layout.start();
     }
 
-    @Test
-    @DisplayName("Should mask password in log message")
-    void testDoLayoutWithPasswordMasking() {
+    @ParameterizedTest
+    @DisplayName("Should correctly layout log message based on masking pattern")
+    @MethodSource("provideDoLayoutInputs")
+    void testDoLayout(String patterns, String mask, String inputMessage, String expectedSubstring) {
         // Arrange
-        String patterns = "password=([^&\\s]+)";
-        String mask = "****";
-        
         layout.setPatternsProperty(patterns);
         layout.setMask(mask);
 
@@ -64,7 +65,7 @@ class MaskingPatternLayoutTest {
                 "test",
                 logger,
                 Level.INFO,
-                "Login attempt with password=secret123",
+                inputMessage,
                 null,
                 null
         );
@@ -74,7 +75,20 @@ class MaskingPatternLayoutTest {
 
         // Assert
         assertNotNull(result);
-        assertTrue(result.contains("password=****"));
+        assertTrue(result.contains(expectedSubstring));
+    }
+
+    static Stream<Arguments> provideDoLayoutInputs() {
+        return Stream.of(
+            Arguments.of("password=([^&\\s]+)", "****",
+                    "Login attempt with password=secret123", "password=****"),
+            Arguments.of("password=([^&\\s]+)", "****",
+                    "Normal log message without sensitive data",
+                    "Normal log message without sensitive data"),
+            Arguments.of("\"password\"\\s*:\\s*\"([^\"]+)\"", "****",
+                    "{\"username\":\"user\",\"password\":\"secret123\"}",
+                    "\"password\":\"****\"")
+        );
     }
 
     @Test
@@ -106,33 +120,6 @@ class MaskingPatternLayoutTest {
         assertTrue(result.contains("apiKey=***MASKED***"));
     }
 
-    @Test
-    @DisplayName("Should not modify message without sensitive data")
-    void testDoLayoutWithNoSensitiveData() {
-        // Arrange
-        String patterns = "password=([^&\\s]+)";
-        String mask = "****";
-        
-        layout.setPatternsProperty(patterns);
-        layout.setMask(mask);
-
-        Logger logger = loggerContext.getLogger("test");
-        ILoggingEvent event = new LoggingEvent(
-                "test",
-                logger,
-                Level.INFO,
-                "Normal log message without sensitive data",
-                null,
-                null
-        );
-
-        // Act
-        String result = layout.doLayout(event);
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.contains("Normal log message without sensitive data"));
-    }
 
     @Test
     @DisplayName("Should handle empty message")
@@ -198,33 +185,6 @@ class MaskingPatternLayoutTest {
         assertNotNull(layout);
     }
 
-    @Test
-    @DisplayName("Should mask password in JSON log message")
-    void testDoLayoutWithJsonMessage() {
-        // Arrange
-        String patterns = "\"password\"\\s*:\\s*\"([^\"]+)\"";
-        String mask = "****";
-        
-        layout.setPatternsProperty(patterns);
-        layout.setMask(mask);
-
-        Logger logger = loggerContext.getLogger("test");
-        ILoggingEvent event = new LoggingEvent(
-                "test",
-                logger,
-                Level.INFO,
-                "{\"username\":\"user\",\"password\":\"secret123\"}",
-                null,
-                null
-        );
-
-        // Act
-        String result = layout.doLayout(event);
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.contains("\"password\":\"****\""));
-    }
 
     @Test
     @DisplayName("Should work with pattern layout formatting")

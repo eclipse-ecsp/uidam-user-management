@@ -349,7 +349,7 @@ public class MfaManagementService {
             }
         } catch (Exception ex) {
             LOGGER.debug("[MFA] Could not resolve backup-codes-enabled flag, defaulting to true: {}",
-                    ex);
+                    ex.getMessage());
         }
         return true;
     }
