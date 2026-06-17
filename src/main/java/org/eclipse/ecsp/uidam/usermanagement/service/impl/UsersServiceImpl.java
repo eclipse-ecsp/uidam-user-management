@@ -149,6 +149,8 @@ import java.text.FieldPosition;
 import java.text.MessageFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1064,8 +1066,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
         throws InActiveUserException {
-        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-        LocalDateTime now = LocalDateTime.now();
+        ZonedDateTime lockUntil = lockTimestamp.toInstant().atZone(ZoneId.systemDefault());
+        ZonedDateTime now = ZonedDateTime.now();
         long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
         
         if (LOGGER.isDebugEnabled()) {
@@ -1128,7 +1130,8 @@ public class UsersServiceImpl implements UsersService {
                     userEntity.getUserName(), lockUntil);
                 return true;
             } else {
-                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
+                long remainingMinutes = java.time.Duration.between(
+                    now.atZone(ZoneId.systemDefault()), lockUntil.atZone(ZoneId.systemDefault())).toMinutes();
                 LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
                     userEntity.getUserName(), remainingMinutes);
                 return false;
@@ -2448,7 +2451,8 @@ public class UsersServiceImpl implements UsersService {
         LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
         LocalDateTime now = LocalDateTime.now();
         if (lockUntil.isAfter(now)) {
-            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
+            long remaining = java.time.Duration.between(
+                now.atZone(ZoneId.systemDefault()), lockUntil.atZone(ZoneId.systemDefault())).toMinutes();
             LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
                 currentUser.getId(), remaining);
             return remaining;

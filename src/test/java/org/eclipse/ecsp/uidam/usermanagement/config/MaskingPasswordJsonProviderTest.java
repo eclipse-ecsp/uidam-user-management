@@ -241,15 +241,21 @@ class MaskingPasswordJsonProviderTest {
 
     @Test
     @DisplayName("Should set patterns property correctly")
-    void testSetPatternsProperty() {
+    void testSetPatternsProperty() throws IOException {
         // Arrange
         String patterns = "password=([^&\\s]+)|secret=([^&\\s]+)";
 
         // Act
         provider.setPatternsProperty(patterns);
+        provider.setMask("****");
+        provider.setClrfMask("");
 
-        // Assert - No exception thrown means patterns were parsed successfully
-        // Actual assertion happens when writeTo is called
+        String formattedMessage = "Login with password=test123 and secret=abc";
+        when(loggingEvent.getFormattedMessage()).thenReturn(formattedMessage);
+        provider.writeTo(jsonGenerator, loggingEvent);
+
+        // Assert - patterns are applied during writeTo
+        verify(jsonGenerator).writeStringField(eq(FIELD_MESSAGE), eq("Login with password=**** and secret=****"));
     }
 
     @Test

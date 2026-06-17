@@ -33,6 +33,9 @@ package org.eclipse.ecsp.uidam.usermanagement.config;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -45,9 +48,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -362,64 +366,36 @@ class TenantDefaultPropertiesProcessorTest {
         assertDoesNotThrow(() -> processor.postProcessBeanFactory(beanFactory));
     }
 
-    @Test
-    void postProcessBeanFactory_withMultitenancyDisabledAndNoDefaultTenant_shouldReturn() {
-        // Arrange
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("providePostProcessBeanFactoryShortCircuitCases")
+    void postProcessBeanFactory_withShortCircuitConditions_shouldNotThrow(
+            String description, boolean multitenantEnabled, String tenantIds) {
         when(configurableEnvironment.getProperty("tenant.multitenant.enabled", Boolean.class, false))
-            .thenReturn(false);
-        when(configurableEnvironment.getProperty("tenant.default")).thenReturn(null);
-        
+            .thenReturn(multitenantEnabled);
+        if (!multitenantEnabled) {
+            when(configurableEnvironment.getProperty("tenant.default")).thenReturn(null);
+        } else {
+            when(configurableEnvironment.getProperty("tenant.ids")).thenReturn(tenantIds);
+        }
+
         Map<String, Object> defaultProps = new HashMap<>();
         MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
         List<PropertySource<?>> sources = new ArrayList<>();
         sources.add(defaultPropertySource);
         when(propertySources.iterator()).thenReturn(sources.iterator());
-        
+
         org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory = mock(
             org.springframework.beans.factory.config.ConfigurableListableBeanFactory.class);
 
-        // Act & Assert - Should not throw exception
         assertDoesNotThrow(() -> processor.postProcessBeanFactory(beanFactory));
     }
 
-    @Test
-    void postProcessBeanFactory_withMultitenancyEnabledButNoTenantIds_shouldReturn() {
-        // Arrange
-        when(configurableEnvironment.getProperty("tenant.multitenant.enabled", Boolean.class, false))
-            .thenReturn(true);
-        when(configurableEnvironment.getProperty("tenant.ids")).thenReturn(null);
-        
-        Map<String, Object> defaultProps = new HashMap<>();
-        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
-        List<PropertySource<?>> sources = new ArrayList<>();
-        sources.add(defaultPropertySource);
-        when(propertySources.iterator()).thenReturn(sources.iterator());
-        
-        org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory = mock(
-            org.springframework.beans.factory.config.ConfigurableListableBeanFactory.class);
-
-        // Act & Assert - Should not throw exception
-        assertDoesNotThrow(() -> processor.postProcessBeanFactory(beanFactory));
-    }
-
-    @Test
-    void postProcessBeanFactory_withMultitenancyEnabledAndEmptyTenantIds_shouldReturn() {
-        // Arrange
-        when(configurableEnvironment.getProperty("tenant.multitenant.enabled", Boolean.class, false))
-            .thenReturn(true);
-        when(configurableEnvironment.getProperty("tenant.ids")).thenReturn("   ");
-        
-        Map<String, Object> defaultProps = new HashMap<>();
-        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
-        List<PropertySource<?>> sources = new ArrayList<>();
-        sources.add(defaultPropertySource);
-        when(propertySources.iterator()).thenReturn(sources.iterator());
-        
-        org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory = mock(
-            org.springframework.beans.factory.config.ConfigurableListableBeanFactory.class);
-
-        // Act & Assert - Should not throw exception
-        assertDoesNotThrow(() -> processor.postProcessBeanFactory(beanFactory));
+    static Stream<Arguments> providePostProcessBeanFactoryShortCircuitCases() {
+        return Stream.of(
+            Arguments.of("multitenancy disabled and no default tenant", false, null),
+            Arguments.of("multitenancy enabled but no tenant ids", true, null),
+            Arguments.of("multitenancy enabled and empty tenant ids", true, "   ")
+        );
     }
 
     @Test
@@ -570,7 +546,7 @@ class TenantDefaultPropertiesProcessorTest {
         List<String> failedTenants = processor.refreshTenantProperties(tenantIds, configurableEnvironment);
 
         // Assert - Validation result could be empty list or contain tenants
-        assertFalse(failedTenants == null);
+        assertNotNull(failedTenants);
     }
 
     @Test
