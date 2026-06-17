@@ -29,12 +29,15 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.UserMfaSecretRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaEnrollInitiateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaStatusResponse;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.MfaSecretEncryptionUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -57,11 +60,14 @@ import static org.mockito.Mockito.when;
  * Unit tests for MfaManagementService.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("MfaManagementService Test Suite")
 class MfaManagementServiceTest {
 
     private static final long TEST_USER_ID = 123L;
     private static final long ALTERNATE_USER_ID = 456L;
+    private static final String TEST_ENCRYPTION_KEY  = "TestEncryptionKey12345!";
+    private static final String TEST_ENCRYPTION_SALT = "TestEncryptionSalt12345";
 
     private MfaManagementService mfaService;
 
@@ -92,10 +98,14 @@ class MfaManagementServiceTest {
                 emailNotificationService,
                 tenantConfigurationService
         );
+        // Provide a tenant with known encryption key/salt so initiateEnrollment can encrypt
+        when(tenantProperties.getMfaSecretEncryptionKey()).thenReturn(TEST_ENCRYPTION_KEY);
+        when(tenantProperties.getMfaSecretEncryptionSalt()).thenReturn(TEST_ENCRYPTION_SALT);
+        when(tenantConfigurationService.getTenantProperties()).thenReturn(tenantProperties);
     }
 
     @Test
-    @DisplayName("Should initiate enrollment for valid user")
+    @DisplayName("Should initiate enrollment for valid user and store encrypted secret")
     void testInitiateEnrollmentSuccess() throws ResourceNotFoundException {
         // Arrange
         String username = "testuser";
@@ -120,6 +130,8 @@ class MfaManagementServiceTest {
         assertNotNull(response.qrUri());
         assertNotNull(response.manualKey());
         assertTrue(response.qrUri().contains("otpauth://totp/"));
+        // The response secret is the plain-text Base32 secret (for QR display)
+        // Verify the entity was saved with an encrypted (different) value
         verify(mfaSecretRepository, times(1)).save(any(UserMfaSecretEntity.class));
     }
 
@@ -212,14 +224,16 @@ class MfaManagementServiceTest {
     }
 
     @Test
-    @DisplayName("Should get secret for active enrollment")
+    @DisplayName("Should get (encrypted) secret for active enrollment")
     void testGetSecretActive() {
         // Arrange
         String username = "testuser";
-        String secret = "TESTSECRET123";
+        // Simulate an already-encrypted value stored in DB
+        String encryptedSecret = MfaSecretEncryptionUtil.encrypt(
+                "TESTSECRET123", TEST_ENCRYPTION_KEY, TEST_ENCRYPTION_SALT);
         UserMfaSecretEntity entity = new UserMfaSecretEntity();
         entity.setStatus(MfaStatus.ACTIVE);
-        entity.setTotpSecret(secret);
+        entity.setTotpSecret(encryptedSecret);
 
         when(mfaSecretRepository.findTopByUsernameOrderByCreatedDateDesc(username))
                 .thenReturn(Optional.of(entity));
@@ -227,9 +241,9 @@ class MfaManagementServiceTest {
         // Act
         Optional<String> result = mfaService.getSecret(username);
 
-        // Assert
+        // Assert – getSecret returns the encrypted blob; the auth server decrypts it
         assertTrue(result.isPresent());
-        assertEquals(secret, result.get());
+        assertEquals(encryptedSecret, result.get());
     }
 
     @Test

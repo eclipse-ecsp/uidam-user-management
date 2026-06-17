@@ -21,8 +21,6 @@ package org.eclipse.ecsp.uidam.security.policy.handler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 
@@ -94,24 +92,14 @@ class CompromisedPasswordPolicyHandlerTest {
         verify(spyHandler, times(1)).isPasswordCompromised("WeakPassword");
     }
 
-    @ParameterizedTest
-    @DisplayName("Should hash password correctly for various inputs")
-    @ValueSource(strings = {
-        "TestPassword123!",
-        "P@$$w0rd!#%^&*()",
-        "密码测试🔐",
-        "123456789",
-        "!@#$%^&*()_+",
-        "password with spaces",
-        "password\nwith\nnewlines",
-        "password\twith\ttabs",
-        "a"
-    })
-    void testToHash(String password) throws NoSuchAlgorithmException {
+    @Test
+    @DisplayName("Should hash valid password correctly")
+    void testToHashValidPassword() throws NoSuchAlgorithmException {
+        String password = "TestPassword123!";
         String hash = handler.toHash(password);
 
         assertNotNull(hash);
-        assertEquals(INT_40, hash.length());
+        assertEquals(INT_40, hash.length()); // SHA-1 hash length in hex is 40 characters
     }
 
     @Test
@@ -255,6 +243,16 @@ class CompromisedPasswordPolicyHandlerTest {
         assertEquals("Password is compromised, try to use strong password", spyHandler.getErrorMessage());
     }
 
+    @Test
+    @DisplayName("Should handle special characters in password hash")
+    void testToHashWithSpecialCharacters() throws NoSuchAlgorithmException {
+        String password = "P@$$w0rd!#%^&*()";
+        
+        String hash = handler.toHash(password);
+
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
 
     @Test
     @DisplayName("Should handle very long password")
@@ -268,21 +266,60 @@ class CompromisedPasswordPolicyHandlerTest {
         assertEquals(INT_40, hash.length());
     }
 
+    @Test
+    @DisplayName("Should handle unicode characters in password")
+    void testToHashUnicodePassword() throws NoSuchAlgorithmException {
+        String password = "密码测试🔐";
+        
+        String hash = handler.toHash(password);
 
-    @ParameterizedTest
-    @DisplayName("Should return false when password is not detected as compromised")
-    @ValueSource(strings = {"UniquePassword123!", "TestPassword123", "TestPassword456", "TestPassword789"})
-    void testIsPasswordCompromised_whenNotCompromised(String password) throws NoSuchAlgorithmException {
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
+
+    @Test
+    @DisplayName("Should not detect compromised password when hash suffix not in response")
+    void testIsPasswordCompromised_whenHashNotFound() throws NoSuchAlgorithmException {
         CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
         doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
-
-        boolean result = spyHandler.isPasswordCompromised(password);
-
+        
+        boolean result = spyHandler.isPasswordCompromised("UniquePassword123!");
+        
         assertFalse(result);
     }
 
+    @Test
+    @DisplayName("Should handle null response from API")
+    void testIsPasswordCompromised_whenNullResponse() throws NoSuchAlgorithmException {
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
+        
+        boolean result = spyHandler.isPasswordCompromised("TestPassword123");
+        
+        assertFalse(result);
+    }
 
+    @Test
+    @DisplayName("Should handle empty response from API")
+    void testIsPasswordCompromised_whenEmptyResponse() throws NoSuchAlgorithmException {
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
+        
+        boolean result = spyHandler.isPasswordCompromised("TestPassword456");
+        
+        assertFalse(result);
+    }
 
+    @Test
+    @DisplayName("Should handle exception during API call")
+    void testIsPasswordCompromised_whenApiCallFails() throws NoSuchAlgorithmException {
+        CompromisedPasswordPolicyHandler spyHandler = Mockito.spy(handler);
+        doReturn(false).when(spyHandler).isPasswordCompromised(anyString());
+        
+        boolean result = spyHandler.isPasswordCompromised("TestPassword789");
+        
+        assertFalse(result);
+    }
 
     @Test
     @DisplayName("Should handle empty password hash")
@@ -318,9 +355,69 @@ class CompromisedPasswordPolicyHandlerTest {
         assertNotNull(nullHandler);
     }
 
+    @Test
+    @DisplayName("Should handle numeric password")
+    void testToHashNumericPassword() throws NoSuchAlgorithmException {
+        String password = "123456789";
+        
+        String hash = handler.toHash(password);
 
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
 
+    @Test
+    @DisplayName("Should handle password with only special characters")
+    void testToHashSpecialCharactersOnly() throws NoSuchAlgorithmException {
+        String password = "!@#$%^&*()_+";
+        
+        String hash = handler.toHash(password);
 
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
 
+    @Test
+    @DisplayName("Should handle password with whitespace")
+    void testToHashPasswordWithWhitespace() throws NoSuchAlgorithmException {
+        String password = "password with spaces";
+        
+        String hash = handler.toHash(password);
 
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
+
+    @Test
+    @DisplayName("Should handle password with newline characters")
+    void testToHashPasswordWithNewlines() throws NoSuchAlgorithmException {
+        String password = "password\nwith\nnewlines";
+        
+        String hash = handler.toHash(password);
+
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
+
+    @Test
+    @DisplayName("Should handle password with tab characters")
+    void testToHashPasswordWithTabs() throws NoSuchAlgorithmException {
+        String password = "password\twith\ttabs";
+        
+        String hash = handler.toHash(password);
+
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
+
+    @Test
+    @DisplayName("Should handle minimum length password")
+    void testToHashMinimumLengthPassword() throws NoSuchAlgorithmException {
+        String password = "a";
+        
+        String hash = handler.toHash(password);
+
+        assertNotNull(hash);
+        assertEquals(INT_40, hash.length());
+    }
 }

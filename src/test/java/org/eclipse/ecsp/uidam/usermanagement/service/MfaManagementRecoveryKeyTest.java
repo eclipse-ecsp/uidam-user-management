@@ -177,6 +177,7 @@ class MfaManagementRecoveryKeyTest {
 
         Instant beforeCall = Instant.now();
         service.sendRecoveryKey(USERNAME);
+        Instant afterCall = Instant.now();
 
         ArgumentCaptor<UserMfaSecretEntity> captor = ArgumentCaptor.forClass(UserMfaSecretEntity.class);
         verify(mfaSecretRepository).save(captor.capture());

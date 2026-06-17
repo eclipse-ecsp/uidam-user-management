@@ -40,7 +40,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.VERSI
 /**
  * REST controller exposing MFA (TOTP) enrollment management endpoints.
  *
- * <h2>Two groups of endpoints:</h2>
+ * <h3>Two groups of endpoints:</h3>
  * <ol>
  *   <li><strong>Internal auth-server endpoints</strong> ({@code /v1/users/{username}/mfa/**}) –
  *       called only from the authorization server (server-to-server, no API-gateway JWT
@@ -125,7 +125,7 @@ public class MfaManagementController {
      * @param username the user's username (path variable)
      * @return 200 with the Base32 secret string, or 404 if not enrolled
      */
-    @GetMapping(MFA_BASE_PATH + "/secret")
+    @GetMapping(value = MFA_BASE_PATH + "/secret", produces = org.springframework.http.MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> getMfaSecret(
             @PathVariable(USERNAME_VAR) String username) {
         LOGGER.info("[MFA] Get secret for user='{}'", username);

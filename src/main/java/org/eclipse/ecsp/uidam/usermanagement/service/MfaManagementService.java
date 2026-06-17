@@ -15,6 +15,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaBackupCodeVerif
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaBackupCodesResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaEnrollInitiateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaStatusResponse;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.MfaSecretEncryptionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -129,7 +130,7 @@ public class MfaManagementService {
 
         entity.setUserId(user.getId());
         entity.setUsername(username);
-        entity.setTotpSecret(secret);
+        entity.setTotpSecret(encryptSecret(secret));
         entity.setStatus(MfaStatus.PENDING);
         entity.setCreatedBy("system");
         // Clear any stale recovery key state from a previous enrollment cycle.
@@ -187,8 +188,11 @@ public class MfaManagementService {
     /**
      * Return the TOTP secret for the given username (only if ACTIVE or PENDING).
      *
+     * <p>The secret is returned <em>encrypted</em> (AES-256-GCM).  The authorization server is
+     * responsible for decrypting it using the same per-tenant key before TOTP validation.
+     *
      * @param username the user's username
-     * @return Optional containing the Base32 secret, or empty if no active/pending enrollment
+     * @return Optional containing the encrypted Base64 secret blob, or empty if no active/pending enrollment
      */
     @Transactional(readOnly = true)
     public Optional<String> getSecret(String username) {
@@ -542,7 +546,7 @@ public class MfaManagementService {
             return "otpauth://totp/" + account
                     + "?secret=" + secret
                     + "&issuer=" + issuerEnc
-                    + "&algorithm=SHA256&digits=" + TOTP_DIGITS
+                    + "&digits=" + TOTP_DIGITS
                     + "&period=" + TOTP_PERIOD_SECONDS;
         } catch (Exception ex) {
             LOGGER.warn("[MFA] OTP-auth URI encoding failed: {}", ex.getMessage());
@@ -615,5 +619,41 @@ public class MfaManagementService {
             name.append(user.getLastName());
         }
         return name.toString().trim();
+    }
+
+    // ── MFA secret encryption helpers ───────────────────────────────────────
+
+    /**
+     * Encrypt a plain-text TOTP secret using the current tenant's encryption key/salt.
+     *
+     * @param plainSecret the raw Base32 TOTP secret
+     * @return AES-256-GCM encrypted, Base64-encoded blob
+     */
+    private String encryptSecret(String plainSecret) {
+        try {
+            return MfaSecretEncryptionUtil.encrypt(
+                    plainSecret,
+                    resolveEncryptionKey(),
+                    resolveEncryptionSalt());
+        } catch (Exception ex) {
+            LOGGER.error("[MFA] Failed to encrypt TOTP secret – aborting enrollment", ex);
+            throw new MfaSecretEncryptionUtil.MfaEncryptionException("Failed to encrypt MFA secret", ex);
+        }
+    }
+
+    /**
+     * Resolve the MFA secret encryption key from tenant properties, with a safe fallback.
+     */
+    private String resolveEncryptionKey() {
+        UserManagementTenantProperties props = tenantConfigurationService.getTenantProperties();
+        return props.getMfaSecretEncryptionKey();
+    }
+
+    /**
+     * Resolve the MFA secret encryption salt from tenant properties, with a safe fallback.
+     */
+    private String resolveEncryptionSalt() {
+        UserManagementTenantProperties props = tenantConfigurationService.getTenantProperties();
+        return props.getMfaSecretEncryptionSalt();
     }
 }

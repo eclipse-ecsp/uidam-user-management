@@ -63,8 +63,10 @@ public class UserMfaSecretEntity {
     private String username;
 
     /**
-     * Base32-encoded TOTP secret.  Stored encrypted via {@code TotpSecretEncryptor} converter
-     * when encryption is configured; stored as plain Base32 otherwise (dev mode).
+     * AES-256-GCM encrypted TOTP secret (Base64-encoded IV + ciphertext blob).
+     * Encrypted by {@link org.eclipse.ecsp.uidam.usermanagement.utilities.MfaSecretEncryptionUtil}
+     * using the per-tenant {@code mfa-secret-encryption-key} and {@code mfa-secret-encryption-salt}.
+     * The authorization server decrypts this value before TOTP validation.
      */
     @Column(name = "totp_secret", nullable = false)
     private String totpSecret;

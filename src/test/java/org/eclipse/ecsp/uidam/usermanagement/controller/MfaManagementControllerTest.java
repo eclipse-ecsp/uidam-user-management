@@ -180,7 +180,7 @@ class MfaManagementControllerTest {
         // Act & Assert
         mockMvc.perform(get(BASE_PATH + "/secret", TEST_USERNAME))
                 .andExpect(status().isOk())
-                .andExpect(content().string("\"" + TEST_SECRET + "\""));
+                .andExpect(content().string(TEST_SECRET));
 
         verify(mfaManagementService).getSecret(TEST_USERNAME);
     }

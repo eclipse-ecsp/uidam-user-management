@@ -180,10 +180,6 @@ public class PasswordValidationService {
 
     /**
      * Input class for password validation, containing the username, password, and last update time.
-     *
-     * @param username the username for validation
-     * @param password the password to validate
-     * @param lastUpdateTime the timestamp of the last password update
      */
     public record PasswordValidationInput(String username, String password, Timestamp lastUpdateTime) {
     }

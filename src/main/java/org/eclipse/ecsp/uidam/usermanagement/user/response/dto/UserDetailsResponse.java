@@ -45,6 +45,16 @@ public class UserDetailsResponse {
     Map<String, Object> captcha = new HashMap<>();
     String lastSuccessfulLoginTime;
     Integer failureLoginAttempts;
+    /**
+     * Per-user MFA override for CONDITIONAL policy.
+     * <ul>
+     *   <li>{@code true}  – MFA is required for this user regardless of other CONDITIONAL triggers.</li>
+     *   <li>{@code false} – MFA is explicitly exempted for this user in CONDITIONAL mode.</li>
+     *   <li>{@code null}  – No per-user override; fall back to normal step-up evaluation.</li>
+     * </ul>
+     * Populated from the {@code mfaRequired} user attribute in {@code user_attribute_values}.
+     */
+    Boolean mfaRequired;
     Set<String> scopes = new HashSet<>();
     Map<String, Object> additionalAttributes = new HashMap<>();
 }

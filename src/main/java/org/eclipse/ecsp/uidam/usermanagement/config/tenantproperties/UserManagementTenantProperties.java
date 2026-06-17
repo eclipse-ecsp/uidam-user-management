@@ -76,6 +76,18 @@ public class UserManagementTenantProperties {
     private Boolean mfaBackupCodesEnabled = Boolean.TRUE;
     /** Number of backup codes generated per set. Default: 8. */
     private Integer mfaBackupCodesCount = 8;
+    /**
+     * AES-256-GCM encryption key used to encrypt the TOTP secret at rest.
+     * Must be overridden in production via ConfigMap / environment variable
+     * {@code DEFAULT_MFA_SECRET_ENCRYPTION_KEY}.
+     */
+    private String mfaSecretEncryptionKey = "ChangeMe-MfaKey!";
+    /**
+     * Salt used with PBKDF2 key derivation for MFA secret encryption.
+     * Must be overridden in production via ConfigMap / environment variable
+     * {@code DEFAULT_MFA_SECRET_ENCRYPTION_SALT}.
+     */
+    private String mfaSecretEncryptionSalt = "ChangeMe-MfaSalt";
     
     // Nested Configuration Objects
     private DatabaseProperties database;
