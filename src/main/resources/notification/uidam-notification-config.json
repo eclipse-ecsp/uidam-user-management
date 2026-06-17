@@ -155,5 +155,31 @@
                 }
             ]
         }
+    },
+    {
+        "notificationId": "UIDAM_MFA_RECOVERY",
+        "enabled": true,
+        "email": {
+            "enabled": true,
+            "templates": [
+                {
+                    "locale": "en_US",
+                    "default": "true",
+                    "from": "admin@harman.com",
+                    "subject": "UIDAM MFA Recovery – Your Security Code",
+                    "reference-html": "htmls/thymeleaf-template.html",
+                    "images": {
+                        "Image-hdr_brand": "images/harman.png",
+                        "Image-hdr_picture": "images/header_pic.png"
+                    },
+                    "body": {
+                        "salutation": "Greetings [[${name}]]!",
+                        "body": "We received a request to recover your Multi-Factor Authentication (MFA) enrollment.<br/><br/>Your one-time security code is:<br/><div style=\"font-size:28px;font-weight:bold;letter-spacing:6px;text-align:center;padding:16px;background:#f4f4f8;border-radius:8px;font-family:monospace;\">[[${recoveryCode}]]</div><br/>This code is valid for <strong>10 minutes</strong>. Enter it on the MFA recovery page to reset your authenticator.<br/><br/>If you did not request this, please ignore this email or contact your administrator immediately.",
+                        "footer": "Thanks",
+                        "sender": "admin@harman.com"
+                    }
+                }
+            ]
+        }
     }
 ]

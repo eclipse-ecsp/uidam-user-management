@@ -69,6 +69,26 @@ public class UserManagementTenantProperties {
     // Captcha Properties
     private Integer captchaEnforceAfterNoOfFailures;
     
+    // MFA Properties
+    /** Application/issuer name displayed in authenticator apps. Default: UIDAM. Overridable per tenant. */
+    private String mfaAppName = "UIDAM";
+    /** Whether MFA backup (recovery) codes are enabled for this tenant. Default: true. */
+    private Boolean mfaBackupCodesEnabled = Boolean.TRUE;
+    /** Number of backup codes generated per set. Default: 8. */
+    private Integer mfaBackupCodesCount = 8;
+    /**
+     * AES-256-GCM encryption key used to encrypt the TOTP secret at rest.
+     * Must be overridden in production via ConfigMap / environment variable
+     * {@code DEFAULT_MFA_SECRET_ENCRYPTION_KEY}.
+     */
+    private String mfaSecretEncryptionKey = "ChangeMe-MfaKey!";
+    /**
+     * Salt used with PBKDF2 key derivation for MFA secret encryption.
+     * Must be overridden in production via ConfigMap / environment variable
+     * {@code DEFAULT_MFA_SECRET_ENCRYPTION_SALT}.
+     */
+    private String mfaSecretEncryptionSalt = "ChangeMe-MfaSalt";
+    
     // Nested Configuration Objects
     private DatabaseProperties database;
     private NotificationProperties notification;

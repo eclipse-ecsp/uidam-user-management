@@ -149,6 +149,8 @@ import java.text.FieldPosition;
 import java.text.MessageFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -188,6 +190,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVAL
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_INPUT_ROLE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_PAYLOAD_ERROR_MESSAGE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.LASTNAME;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.MFA_REQUIRED_ATTRIBUTE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NO_ROLEID_FOR_FILTER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.OPERATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ORIGINAL_USERNAME;
@@ -920,6 +923,17 @@ public class UsersServiceImpl implements UsersService {
             captcha.put(CAPTCHA_REQUIRED, null);
         }
         captcha.put(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES, getTenantProperties().getCaptchaEnforceAfterNoOfFailures());
+
+        // Per-user MFA override: read the "mfaRequired" user attribute (same pattern as captchaRequired)
+        UserAttributeEntity mfaAttributeEntity = userAttributeRepository.findByName(MFA_REQUIRED_ATTRIBUTE);
+        if (Objects.nonNull(mfaAttributeEntity)) {
+            UserAttributeValueEntity mfaAttributeValueEntity = userAttributeValueRepository
+                .findByUserIdAndAttributeId(userEntity.getId(), mfaAttributeEntity.getId());
+            if (Objects.nonNull(mfaAttributeValueEntity) && Objects.nonNull(mfaAttributeValueEntity.getValue())) {
+                userDetailsResponse.setMfaRequired(Boolean.valueOf(mfaAttributeValueEntity.getValue()));
+            }
+            // null means: no per-user override → CONDITIONAL policy evaluates normally
+        }
         
         // Calculate consecutive failed login attempts since last unlock/success
         int allowedLoginAttempts = Integer.parseInt(getTenantProperties().getMaxAllowedLoginAttempts());
@@ -1052,8 +1066,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
         throws InActiveUserException {
-        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-        LocalDateTime now = LocalDateTime.now();
+        ZonedDateTime lockUntil = lockTimestamp.toInstant().atZone(ZoneId.systemDefault());
+        ZonedDateTime now = ZonedDateTime.now();
         long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
         
         if (LOGGER.isDebugEnabled()) {
@@ -1116,7 +1130,8 @@ public class UsersServiceImpl implements UsersService {
                     userEntity.getUserName(), lockUntil);
                 return true;
             } else {
-                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
+                long remainingMinutes = java.time.Duration.between(
+                    now.atZone(ZoneId.systemDefault()), lockUntil.atZone(ZoneId.systemDefault())).toMinutes();
                 LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
                     userEntity.getUserName(), remainingMinutes);
                 return false;
@@ -2436,7 +2451,8 @@ public class UsersServiceImpl implements UsersService {
         LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
         LocalDateTime now = LocalDateTime.now();
         if (lockUntil.isAfter(now)) {
-            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
+            long remaining = java.time.Duration.between(
+                now.atZone(ZoneId.systemDefault()), lockUntil.atZone(ZoneId.systemDefault())).toMinutes();
             LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
                 currentUser.getId(), remaining);
             return remaining;

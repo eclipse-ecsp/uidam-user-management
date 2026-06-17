@@ -51,4 +51,8 @@ public interface AccountRepository extends JpaRepository<AccountEntity, BigInteg
             + "where ae.status != :status and ae.id in :ids")
     List<AccountEntity> findByAccountIdInAndStatusNot(@Param(value = "ids") Set<BigInteger> accountIds,
             @Param(value = "status") AccountStatus accountStatus);
+
+    long countByStatusNot(AccountStatus status);
+
+    long countByStatus(AccountStatus status);
 }

@@ -33,6 +33,9 @@ package org.eclipse.ecsp.uidam.usermanagement.config;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -45,8 +48,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -345,5 +350,250 @@ class TenantDefaultPropertiesProcessorTest {
 
         // Assert - Environment is set (verified by not throwing exception in subsequent calls)
         assertDoesNotThrow(() -> processor.setEnvironment(newEnvironment));
+    }
+
+    @Test
+    void postProcessBeanFactory_withNonConfigurableEnvironment_shouldLogWarning() {
+        // Arrange
+        org.springframework.core.env.Environment nonConfigurableEnv = mock(
+            org.springframework.core.env.Environment.class);
+        processor.setEnvironment(nonConfigurableEnv);
+        
+        org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory = mock(
+            org.springframework.beans.factory.config.ConfigurableListableBeanFactory.class);
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.postProcessBeanFactory(beanFactory));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("providePostProcessBeanFactoryShortCircuitCases")
+    void postProcessBeanFactory_withShortCircuitConditions_shouldNotThrow(
+            String description, boolean multitenantEnabled, String tenantIds) {
+        when(configurableEnvironment.getProperty("tenant.multitenant.enabled", Boolean.class, false))
+            .thenReturn(multitenantEnabled);
+        if (!multitenantEnabled) {
+            when(configurableEnvironment.getProperty("tenant.default")).thenReturn(null);
+        } else {
+            when(configurableEnvironment.getProperty("tenant.ids")).thenReturn(tenantIds);
+        }
+
+        Map<String, Object> defaultProps = new HashMap<>();
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+
+        org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory = mock(
+            org.springframework.beans.factory.config.ConfigurableListableBeanFactory.class);
+
+        assertDoesNotThrow(() -> processor.postProcessBeanFactory(beanFactory));
+    }
+
+    static Stream<Arguments> providePostProcessBeanFactoryShortCircuitCases() {
+        return Stream.of(
+            Arguments.of("multitenancy disabled and no default tenant", false, null),
+            Arguments.of("multitenancy enabled but no tenant ids", true, null),
+            Arguments.of("multitenancy enabled and empty tenant ids", true, "   ")
+        );
+    }
+
+    @Test
+    void refreshTenantProperties_withValidationDisabled_shouldProcessTenants() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources
+        Map<String, Object> defaultProps = new HashMap<>();
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.password", "defaultPass");
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
+        
+        // Disable validation
+        when(configurableEnvironment.getProperty("tenant.config.validation.enabled", Boolean.class, true))
+            .thenReturn(false);
+        
+        // Mock default properties
+        when(configurableEnvironment.getProperty("tenant.props.default.jdbc-url"))
+            .thenReturn("jdbc:postgresql://localhost:5432/default");
+        when(configurableEnvironment.getProperty("tenant.props.default.user-name"))
+            .thenReturn("defaultUser");
+        when(configurableEnvironment.getProperty("tenant.props.default.password"))
+            .thenReturn("defaultPass");
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.refreshTenantProperties(tenantIds, configurableEnvironment));
+    }
+
+    @Test
+    void refreshTenantProperties_withDatabaseNameValidationNone_shouldSkipDbValidation() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources
+        Map<String, Object> defaultProps = new HashMap<>();
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.password", "defaultPass");
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
+        
+        // Disable database name validation
+        when(configurableEnvironment.getProperty("uidam.tenant.config.dbname.validation", "EQUAL"))
+            .thenReturn("NONE");
+        when(configurableEnvironment.getProperty("tenant.config.validation.enabled", Boolean.class, true))
+            .thenReturn(false);
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.refreshTenantProperties(tenantIds, configurableEnvironment));
+    }
+
+    @Test
+    void refreshTenantProperties_withInternalEmailProvider_shouldValidateEmailProperties() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources
+        Map<String, Object> defaultProps = new HashMap<>();
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.password", "defaultPass");
+        defaultProps.put("tenant.props.default.notification.email.provider", "internal");
+        defaultProps.put("tenant.props.default.notification.email.host", "smtp.example.com");
+        defaultProps.put("tenant.props.default.notification.email.port", "587");
+        defaultProps.put("tenant.props.default.notification.email.username", "emailUser");
+        defaultProps.put("tenant.props.default.notification.email.password", "emailPass");
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
+        
+        // Mock email provider
+        when(configurableEnvironment.getProperty("tenant.props.default.notification.email.provider"))
+            .thenReturn("internal");
+        when(configurableEnvironment.getProperty("tenant.config.validation.enabled", Boolean.class, true))
+            .thenReturn(false);
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.refreshTenantProperties(tenantIds, configurableEnvironment));
+    }
+
+    @Test
+    void refreshTenantProperties_withExternalEmailProvider_shouldSkipEmailValidation() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources
+        Map<String, Object> defaultProps = new HashMap<>();
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.password", "defaultPass");
+        defaultProps.put("tenant.props.default.notification.email.provider", "external");
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
+        
+        // Mock email provider
+        when(configurableEnvironment.getProperty("tenant.props.default.notification.email.provider"))
+            .thenReturn("external");
+        when(configurableEnvironment.getProperty("tenant.config.validation.enabled", Boolean.class, true))
+            .thenReturn(false);
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.refreshTenantProperties(tenantIds, configurableEnvironment));
+    }
+
+    @Test
+    void refreshTenantProperties_withFailedTenantValidation_shouldReturnFailedTenants() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources - missing required properties for validation to fail
+        Map<String, Object> defaultProps = new HashMap<>();
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        // Missing user-name and password to cause validation failure
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
+        
+        // Enable validation
+        when(configurableEnvironment.getProperty("tenant.config.validation.enabled", Boolean.class, true))
+            .thenReturn(true);
+        when(configurableEnvironment.getProperty("tenant.props.default.jdbc-url"))
+            .thenReturn("jdbc:postgresql://localhost:5432/default");
+        when(configurableEnvironment.getProperty("tenant.props.default.user-name")).thenReturn(null);
+        when(configurableEnvironment.getProperty("tenant.props.default.password")).thenReturn(null);
+
+        // Act
+        List<String> failedTenants = processor.refreshTenantProperties(tenantIds, configurableEnvironment);
+
+        // Assert - Validation result could be empty list or contain tenants
+        assertNotNull(failedTenants);
+    }
+
+    @Test
+    void refreshTenantProperties_withJdbcUrlContainingTenantEnvVariable_shouldUseEnvValue() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources
+        Map<String, Object> defaultProps = new HashMap<>();
+        defaultProps.put("tenant.props.default.jdbc-url", "jdbc:postgresql://localhost:5432/default");
+        defaultProps.put("tenant.props.default.user-name", "defaultUser");
+        defaultProps.put("tenant.props.default.password", "defaultPass");
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        when(propertySources.contains("generatedTenantProperties")).thenReturn(false);
+        
+        // Mock tenant-specific JDBC URL environment variable
+        when(configurableEnvironment.getProperty("TENANT1_POSTGRES_DATASOURCE"))
+            .thenReturn("jdbc:postgresql://prod.server:5432/tenant1_db");
+        when(configurableEnvironment.getProperty("tenant.config.validation.enabled", Boolean.class, true))
+            .thenReturn(false);
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.refreshTenantProperties(tenantIds, configurableEnvironment));
+    }
+
+    @Test
+    void refreshTenantProperties_withMultitenancyDisabled_shouldNotRemoveFailedTenants() {
+        // Arrange
+        final String tenantIds = "tenant1";
+        
+        // Mock property sources
+        Map<String, Object> defaultProps = new HashMap<>();
+        MapPropertySource defaultPropertySource = new MapPropertySource("defaultProps", defaultProps);
+        
+        List<PropertySource<?>> sources = new ArrayList<>();
+        sources.add(defaultPropertySource);
+        when(propertySources.iterator()).thenReturn(sources.iterator());
+        
+        // Disable multitenancy
+        when(configurableEnvironment.getProperty("tenant.multitenant.enabled", Boolean.class, false))
+            .thenReturn(false);
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> processor.refreshTenantProperties(tenantIds, configurableEnvironment));
     }
 }

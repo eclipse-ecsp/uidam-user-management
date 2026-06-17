@@ -111,6 +111,7 @@ public class AccountController {
      * @param userId The ID of the logged-in user.
      * @param accountDto The json containing the details of account to be created
      * @return Response with the created account id
+     * @throws NoSuchAlgorithmException if a required cryptographic algorithm is not available
      * @throws AccountManagementException if any other account error happens
      */
     @Operation(summary = SUMMARY_CREATE_ACCOUNT, description = "Creates a new Account.", tags = {
