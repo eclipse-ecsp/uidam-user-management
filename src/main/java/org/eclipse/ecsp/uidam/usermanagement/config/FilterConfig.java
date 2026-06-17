@@ -18,6 +18,7 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import org.eclipse.ecsp.uidam.usermanagement.filter.SecurityHeadersFilter;
 import org.eclipse.ecsp.uidam.usermanagement.filter.TenantResolutionFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -46,22 +47,46 @@ public class FilterConfig {
     @Bean
     public FilterRegistrationBean<TenantResolutionFilter> tenantResolutionFilterRegistration(
             TenantResolutionFilter tenantResolutionFilter) {
-        
+
         FilterRegistrationBean<TenantResolutionFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(tenantResolutionFilter);
-        
+
         // Set high priority to run early in filter chain
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + INTEGER_10);
-        
+
         // Apply to all User Management API endpoints
         registration.addUrlPatterns(
-            "/v1/*",           // All v1 API endpoints
-            "/v2/*"            // All v2 API endpoints
+                "/v1/*", // All v1 API endpoints
+                "/v2/*" // All v2 API endpoints
         );
-        
+
         // Filter name for debugging and monitoring
         registration.setName("TenantResolutionFilter");
-        
+
+        return registration;
+    }
+
+    /**
+     * Register the SecurityHeadersFilter to add HSTS and other security headers.
+     * This filter runs at highest priority to ensure security headers are always present.
+     *
+     * @return FilterRegistrationBean configuration for the security headers filter
+     */
+    @Bean
+    public FilterRegistrationBean<SecurityHeadersFilter> securityHeadersFilterRegistration() {
+
+        FilterRegistrationBean<SecurityHeadersFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new SecurityHeadersFilter());
+
+        // Set highest priority to ensure security headers are always added first
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+
+        // Apply to all endpoints
+        registration.addUrlPatterns("/*");
+
+        // Filter name for debugging and monitoring
+        registration.setName("SecurityHeadersFilter");
+
         return registration;
     }
 }

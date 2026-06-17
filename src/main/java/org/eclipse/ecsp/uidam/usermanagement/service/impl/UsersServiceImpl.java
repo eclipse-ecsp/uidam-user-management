@@ -188,6 +188,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVAL
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_INPUT_ROLE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_PAYLOAD_ERROR_MESSAGE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.LASTNAME;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.MFA_REQUIRED_ATTRIBUTE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NO_ROLEID_FOR_FILTER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.OPERATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ORIGINAL_USERNAME;
@@ -920,6 +921,17 @@ public class UsersServiceImpl implements UsersService {
             captcha.put(CAPTCHA_REQUIRED, null);
         }
         captcha.put(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES, getTenantProperties().getCaptchaEnforceAfterNoOfFailures());
+
+        // Per-user MFA override: read the "mfaRequired" user attribute (same pattern as captchaRequired)
+        UserAttributeEntity mfaAttributeEntity = userAttributeRepository.findByName(MFA_REQUIRED_ATTRIBUTE);
+        if (Objects.nonNull(mfaAttributeEntity)) {
+            UserAttributeValueEntity mfaAttributeValueEntity = userAttributeValueRepository
+                .findByUserIdAndAttributeId(userEntity.getId(), mfaAttributeEntity.getId());
+            if (Objects.nonNull(mfaAttributeValueEntity) && Objects.nonNull(mfaAttributeValueEntity.getValue())) {
+                userDetailsResponse.setMfaRequired(Boolean.valueOf(mfaAttributeValueEntity.getValue()));
+            }
+            // null means: no per-user override → CONDITIONAL policy evaluates normally
+        }
         
         // Calculate consecutive failed login attempts since last unlock/success
         int allowedLoginAttempts = Integer.parseInt(getTenantProperties().getMaxAllowedLoginAttempts());

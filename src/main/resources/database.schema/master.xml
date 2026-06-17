@@ -27,5 +27,7 @@
 
     <!-- Release 2.1 - MFA (TOTP) Tables -->
     <include file="changesets/2_1_release/mfa_schema.xml" relativeToChangelogFile="true"/>
+    <!-- Release 2.1 - Per-user captchaRequired and mfaRequired attribute definitions -->
+    <include file="changesets/2_1_release/user_attributes_data.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!--
+        Release 2.1 – Per-user captchaRequired and mfaRequired attribute definitions.
+
+        Inserts metadata rows into user_attributes for two per-user boolean override attributes:
+
+          - captchaRequired : when set to true on a user, forces the CAPTCHA challenge on that
+                              user's login page regardless of the global captcha policy.
+                              When set to false, CAPTCHA is suppressed for that user.
+
+          - mfaRequired     : when set to true on a user, forces MFA step-up for that user in
+                              CONDITIONAL mode even if the global trigger conditions are not met.
+                              When set to false, MFA is skipped for that user even when the global
+                              CONDITIONAL policy would otherwise enable it.
+
+        Both attributes are:
+          - NOT mandatory   (neither attribute is required on a user account)
+          - dynamic         (runtime-configurable, not part of the static user schema)
+          - NOT unique      (many users can share the same true/false value)
+          - NOT read-only   (can be set and updated via the user-management API)
+          - searchable      (admins can filter users by these attributes)
+          - type "bool"     (stored as the string "true"/"false", interpreted as Boolean)
+
+        Each changeSet uses a preCondition so it is safely skipped on environments where the
+        row already exists (e.g. after a manual insert or a re-run).
+    -->
+
+    <changeSet id="insert-captchaRequired-user-attribute" author="System">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM ${schema}.user_attributes WHERE name = 'captchaRequired'
+            </sqlCheck>
+        </preConditions>
+
+        <insert tableName="user_attributes" schemaName="${schema}">
+            <column name="NAME"              value="captchaRequired"/>
+            <column name="MANDATORY"         valueBoolean="false"/>
+            <column name="DYNAMIC_ATTRIBUTE" valueBoolean="true"/>
+            <column name="IS_UNIQUE"         valueBoolean="false"/>
+            <column name="READ_ONLY"         valueBoolean="false"/>
+            <column name="SEARCHABLE"        valueBoolean="true"/>
+            <column name="TYPES"             value="bool"/>
+            <column name="REGEX"             value=".*"/>
+            <column name="CREATED_BY"        value="system"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="insert-mfaRequired-user-attribute" author="System">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM ${schema}.user_attributes WHERE name = 'mfaRequired'
+            </sqlCheck>
+        </preConditions>
+
+        <insert tableName="user_attributes" schemaName="${schema}">
+            <column name="NAME"              value="mfaRequired"/>
+            <column name="MANDATORY"         valueBoolean="false"/>
+            <column name="DYNAMIC_ATTRIBUTE" valueBoolean="true"/>
+            <column name="IS_UNIQUE"         valueBoolean="false"/>
+            <column name="READ_ONLY"         valueBoolean="false"/>
+            <column name="SEARCHABLE"        valueBoolean="true"/>
+            <column name="TYPES"             value="bool"/>
+            <column name="REGEX"             value=".*"/>
+            <column name="CREATED_BY"        value="system"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

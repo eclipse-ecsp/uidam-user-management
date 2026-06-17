@@ -223,6 +223,7 @@ public final class ApiConstants {
 
     public static final String USERID_IS_NULL = "UserID is null";
     public static final String CAPTCHA_REQUIRED_ATTRIBUTE = "captchaRequired";
+    public static final String MFA_REQUIRED_ATTRIBUTE = "mfaRequired";
     public static final String FIRSTNAME = "firstName";
     public static final String ERROR = "error";
     public static final String LASTNAME = "lastName";
