@@ -24,8 +24,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -128,49 +132,22 @@ class ExternalUserPasswordValidatorTest {
         verify(context).buildConstraintViolationWithTemplate("External users cannot have password");
     }
 
-    @Test
-    @DisplayName("Should return true when external user has no password")
-    void testIsValidExternalUserWithoutPassword() {
-        // Arrange
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("provideValidUserCases")
+    void testIsValid_returnsTrue(String description, Boolean isExternal, String password) {
         UserDtoBase userDto = new UserDtoBase();
-        userDto.setIsExternalUser(true);
-        userDto.setPassword(null);
+        userDto.setIsExternalUser(isExternal);
+        userDto.setPassword(password);
 
-        // Act
-        boolean result = validator.isValid(userDto, context);
-
-        // Assert
-        assertTrue(result);
+        assertTrue(validator.isValid(userDto, context));
     }
 
-    @Test
-    @DisplayName("Should return true when internal user has password")
-    void testIsValidInternalUserWithPassword() {
-        // Arrange
-        UserDtoBase userDto = new UserDtoBase();
-        userDto.setIsExternalUser(false);
-        userDto.setPassword("somePassword");
-
-        // Act
-        boolean result = validator.isValid(userDto, context);
-
-        // Assert
-        assertTrue(result);
-    }
-
-    @Test
-    @DisplayName("Should return true when internal user has no password")
-    void testIsValidInternalUserWithoutPassword() {
-        // Arrange
-        UserDtoBase userDto = new UserDtoBase();
-        userDto.setIsExternalUser(false);
-        userDto.setPassword(null);
-
-        // Act
-        boolean result = validator.isValid(userDto, context);
-
-        // Assert
-        assertTrue(result);
+    static Stream<Arguments> provideValidUserCases() {
+        return Stream.of(
+            Arguments.of("external user without password", true, null),
+            Arguments.of("internal user with password", false, "somePassword"),
+            Arguments.of("internal user without password", false, null)
+        );
     }
 
     @Test

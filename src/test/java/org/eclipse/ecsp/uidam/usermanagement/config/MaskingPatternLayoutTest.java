@@ -26,8 +26,12 @@ import ch.qos.logback.classic.spi.LoggingEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.stream.Stream;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,89 +53,40 @@ class MaskingPatternLayoutTest {
         layout.start();
     }
 
-    @Test
-    @DisplayName("Should mask password in log message")
-    void testDoLayoutWithPasswordMasking() {
-        // Arrange
-        String patterns = "password=([^&\\s]+)";
-        String mask = "****";
-        
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("provideDoLayoutTestCases")
+    @DisplayName("Should apply masking patterns correctly")
+    void testDoLayout(String description, String patterns, String mask,
+            String inputMessage, String[] expectedContents) {
         layout.setPatternsProperty(patterns);
         layout.setMask(mask);
 
         Logger logger = loggerContext.getLogger("test");
-        ILoggingEvent event = new LoggingEvent(
-                "test",
-                logger,
-                Level.INFO,
-                "Login attempt with password=secret123",
-                null,
-                null
-        );
+        ILoggingEvent event = new LoggingEvent("test", logger, Level.INFO, inputMessage, null, null);
 
-        // Act
         String result = layout.doLayout(event);
 
-        // Assert
         assertNotNull(result);
-        assertTrue(result.contains("password=****"));
+        for (String expected : expectedContents) {
+            assertTrue(result.contains(expected), "Expected result to contain: " + expected);
+        }
     }
 
-    @Test
-    @DisplayName("Should mask multiple sensitive fields")
-    void testDoLayoutWithMultiplePatterns() {
-        // Arrange
-        String patterns = "password=([^&\\s]+)|apiKey=([^&\\s]+)";
-        String mask = "***MASKED***";
-        
-        layout.setPatternsProperty(patterns);
-        layout.setMask(mask);
-
-        Logger logger = loggerContext.getLogger("test");
-        ILoggingEvent event = new LoggingEvent(
-                "test",
-                logger,
-                Level.INFO,
-                "Request with password=secret123 and apiKey=key456",
-                null,
-                null
+    static Stream<Arguments> provideDoLayoutTestCases() {
+        return Stream.of(
+            Arguments.of("masks password in log message",
+                    "password=([^&\\s]+)", "****",
+                    "Login attempt with password=secret123",
+                    new String[]{"password=****"}),
+            Arguments.of("masks multiple sensitive fields",
+                    "password=([^&\\s]+)|apiKey=([^&\\s]+)", "***MASKED***",
+                    "Request with password=secret123 and apiKey=key456",
+                    new String[]{"password=***MASKED***", "apiKey=***MASKED***"}),
+            Arguments.of("does not modify message without sensitive data",
+                    "password=([^&\\s]+)", "****",
+                    "Normal log message without sensitive data",
+                    new String[]{"Normal log message without sensitive data"})
         );
-
-        // Act
-        String result = layout.doLayout(event);
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.contains("password=***MASKED***"));
-        assertTrue(result.contains("apiKey=***MASKED***"));
-    }
-
-    @Test
-    @DisplayName("Should not modify message without sensitive data")
-    void testDoLayoutWithNoSensitiveData() {
-        // Arrange
-        String patterns = "password=([^&\\s]+)";
-        String mask = "****";
-        
-        layout.setPatternsProperty(patterns);
-        layout.setMask(mask);
-
-        Logger logger = loggerContext.getLogger("test");
-        ILoggingEvent event = new LoggingEvent(
-                "test",
-                logger,
-                Level.INFO,
-                "Normal log message without sensitive data",
-                null,
-                null
-        );
-
-        // Act
-        String result = layout.doLayout(event);
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.contains("Normal log message without sensitive data"));
     }
 
     @Test

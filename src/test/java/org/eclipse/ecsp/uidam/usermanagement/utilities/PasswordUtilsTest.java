@@ -22,11 +22,15 @@ import org.eclipse.ecsp.uidam.usermanagement.entity.PasswordHistoryEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,62 +44,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DisplayName("PasswordUtils Test Suite")
 class PasswordUtilsTest {
 
-    @Test
-    @DisplayName("Should generate secure password hash with SHA-256")
-    void testGetSecurePasswordSha256() {
-        // Arrange
-        String password = "TestPassword123";
-        String salt = "testSalt";
-
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
-
-        // Assert
-        assertNotNull(hash);
-        assertTrue(hash.length() > 0);
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("provideSecurePasswordCases")
+    @DisplayName("Should produce correct hash behavior")
+    void testGetSecurePassword(String description, String password1, String salt1,
+            String password2, String salt2, Boolean expectEqual) {
+        String hash1 = PasswordUtils.getSecurePassword(password1, salt1, "SHA-256");
+        assertNotNull(hash1);
+        assertTrue(hash1.length() > 0);
+        if (password2 != null) {
+            String hash2 = PasswordUtils.getSecurePassword(password2, salt2, "SHA-256");
+            if (Boolean.TRUE.equals(expectEqual)) {
+                assertEquals(hash1, hash2);
+            } else {
+                assertNotEquals(hash1, hash2);
+            }
+        }
     }
 
-    @Test
-    @DisplayName("Should generate consistent hash for same password and salt")
-    void testGetSecurePasswordConsistency() {
-        // Arrange
-        String password = "ConsistentPassword";
-        String salt = "consistentSalt";
-
-        // Act
-        String hash1 = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
-        String hash2 = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
-
-        // Assert
-        assertEquals(hash1, hash2);
-    }
-
-    @Test
-    @DisplayName("Should generate different hash for different passwords")
-    void testGetSecurePasswordDifferentPasswords() {
-        // Arrange
-        String salt = "sameSalt";
-
-        // Act
-        String hash1 = PasswordUtils.getSecurePassword("Password1", salt, "SHA-256");
-        String hash2 = PasswordUtils.getSecurePassword("Password2", salt, "SHA-256");
-
-        // Assert
-        assertNotEquals(hash1, hash2);
-    }
-
-    @Test
-    @DisplayName("Should generate different hash for different salts")
-    void testGetSecurePasswordDifferentSalts() {
-        // Arrange
-        String password = "samePassword";
-
-        // Act
-        String hash1 = PasswordUtils.getSecurePassword(password, "salt1", "SHA-256");
-        String hash2 = PasswordUtils.getSecurePassword(password, "salt2", "SHA-256");
-
-        // Assert
-        assertNotEquals(hash1, hash2);
+    static Stream<Arguments> provideSecurePasswordCases() {
+        return Stream.of(
+            Arguments.of("SHA-256 hash is not null and not empty", "TestPassword123", "testSalt", null, null, null),
+            Arguments.of("same inputs produce same hash", "ConsistentPassword", "consistentSalt",
+                    "ConsistentPassword", "consistentSalt", true),
+            Arguments.of("different passwords produce different hashes", "Password1", "sameSalt",
+                    "Password2", "sameSalt", false),
+            Arguments.of("different salts produce different hashes", "samePassword", "salt1",
+                    "samePassword", "salt2", false)
+        );
     }
 
     @Test
