@@ -178,49 +178,21 @@ class PasswordUtilsTest {
         assertNotNull(historyEntity.getUpdateDate());
     }
 
-    @Test
-    @DisplayName("Should handle SHA-1 algorithm")
-    void testGetSecurePasswordSha1() {
-        // Arrange
-        String password = "TestPassword";
-        String salt = "testSalt";
-
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-1");
-
-        // Assert
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("provideAlgorithmAndPasswordCases")
+    @DisplayName("Should produce a non-null non-empty hash for various algorithms and inputs")
+    void testGetSecurePasswordVariants(String description, String password, String salt, String algorithm) {
+        String hash = PasswordUtils.getSecurePassword(password, salt, algorithm);
         assertNotNull(hash);
         assertTrue(hash.length() > 0);
     }
 
-    @Test
-    @DisplayName("Should handle MD5 algorithm")
-    void testGetSecurePasswordMd5() {
-        // Arrange
-        String password = "TestPassword";
-        String salt = "testSalt";
-
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "MD5");
-
-        // Assert
-        assertNotNull(hash);
-        assertTrue(hash.length() > 0);
-    }
-
-    @Test
-    @DisplayName("Should handle special characters in password")
-    void testGetSecurePasswordWithSpecialCharacters() {
-        // Arrange
-        String password = "P@$$w0rd!#%&*()";
-        String salt = "specialSalt";
-
-        // Act
-        String hash = PasswordUtils.getSecurePassword(password, salt, "SHA-256");
-
-        // Assert
-        assertNotNull(hash);
-        assertTrue(hash.length() > 0);
+    static Stream<Arguments> provideAlgorithmAndPasswordCases() {
+        return Stream.of(
+            Arguments.of("SHA-1 algorithm", "TestPassword", "testSalt", "SHA-1"),
+            Arguments.of("MD5 algorithm", "TestPassword", "testSalt", "MD5"),
+            Arguments.of("special characters with SHA-256", "P@$$w0rd!#%&*()", "specialSalt", "SHA-256")
+        );
     }
 
     @Test
