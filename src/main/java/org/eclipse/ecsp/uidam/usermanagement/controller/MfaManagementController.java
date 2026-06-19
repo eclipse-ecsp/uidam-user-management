@@ -16,6 +16,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaBackupCodesResp
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaEnrollInitiateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaRecoveryKeyRequest;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaStatusResponse;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.InputSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -84,7 +85,9 @@ public class MfaManagementController {
     @PostMapping(MFA_BASE_PATH + "/enroll/initiate")
     public ResponseEntity<MfaEnrollInitiateResponse> initiateEnrollment(
             @PathVariable(USERNAME_VAR) String username) throws ResourceNotFoundException {
-        LOGGER.info("[MFA] Initiate enrollment for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Initiate enrollment for user='{}'", InputSanitizer.forLog(username));
+        }
         MfaEnrollInitiateResponse response = mfaManagementService.initiateEnrollment(username);
         return ResponseEntity.ok(response);
     }
@@ -100,7 +103,9 @@ public class MfaManagementController {
     @PostMapping(MFA_BASE_PATH + "/enroll/activate")
     public ResponseEntity<Void> activateEnrollment(
             @PathVariable(USERNAME_VAR) String username) throws ResourceNotFoundException {
-        LOGGER.info("[MFA] Activate enrollment for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Activate enrollment for user='{}'", InputSanitizer.forLog(username));
+        }
         mfaManagementService.activateEnrollment(username);
         return ResponseEntity.noContent().build();
     }
@@ -114,7 +119,9 @@ public class MfaManagementController {
     @GetMapping(MFA_BASE_PATH + "/status")
     public ResponseEntity<MfaStatusResponse> getMfaStatus(
             @PathVariable(USERNAME_VAR) String username) {
-        LOGGER.info("[MFA] Get status for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Get status for user='{}'", InputSanitizer.forLog(username));
+        }
         return ResponseEntity.ok(mfaManagementService.getStatus(username));
     }
 
@@ -128,7 +135,9 @@ public class MfaManagementController {
     @GetMapping(value = MFA_BASE_PATH + "/secret", produces = org.springframework.http.MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> getMfaSecret(
             @PathVariable(USERNAME_VAR) String username) {
-        LOGGER.info("[MFA] Get secret for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Get secret for user='{}'", InputSanitizer.forLog(username));
+        }
         Optional<String> secret = mfaManagementService.getSecret(username);
         return secret.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -144,7 +153,9 @@ public class MfaManagementController {
     @DeleteMapping(MFA_BASE_PATH + "/revoke")
     public ResponseEntity<Void> revokeEnrollment(
             @PathVariable(USERNAME_VAR) String username) {
-        LOGGER.info("[MFA] Revoke enrollment for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Revoke enrollment for user='{}'", InputSanitizer.forLog(username));
+        }
         mfaManagementService.revokeEnrollment(username);
         return ResponseEntity.noContent().build();
     }
@@ -164,7 +175,9 @@ public class MfaManagementController {
     @PostMapping(MFA_BASE_PATH + "/recovery/send-key")
     public ResponseEntity<Void> sendRecoveryKey(
             @PathVariable(USERNAME_VAR) String username) throws ResourceNotFoundException {
-        LOGGER.info("[MFA] Send recovery key for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Send recovery key for user='{}'", InputSanitizer.forLog(username));
+        }
         mfaManagementService.sendRecoveryKey(username);
         return ResponseEntity.ok().build();
     }
@@ -182,7 +195,9 @@ public class MfaManagementController {
     public ResponseEntity<Boolean> verifyRecoveryKey(
             @PathVariable(USERNAME_VAR) String username,
             @RequestBody @Valid MfaRecoveryKeyRequest request) throws ResourceNotFoundException {
-        LOGGER.info("[MFA] Verify recovery key for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Verify recovery key for user='{}'", InputSanitizer.forLog(username));
+        }
         boolean result = mfaManagementService.verifyRecoveryKeyAndRevoke(username, request.recoveryKey());
         return ResponseEntity.ok(result);
     }
@@ -202,7 +217,9 @@ public class MfaManagementController {
     @PostMapping(MFA_BASE_PATH + "/backup-codes/generate")
     public ResponseEntity<MfaBackupCodesResponse> generateBackupCodes(
             @PathVariable(USERNAME_VAR) String username) throws ResourceNotFoundException {
-        LOGGER.info("[MFA] Generate backup codes for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Generate backup codes for user='{}'", InputSanitizer.forLog(username));
+        }
         return ResponseEntity.ok(mfaManagementService.generateBackupCodes(username));
     }
 
@@ -217,7 +234,9 @@ public class MfaManagementController {
     public ResponseEntity<MfaBackupCodeVerifyResponse> verifyBackupCode(
             @PathVariable(USERNAME_VAR) String username,
             @RequestBody @Valid MfaBackupCodeVerifyRequest request) {
-        LOGGER.info("[MFA] Verify backup code for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Verify backup code for user='{}'", InputSanitizer.forLog(username));
+        }
         return ResponseEntity.ok(mfaManagementService.verifyBackupCode(username, request.backupCode()));
     }
 
@@ -249,7 +268,10 @@ public class MfaManagementController {
     public ResponseEntity<MfaStatusResponse> adminGetMfaStatus(
             @RequestHeader(value = LOGGED_IN_USER_ID) String loggedInUserId,
             @PathVariable(USER_ID_VAR) BigInteger userId) {
-        LOGGER.info("[MFA-ADMIN] Get status for userId='{}' by admin='{}'", userId, loggedInUserId);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA-ADMIN] Get status for userId='{}' by admin='{}'",
+                    userId, InputSanitizer.forLog(loggedInUserId));
+        }
         return ResponseEntity.ok(mfaManagementService.getStatusByUserId(userId));
     }
 
@@ -275,7 +297,10 @@ public class MfaManagementController {
     public ResponseEntity<Void> adminRevokeEnrollment(
             @RequestHeader(value = LOGGED_IN_USER_ID) String loggedInUserId,
             @PathVariable(USER_ID_VAR) BigInteger userId) {
-        LOGGER.info("[MFA-ADMIN] Revoke enrollment for userId='{}' by admin='{}'", userId, loggedInUserId);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA-ADMIN] Revoke enrollment for userId='{}' by admin='{}'",
+                    userId, InputSanitizer.forLog(loggedInUserId));
+        }
         mfaManagementService.revokeEnrollmentByUserId(userId);
         return ResponseEntity.noContent().build();
     }
