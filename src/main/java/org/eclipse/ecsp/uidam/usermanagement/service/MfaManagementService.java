@@ -15,6 +15,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaBackupCodeVerif
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaBackupCodesResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaEnrollInitiateResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.MfaStatusResponse;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.InputSanitizer;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.MfaSecretEncryptionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,7 +139,9 @@ public class MfaManagementService {
         entity.setRecoveryKeyExpiry(null);
         mfaSecretRepository.save(entity);
 
-        LOGGER.info("[MFA] Enrollment initiated for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Enrollment initiated for user='{}'", InputSanitizer.forLog(username));
+        }
 
         String qrUri = buildOtpAuthUri(username, secret);
         String manualKey = formatManualKey(secret);
@@ -161,7 +164,9 @@ public class MfaManagementService {
                 .orElseThrow(() -> new ResourceNotFoundException("mfa", USERNAME_FIELD, normalizedUsername));
         entity.setStatus(MfaStatus.ACTIVE);
         mfaSecretRepository.save(entity);
-        LOGGER.info("[MFA] Enrollment activated for user='{}'", normalizedUsername);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Enrollment activated for user='{}'", InputSanitizer.forLog(normalizedUsername));
+        }
     }
 
     /**
@@ -249,7 +254,9 @@ public class MfaManagementService {
     public void revokeEnrollment(String username) {
         username = normalizeUsername(username);
         mfaSecretRepository.revokeAllActiveForUser(username);
-        LOGGER.info("[MFA] Enrollment revoked for user='{}'", username);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Enrollment revoked for user='{}'", InputSanitizer.forLog(username));
+        }
     }
 
     /**
@@ -294,7 +301,9 @@ public class MfaManagementService {
         notificationData.put("recoveryCode", plainKey);
 
         emailNotificationService.sendNotification(userDetails, MFA_RECOVERY_NOTIFICATION_ID, notificationData);
-        LOGGER.info("[MFA] Recovery key sent to email for user='{}'", normalizedUsername);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Recovery key sent to email for user='{}'", InputSanitizer.forLog(normalizedUsername));
+        }
     }
 
     /**
@@ -334,7 +343,10 @@ public class MfaManagementService {
 
         // Valid key – revoke enrollment
         mfaSecretRepository.revokeAllActiveForUser(normalizedUsername);
-        LOGGER.info("[MFA] Recovery key verified – enrollment revoked for user='{}'", normalizedUsername);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Recovery key verified – enrollment revoked for user='{}'",
+                    InputSanitizer.forLog(normalizedUsername));
+        }
         return true;
     }
 
@@ -413,7 +425,10 @@ public class MfaManagementService {
             mfaBackupCodeRepository.save(entity);
         }
 
-        LOGGER.info("[MFA] Generated {} backup codes for user='{}'", count, normalizedUsername);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Generated {} backup codes for user='{}'",
+                    count, InputSanitizer.forLog(normalizedUsername));
+        }
         return new MfaBackupCodesResponse(plainCodes, count);
     }
 
@@ -447,7 +462,10 @@ public class MfaManagementService {
         }
 
         if (matched == null) {
-            LOGGER.warn("[MFA] Backup-code verification failed for user='{}'", normalizedUsername);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("[MFA] Backup-code verification failed for user='{}'",
+                        InputSanitizer.forLog(normalizedUsername));
+            }
             long remaining = mfaBackupCodeRepository.countByUsernameAndUsedFalse(normalizedUsername);
             return new MfaBackupCodeVerifyResponse(false, (int) remaining,
                     remaining <= LOW_BACKUP_CODES_THRESHOLD);
@@ -460,14 +478,20 @@ public class MfaManagementService {
         
         if (affectedRows == 0) {
             // Another transaction already consumed this code before us.
-            LOGGER.warn("[MFA] Backup-code already consumed (race condition) for user='{}'", normalizedUsername);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("[MFA] Backup-code already consumed by another transaction for user='{}'",
+                        InputSanitizer.forLog(normalizedUsername));
+            }
             long remaining = mfaBackupCodeRepository.countByUsernameAndUsedFalse(normalizedUsername);
             return new MfaBackupCodeVerifyResponse(false, (int) remaining,
                     remaining <= LOW_BACKUP_CODES_THRESHOLD);
         }
 
         long remaining = mfaBackupCodeRepository.countByUsernameAndUsedFalse(normalizedUsername);
-        LOGGER.info("[MFA] Backup-code verified for user='{}', remaining={}", normalizedUsername, remaining);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Backup-code verified for user='{}', remaining={}",
+                    InputSanitizer.forLog(normalizedUsername), remaining);
+        }
         return new MfaBackupCodeVerifyResponse(true, (int) remaining, remaining <= LOW_BACKUP_CODES_THRESHOLD);
     }
 
