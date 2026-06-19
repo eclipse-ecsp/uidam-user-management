@@ -325,19 +325,21 @@ public class MfaManagementService {
         UserMfaSecretEntity entity = mfaSecretRepository
                 .findTopByUsernameAndStatusOrderByCreatedDateDesc(normalizedUsername, MfaStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("mfa enrollment", USERNAME_FIELD, normalizedUsername));
-
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("[MFA] Verifying recovery key for user='{}'", InputSanitizer.forLog(normalizedUsername));
+        }
         if (entity.getRecoveryKey() == null || entity.getRecoveryKeyExpiry() == null) {
-            LOGGER.warn("[MFA] Recovery key verification failed – no key issued for user='{}'", normalizedUsername);
+            LOGGER.warn("[MFA] Recovery key verification failed");
             return false;
         }
 
         if (Instant.now().isAfter(entity.getRecoveryKeyExpiry().toInstant())) {
-            LOGGER.warn("[MFA] Recovery key expired for user='{}'", normalizedUsername);
+            LOGGER.warn("[MFA] Recovery key expired");
             return false;
         }
 
         if (!recoveryKeyEncoder.matches(candidate, entity.getRecoveryKey())) {
-            LOGGER.warn("[MFA] Recovery key mismatch for user='{}'", normalizedUsername);
+            LOGGER.warn("[MFA] Recovery key mismatch");
             return false;
         }
 
