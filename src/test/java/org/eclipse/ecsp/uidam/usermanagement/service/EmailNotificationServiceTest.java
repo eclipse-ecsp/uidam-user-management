@@ -59,7 +59,7 @@ class EmailNotificationServiceTest {
         Mockito.when(tenantProperties.getNotification()).thenReturn(notificationProperties);
         Mockito.when(notificationProperties.getNotificationId()).thenReturn("testUserVerify");
         Mockito.when(notificationProperties.getNotificationApiUrl())
-            .thenReturn("https://api-gateway.eks-spring-auth.ic.aws.harmandev.com/v1/notifications/nonRegisteredUsers");
+            .thenReturn("https://api-gateway3/v1/notifications/nonRegisteredUsers");
     }
 
     @Test
