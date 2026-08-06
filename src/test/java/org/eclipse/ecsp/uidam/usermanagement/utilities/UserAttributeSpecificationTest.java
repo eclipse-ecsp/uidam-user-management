@@ -55,7 +55,7 @@ class UserAttributeSpecificationTest {
     void toPredicateSearchTypeSuffixAndIgnoreCaseTrue() {
         Object key = 1;
         SearchType searchType = SearchType.SUFFIX;
-        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, true);
+        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("uidam"), searchType, true);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
@@ -70,7 +70,7 @@ class UserAttributeSpecificationTest {
     void toPredicateSearchTypePrefixAndIgnoreCaseTrue() {
         Object key = 1;
         SearchType searchType = SearchType.PREFIX;
-        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, true);
+        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("uidam"), searchType, true);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
@@ -85,7 +85,7 @@ class UserAttributeSpecificationTest {
     void toPredicateSearchTypeContainsAndIgnoreCaseTrue() {
         Object key = 1;
         SearchType searchType = SearchType.CONTAINS;
-        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, true);
+        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("uidam"), searchType, true);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
@@ -100,7 +100,7 @@ class UserAttributeSpecificationTest {
     void toPredicateSearchTypeContainsAndIgnoreCaseFalse() {
         Object key = 1;
         SearchType searchType = SearchType.CONTAINS;
-        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, false);
+        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("uidam"), searchType, false);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
@@ -114,7 +114,7 @@ class UserAttributeSpecificationTest {
     @Test
     void toPredicateSearchTypeNullAndIgnoreCaseFalse() {
         Object key = 1;
-        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), null, false);
+        SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("uidam"), null, false);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);

@@ -3076,7 +3076,7 @@ class UsersServiceTest {
                         commonRolesEntities.get(INDEX_1).getId(), new BigInteger(TWO)));
 
         UserEntity loggedInuserEntity = RoleAssociationUtilities.createUser(
-                "Ignite_User", "Ignite_Password", "ignite_admin@harman.com");
+                "Ignite_User", "Ignite_Password", "uidam_admin@uidam.com");
         loggedInuserEntity.setId(LOGGED_IN_USER_ID_VALUE);
         loggedInuserEntity.setUserAddresses(new ArrayList<>());
         loggedInuserEntity.setAccountRoleMapping(userRoleMappingEntityList);
@@ -3089,7 +3089,7 @@ class UsersServiceTest {
 
         when(userAttributeValueRepository.findAllByUserIdIn(any(List.class))).thenReturn(new ArrayList<>());
 
-        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "ignite@harman.com");
+        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "uidam@uidam.com");
         user.setId(USER_ID_VALUE);
         user.setAccountRoleMapping(userRoleMappingEntityList);
 
@@ -3143,7 +3143,7 @@ class UsersServiceTest {
                 accountEntities.get(INDEX_1).getId(), commonRolesEntities.get(INDEX_1).getId(), new BigInteger(TWO)));
 
         UserEntity loggedInuserEntity = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password",
-                "ignite_admin@harman.com");
+                "uidam_admin@uidam.com");
         loggedInuserEntity.setId(LOGGED_IN_USER_ID_VALUE);
         loggedInuserEntity.setUserAddresses(new ArrayList<>());
         loggedInuserEntity.setAccountRoleMapping(userRoleMappingEntityList);
@@ -3155,7 +3155,7 @@ class UsersServiceTest {
 
         when(userAttributeValueRepository.findAllByUserIdIn(any(List.class))).thenReturn(new ArrayList<>());
 
-        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "ignite@harman.com");
+        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "uidam@uidam.com");
         user.setId(USER_ID_VALUE);
         user.setUserAddresses(new ArrayList<>());
         user.setAccountRoleMapping(userRoleMappingEntityList);

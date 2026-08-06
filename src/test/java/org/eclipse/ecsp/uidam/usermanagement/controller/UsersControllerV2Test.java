@@ -745,7 +745,7 @@ class UsersControllerV2Test {
                         commonRolesEntities.get(INDEX_1).getId(), new BigInteger("2")));
 
         UserEntity loggedInuser = RoleAssociationUtilities.createUser(
-                "Ignite_User", "Ignite_Password", "ignite_admin@harman.com");
+                "Ignite_User", "Ignite_Password", "uidam_admin@uidam.com");
         loggedInuser.setId(LOGGED_IN_USER_ID_VALUE);
         loggedInuser.setUserAddresses(new ArrayList<>());
         loggedInuser.setAccountRoleMapping(userRoleMappingEntityList);
@@ -757,7 +757,7 @@ class UsersControllerV2Test {
 
         when(userAttributeValueRepository.findAllByUserIdIn(any(List.class))).thenReturn(new ArrayList<>());
 
-        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "ignite@harman.com");
+        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "uidam@uidam.com");
         user.setId(USER_ID_VALUE);
         user.setUserAddresses(new ArrayList<>());
         user.setAccountRoleMapping(userRoleMappingEntityList);
