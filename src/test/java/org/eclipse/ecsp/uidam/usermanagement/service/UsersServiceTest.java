@@ -50,11 +50,17 @@ import org.eclipse.ecsp.uidam.usermanagement.entity.UserAttributeEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAttributeValueEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEntity;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserEvents;
+import org.eclipse.ecsp.uidam.usermanagement.entity.UserRecoverySecret;
+import org.eclipse.ecsp.uidam.usermanagement.enums.ClientRegistrationResponseCode;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
+import org.eclipse.ecsp.uidam.usermanagement.enums.UserEventStatus;
+import org.eclipse.ecsp.uidam.usermanagement.enums.UserRecoverySecretStatus;
 import org.eclipse.ecsp.uidam.usermanagement.enums.UserStatus;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException;
+import org.eclipse.ecsp.uidam.usermanagement.exception.ClientRegistrationException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.InActiveUserException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.PasswordValidationException;
+import org.eclipse.ecsp.uidam.usermanagement.exception.RecordAlreadyExistsException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.ResourceNotFoundException;
 import org.eclipse.ecsp.uidam.usermanagement.exception.UserAccountRoleMappingException;
 import org.eclipse.ecsp.uidam.usermanagement.mapper.UserMapper;
@@ -73,6 +79,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserChangeStatusRe
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserDtoV1;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserMetaDataRequest;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserRequest;
+import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UserUpdatePasswordDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersDeleteFilter;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterBase;
 import org.eclipse.ecsp.uidam.usermanagement.user.request.dto.UsersGetFilterV1;
@@ -104,6 +111,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.MalformedURLException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -112,6 +120,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -177,6 +186,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.utilities.Utilities.asJsonSt
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -190,6 +200,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -279,6 +290,8 @@ class UsersServiceTest {
     private static final String API_VERSION_1 = "v1";
     private static final int LIMIT_3 = 3;
     private static final String API_VERSION_2 = "v2";
+    private static final int NON_CASTABLE_CORRELATION_ID = 12345;
+    private static final long RECOVERY_SECRET_EXPIRES_IN_MINUTES = 30L;
 
     @BeforeEach
     @AfterEach
@@ -1711,6 +1724,15 @@ class UsersServiceTest {
     }
 
     @Test
+    void getSignupAttributesNullFilterReturnsEmpty() {
+        // Caller isn't asking for any user_attributes rows — no query should even be made.
+        List<UserMetaDataResponse> result = usersService.getSignupAttributes(null);
+
+        assertEquals(0, result.size());
+        verifyNoInteractions(userAttributeRepository);
+    }
+
+    @Test
     void putUserAttributeModifySuccess() {
         List<UserAttributeEntity> userAttributeEntities = createUserAttributeMetaData();
         when(userAttributeRepository.findAll()).thenReturn(userAttributeEntities);
@@ -1726,7 +1748,7 @@ class UsersServiceTest {
     @Test
     void putUserAttributeAddSuccess() {
         UserMetaDataRequest userMetaDataRequest = new UserMetaDataRequest("new_attribute", true,
-            false, false, true, true, "varchar", ".*");
+            false, false, true, true, "varchar", ".*", null);
         List<UserAttributeEntity> userAttributeEntities =
             List.of(UserMapper.USER_MAPPER.mapToMetaDataEntity(userMetaDataRequest));
         when(userAttributeRepository.findAll()).thenReturn(createUserAttributeMetaData());
@@ -1738,32 +1760,43 @@ class UsersServiceTest {
         assertEquals(false, metaDataResponses.get(INDEX_0).getReadOnly());
     }
 
+    @Test
+    void putUserAttributeAddReservedMandatoryFieldNameFailure() {
+        // "phoneNumber" collides with the mandatory UserEntity field of the same name.
+        UserMetaDataRequest userMetaDataRequest = new UserMetaDataRequest("phoneNumber", true,
+            false, false, true, true, "varchar", ".*", null);
+        when(userAttributeRepository.findAll()).thenReturn(createUserAttributeMetaData());
+
+        assertThrows(ApplicationRuntimeException.class,
+            () -> usersService.putUserMetaData(List.of(userMetaDataRequest)));
+    }
+
     List<UserAttributeEntity> createUserAttributeMetaData() {
         UserAttributeEntity mandatoryEntityMetaData =
             new UserAttributeEntity(ATTR_ID_VALUE_1, "mandatoryAttribute", true, false,
                 false, true, true, "varchar", ".*",
-                "system", null, "system", null);
+                null, "system", null, "system", null);
         UserAttributeEntity uniqueEntityMetaData =
             new UserAttributeEntity(ATTR_ID_VALUE_2, "uniqueAttribute", false, true,
                 false, true, true, "varchar", ".*",
-                "system", null, "system", null);
+                null, "system", null, "system", null);
         UserAttributeEntity readOnlyEntityMetaData =
             new UserAttributeEntity(ATTR_ID_VALUE, "readOnlyAttribute", false, false,
                 true, true, true, "varchar", ".*",
-                "system", null, "system", null);
+                null, "system", null, "system", null);
         return List.of(mandatoryEntityMetaData, uniqueEntityMetaData, readOnlyEntityMetaData);
     }
 
     List<UserMetaDataRequest> createUserRequestMetaData() {
         UserMetaDataRequest mandatoryMetaData =
             new UserMetaDataRequest("mandatoryAttribute", true, false, false,
-                true, true, "varchar", ".*");
+                true, true, "varchar", ".*", null);
         UserMetaDataRequest uniqueMetaData =
             new UserMetaDataRequest("uniqueAttribute", false, true, false,
-                true, true, "varchar", ".*");
+                true, true, "varchar", ".*", null);
         UserMetaDataRequest readOnlyMetaData =
             new UserMetaDataRequest("readOnlyAttribute", false, false, true,
-                true, true, "varchar", ".*");
+                true, true, "varchar", ".*", null);
         return List.of(mandatoryMetaData, uniqueMetaData, readOnlyMetaData);
     }
 
@@ -3076,7 +3109,7 @@ class UsersServiceTest {
                         commonRolesEntities.get(INDEX_1).getId(), new BigInteger(TWO)));
 
         UserEntity loggedInuserEntity = RoleAssociationUtilities.createUser(
-                "Ignite_User", "Ignite_Password", "uidam_admin@uidam.com");
+                "Ignite_User", "Ignite_Password", "ignite_admin@harman.com");
         loggedInuserEntity.setId(LOGGED_IN_USER_ID_VALUE);
         loggedInuserEntity.setUserAddresses(new ArrayList<>());
         loggedInuserEntity.setAccountRoleMapping(userRoleMappingEntityList);
@@ -3089,7 +3122,7 @@ class UsersServiceTest {
 
         when(userAttributeValueRepository.findAllByUserIdIn(any(List.class))).thenReturn(new ArrayList<>());
 
-        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "uidam@uidam.com");
+        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "ignite@harman.com");
         user.setId(USER_ID_VALUE);
         user.setAccountRoleMapping(userRoleMappingEntityList);
 
@@ -3143,7 +3176,7 @@ class UsersServiceTest {
                 accountEntities.get(INDEX_1).getId(), commonRolesEntities.get(INDEX_1).getId(), new BigInteger(TWO)));
 
         UserEntity loggedInuserEntity = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password",
-                "uidam_admin@uidam.com");
+                "ignite_admin@harman.com");
         loggedInuserEntity.setId(LOGGED_IN_USER_ID_VALUE);
         loggedInuserEntity.setUserAddresses(new ArrayList<>());
         loggedInuserEntity.setAccountRoleMapping(userRoleMappingEntityList);
@@ -3155,7 +3188,7 @@ class UsersServiceTest {
 
         when(userAttributeValueRepository.findAllByUserIdIn(any(List.class))).thenReturn(new ArrayList<>());
 
-        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "uidam@uidam.com");
+        UserEntity user = RoleAssociationUtilities.createUser("Ignite_User", "Ignite_Password", "ignite@harman.com");
         user.setId(USER_ID_VALUE);
         user.setUserAddresses(new ArrayList<>());
         user.setAccountRoleMapping(userRoleMappingEntityList);
@@ -3344,5 +3377,389 @@ class UsersServiceTest {
         Set<String> scopes = Set.of("scope1", "scope2");
         boolean result = usersServiceSpy.hasUserPermissionForScope(loggedInUserId, scopes);
         assertFalse(result);
+    }
+
+    // ==================== Additional coverage tests ====================
+
+    @Test
+    void testAddUserAlreadyExistsPreCheckThrowsRecordAlreadyExists() throws NoSuchAlgorithmException,
+        ResourceNotFoundException {
+        final UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
+        RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+            .thenReturn(new ValidationResult(true, null));
+        AccountEntity account = new AccountEntity();
+        account.setId(ACCOUNT_ID_VALUE);
+        account.setAccountName("TestAccount");
+        when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(account));
+        UserEntity existingUser = createUserEntity(UserStatus.ACTIVE);
+        when(userRepository.findByUserNameIgnoreCaseAndStatusNot(any(String.class), any(UserStatus.class)))
+            .thenReturn(existingUser);
+
+        assertThrows(RecordAlreadyExistsException.class, () -> usersService.addUser(userPost, USER_ID_VALUE, false));
+    }
+
+    @Test
+    void testAddUserSelfAddSkipsMandatoryCheckButLoadsAttributeMetadata() throws NoSuchAlgorithmException,
+        ResourceNotFoundException {
+        UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
+        userPost.setAdditionalAttributes("extraInfo", "someValue");
+        UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(userPost);
+        userEntity.setId(USER_ID_VALUE);
+        List<UserAccountRoleMappingEntity> l = new ArrayList<>();
+        l.add(createUserAccountRoleMappingEntity(ROLE_ID_2));
+        userEntity.setAccountRoleMapping(l);
+
+        RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+        when(rolesService.getRoleById(anySet())).thenReturn(roleListDto);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+            .thenReturn(new ValidationResult(true, null));
+        AccountEntity account = new AccountEntity();
+        account.setId(ACCOUNT_ID_VALUE);
+        account.setAccountName("TestAccount");
+        when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(account));
+        when(tenantProperties.getAdditionalAttrCheckEnabledForSignUp()).thenReturn(false);
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("userdefaultaccount");
+        when(userAttributeRepository.findAll()).thenReturn(createUserAttributeMetaData());
+        when(userAttributeValueRepository.findAll(any(Specification.class))).thenReturn(Collections.EMPTY_LIST);
+        when(userAttributeValueRepository.saveAll(anyList())).thenReturn(Collections.emptyList());
+        when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
+
+        usersService.addUser(userPost, USER_ID_VALUE, true);
+
+        verify(userAttributeRepository, times(1)).findAll();
+    }
+
+    @Test
+    void testValidateAccountAndRolesEntityNotFoundThrowsApplicationRuntimeException() {
+        UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean()))
+            .thenThrow(new jakarta.persistence.EntityNotFoundException("roles not found"));
+
+        ApplicationRuntimeException exception = assertThrows(ApplicationRuntimeException.class,
+            () -> ((UsersServiceImpl) usersService).validateAccountAndRoles(userPost));
+        assertEquals(USER_ROLES_NOT_FOUND, exception.getKey());
+    }
+
+    @Test
+    void testAddUserAppliesSignupDefaultAccountOverride() throws NoSuchAlgorithmException, ResourceNotFoundException {
+        UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
+        userPost.setAdditionalAttributes("signupDefaultAccount", "ClientSpecificAccount");
+        UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(userPost);
+        List<UserAccountRoleMappingEntity> l = new ArrayList<>();
+        l.add(createUserAccountRoleMappingEntity(ROLE_ID_2));
+        userEntity.setAccountRoleMapping(l);
+
+        RoleListRepresentation roleListDto = createRoleListDtoRepresentation();
+        when(rolesService.filterRoles(anySet(), anyInt(), anyInt(), anyBoolean())).thenReturn(roleListDto);
+        when(rolesService.getRoleById(anySet())).thenReturn(roleListDto);
+        when(passwordValidationService.validatePassword(anyString(), anyString()))
+            .thenReturn(new ValidationResult(true, null));
+        when(tenantProperties.getPasswordEncoder()).thenReturn(passwordEncoder);
+        AccountEntity account = new AccountEntity();
+        account.setId(ACCOUNT_ID_VALUE);
+        account.setAccountName("ClientSpecificAccount");
+        when(accountRepository.findByAccountName(any(String.class))).thenReturn(Optional.of(account));
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
+
+        usersService.addUser(userPost, USER_ID_VALUE, false);
+
+        verify(accountRepository, times(1)).findByAccountName("ClientSpecificAccount");
+    }
+
+    @Test
+    void testPersistAdditionalAttributesWithNoAttributesReturnsEmptyMap() {
+        UserDtoV1 userPost = createUserPost(UserStatus.ACTIVE);
+        UserEntity savedUser = createUserEntity(UserStatus.ACTIVE);
+        savedUser.setId(USER_ID_VALUE);
+        when(userAttributeValueRepository.saveAll(anyList())).thenReturn(Collections.emptyList());
+
+        Map<BigInteger, Map<String, Object>> result = ((UsersServiceImpl) usersService)
+            .persistAdditionalAttributes(userPost, savedUser, Collections.emptyList());
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testIsValidAdditionalAttributesSkipsValidationForEmptyOptionalAttribute() {
+        UserAttributeEntity optionalAttr = new UserAttributeEntity(ATTR_ID_VALUE, "optionalAttribute", false, false,
+            false, true, true, "varchar", ".*", null, "system", null, "system", null);
+        Map<String, Object> additionalAttributes = new HashMap<>();
+        additionalAttributes.put("optionalAttribute", "");
+
+        boolean result = ((UsersServiceImpl) usersService)
+            .isValidAdditionalAttributes(additionalAttributes, List.of(optionalAttr), true);
+
+        assertTrue(result);
+    }
+
+    @Test
+    void testIsValidAdditionalAttributesTreatsEmptyMandatoryStringAsSafe() {
+        UserAttributeEntity mandatoryAttr = new UserAttributeEntity(ATTR_ID_VALUE, "mandatoryAttribute", true, false,
+            false, true, true, "varchar", ".*", null, "system", null, "system", null);
+        Map<String, Object> additionalAttributes = new HashMap<>();
+        additionalAttributes.put("mandatoryAttribute", "");
+
+        boolean result = ((UsersServiceImpl) usersService)
+            .isValidAdditionalAttributes(additionalAttributes, List.of(mandatoryAttr), true);
+
+        assertTrue(result);
+    }
+
+    @Test
+    void testParseAttributeValueToCorrectDataTypeHandlesBitType() {
+        UserAttributeEntity bitAttribute = new UserAttributeEntity(ATTR_ID_VALUE, "flagAttribute", false, false,
+            false, true, true, "bit", ".*", null, "system", null, "system", null);
+
+        Object result = ((UsersServiceImpl) usersService).parseAttributeValueToCorrectDataType(bitAttribute, "1");
+
+        assertEquals(1, result);
+    }
+
+    @Test
+    void testIsValidAdditionalAttributesRejectsDangerousContent() {
+        UserAttributeEntity attribute = new UserAttributeEntity(ATTR_ID_VALUE, "commentAttribute", false, false,
+            false, true, true, "varchar", ".*", null, "system", null, "system", null);
+        Map<String, Object> additionalAttributes = new HashMap<>();
+        additionalAttributes.put("commentAttribute", "<script>alert(1)</script>");
+
+        ApplicationRuntimeException exception = assertThrows(ApplicationRuntimeException.class,
+            () -> ((UsersServiceImpl) usersService)
+                .isValidAdditionalAttributes(additionalAttributes, List.of(attribute), true));
+        assertEquals(FIELD_DATA_IS_INVALID, exception.getKey());
+    }
+
+    @Test
+    void testIsValidAdditionalAttributesAcceptsNonStringBitValue() {
+        UserAttributeEntity bitAttribute = new UserAttributeEntity(ATTR_ID_VALUE, "flagAttribute", false, false,
+            false, true, true, "bit", ".*", null, "system", null, "system", null);
+        Map<String, Object> additionalAttributes = new HashMap<>();
+        additionalAttributes.put("flagAttribute", Boolean.TRUE);
+
+        boolean result = ((UsersServiceImpl) usersService)
+            .isValidAdditionalAttributes(additionalAttributes, List.of(bitAttribute), true);
+
+        assertTrue(result);
+    }
+
+    @Test
+    void testIsValidAdditionalAttributesRejectsNonCastableValue() {
+        UserAttributeEntity uuidAttribute = new UserAttributeEntity(ATTR_ID_VALUE, "correlationId", false, false,
+            false, true, true, "uuid", ".*", null, "system", null, "system", null);
+        Map<String, Object> additionalAttributes = new HashMap<>();
+        additionalAttributes.put("correlationId", NON_CASTABLE_CORRELATION_ID);
+
+        ApplicationRuntimeException exception = assertThrows(ApplicationRuntimeException.class,
+            () -> ((UsersServiceImpl) usersService)
+                .isValidAdditionalAttributes(additionalAttributes, List.of(uuidAttribute), true));
+        assertEquals(FIELD_DATA_IS_INVALID, exception.getKey());
+    }
+
+    @Test
+    void testGetUserByUserNameSetsAccountIdMfaRequiredAndMergesCustomAttributes()
+        throws ResourceNotFoundException, InActiveUserException {
+        UserEntity userEntity = createUserEntity(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.findByUserNameIgnoreCaseAndStatusNot(any(String.class), any(UserStatus.class)))
+            .thenReturn(userEntity);
+        when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(tenantProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
+        when(userEventRepository.findUserEventsByUserIdAndEventType(any(BigInteger.class), any(String.class),
+            any(Integer.class))).thenReturn(Collections.emptyList());
+        when(tenantProperties.getCaptchaEnforceAfterNoOfFailures())
+            .thenReturn(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES_VALUE);
+
+        when(tenantProperties.getUserDefaultAccountName()).thenReturn("TenantDefaultAcct");
+        AccountEntity account = new AccountEntity();
+        account.setId(ACCOUNT_ID_VALUE);
+        account.setAccountName("TenantDefaultAcct");
+        when(accountRepository.findByAccountName("TenantDefaultAcct")).thenReturn(Optional.of(account));
+
+        UserAttributeEntity flagAttribute = Mockito.mock(UserAttributeEntity.class);
+        when(flagAttribute.getId()).thenReturn(ATTR_ID_VALUE_2);
+        when(userAttributeRepository.findByName(anyString())).thenReturn(flagAttribute);
+        UserAttributeValueEntity flagValue = Mockito.mock(UserAttributeValueEntity.class);
+        when(flagValue.getValue()).thenReturn("true");
+        when(userAttributeValueRepository.findByUserIdAndAttributeId(any(BigInteger.class), any(BigInteger.class)))
+            .thenReturn(flagValue);
+
+        when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
+            .thenReturn(createUserAttributeValueData());
+        when(userAttributeRepository.findAllById(anyList())).thenReturn(createUserAttributeMetaData());
+
+        UserDetailsResponse result = usersService.getUserByUserName(USER_NAME_VALUE);
+
+        assertEquals(String.valueOf(ACCOUNT_ID_VALUE), result.getAccountId());
+        assertEquals(Boolean.TRUE, result.getMfaRequired());
+        assertEquals("hello", result.getAdditionalAttributes().get("mandatoryAttribute"));
+    }
+
+    @Test
+    void testGetUserByUserNameResetsFailedAttemptsWhenLockThresholdReached()
+        throws ResourceNotFoundException, InActiveUserException {
+        UserEntity userEntity = createUserEntity(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.findByUserNameIgnoreCaseAndStatusNot(any(String.class), any(UserStatus.class)))
+            .thenReturn(userEntity);
+        when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(tenantProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
+        when(tenantProperties.getCaptchaEnforceAfterNoOfFailures())
+            .thenReturn(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES_VALUE);
+
+        List<UserEvents> events = new ArrayList<>();
+        for (int i = 0; i < LIMIT_3; i++) {
+            UserEvents failureEvent = new UserEvents();
+            failureEvent.setEventGeneratedAt(Instant.now());
+            failureEvent.setEventStatus(UserEventStatus.FAILURE.getValue());
+            failureEvent.setEventType("Login_Attempt");
+            events.add(failureEvent);
+        }
+        when(userEventRepository.findUserEventsByUserIdAndEventType(any(BigInteger.class), any(String.class),
+            any(Integer.class))).thenReturn(events);
+
+        UserDetailsResponse result = usersService.getUserByUserName(USER_NAME_VALUE);
+
+        assertEquals(0, result.getFailureLoginAttempts());
+    }
+
+    @Test
+    void testGetUserByUserNameSetsLastSuccessfulLoginTimeOnSuccessEvent()
+        throws ResourceNotFoundException, InActiveUserException {
+        UserEntity userEntity = createUserEntity(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.findByUserNameIgnoreCaseAndStatusNot(any(String.class), any(UserStatus.class)))
+            .thenReturn(userEntity);
+        when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(tenantProperties.getMaxAllowedLoginAttempts()).thenReturn("3");
+        when(tenantProperties.getCaptchaEnforceAfterNoOfFailures())
+            .thenReturn(CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES_VALUE);
+
+        UserEvents successEvent = new UserEvents();
+        successEvent.setEventGeneratedAt(Instant.now());
+        successEvent.setEventStatus(UserEventStatus.SUCCESS.getValue());
+        successEvent.setEventType("Login_Attempt");
+        when(userEventRepository.findUserEventsByUserIdAndEventType(any(BigInteger.class), any(String.class),
+            any(Integer.class))).thenReturn(List.of(successEvent));
+
+        UserDetailsResponse result = usersService.getUserByUserName(USER_NAME_VALUE);
+
+        assertNotNull(result.getLastSuccessfulLoginTime());
+        assertEquals(0, result.getFailureLoginAttempts());
+    }
+
+    @Test
+    void testGetUserThrowsWhenAttributeMetadataMissing() {
+        UserEntity userEntity = createUserEntity(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.findByIdAndStatusNot(USER_ID_VALUE, UserStatus.DELETED)).thenReturn(userEntity);
+        when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
+            .thenReturn(createUserAttributeValueData());
+        when(userAttributeRepository.findAllById(anyList())).thenReturn(Collections.emptyList());
+
+        assertThrows(ApplicationRuntimeException.class, () -> usersService.getUser(USER_ID_VALUE, API_VERSION_1));
+    }
+
+    @Test
+    void testGetPasswordPolicyReturnsResponseFromRepository() {
+        when(passwordPolicyRepository.findAll()).thenReturn(Collections.emptyList());
+
+        assertNotNull(usersService.getPasswordPolicy());
+        verify(passwordPolicyRepository, times(1)).findAll();
+    }
+
+    @Test
+    void testSendUserRecoveryNotificationBuildsFullNameFromFirstAndLastName()
+        throws ResourceNotFoundException, MalformedURLException, java.io.UnsupportedEncodingException {
+        UserEntity userEntity = createUserEntity(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.findByUserNameIgnoreCaseAndStatusNot(any(String.class), any(UserStatus.class)))
+            .thenReturn(userEntity);
+        when(tenantProperties.getAuthServerResetResponseUrl()).thenReturn("http://localhost:9443/recovery?");
+        when(tenantProperties.getPasswordRecoveryNotificationId()).thenReturn("notif-id");
+
+        usersService.sendUserRecoveryNotification(USER_NAME_VALUE, false);
+
+        verify(userRecoverySecretRepository, times(1)).save(any());
+        verify(emailNotificationService, times(1)).sendNotification(any(), eq("notif-id"), any());
+    }
+
+    @Test
+    void testUpdateUserPasswordUsingRecoverySecretThrowsForInvalidPassword() {
+        UserUpdatePasswordDto dto = new UserUpdatePasswordDto();
+        dto.setSecret("secret-123");
+        dto.setPassword("weak");
+
+        UserRecoverySecret recoverySecret = new UserRecoverySecret();
+        recoverySecret.setUserId(USER_ID_VALUE);
+        recoverySecret.setRecoverySecret("secret-123");
+        recoverySecret.setRecoverySecretStatus(UserRecoverySecretStatus.GENERATED.name());
+        recoverySecret.setSecretGeneratedAt(Instant.now());
+        when(userRecoverySecretRepository.findUserRecoverySecretDetailsByRecoverySecret("secret-123"))
+            .thenReturn(recoverySecret);
+        when(tenantProperties.getRecoverySecretExpiresInMinutes()).thenReturn(RECOVERY_SECRET_EXPIRES_IN_MINUTES);
+
+        UserEntity userEntity = createUserEntity(UserStatus.ACTIVE);
+        userEntity.setId(USER_ID_VALUE);
+        when(userRepository.findByIdAndStatusNot(USER_ID_VALUE, UserStatus.DELETED)).thenReturn(userEntity);
+        when(passwordValidationService.validatePassword(anyString(), anyString(), any(Timestamp.class)))
+            .thenReturn(new ValidationResult(false, "Password too weak"));
+
+        assertThrows(PasswordValidationException.class,
+            () -> usersService.updateUserPasswordUsingRecoverySecret(dto));
+    }
+
+    @Test
+    void testIsClientAllowedToManageUsersReturnsFalseWhenClientRegistrationFails() throws Exception {
+        when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
+            .thenThrow(new ClientRegistrationException(ClientRegistrationResponseCode.SP_CLIENT_DOES_NOT_EXIST));
+
+        boolean result = ((UsersServiceImpl) usersService).isClientAllowedToManageUsers("unknown-client");
+
+        assertFalse(result);
+    }
+
+    @Test
+    void testIsClientAllowedToManageUsersReturnsFalseWhenScopeMissing() throws Exception {
+        RegisteredClientDetails clientDetails = isClientAllowToManageUsersResponse();
+        clientDetails.setScopes(Set.of("SomeOtherScope"));
+        when(clientRegistrationService.getRegisteredClient(anyString(), anyString()))
+            .thenReturn(Optional.of(clientDetails));
+
+        boolean result = ((UsersServiceImpl) usersService).isClientAllowedToManageUsers("client1");
+
+        assertFalse(result);
+    }
+
+    @Test
+    void testValidateRoleExistsReturnsFalseForNullRoleListRepresentation() {
+        boolean result = ((UsersServiceImpl) usersService).validateRoleExists(null, Set.of(ROLE_VALUE));
+        assertFalse(result);
+    }
+
+    @Test
+    void testChangeUserStatusPopulatesAdditionalAttributes() {
+        UserEntity userEntity = createUserEntity(UserStatus.PENDING);
+        userEntity.setId(USER_ID_VALUE);
+        UserChangeStatusRequest userChangeStatusRequest = new UserChangeStatusRequest();
+        userChangeStatusRequest.setApproved(true);
+        userChangeStatusRequest.setIds(Set.of(USER_ID_VALUE));
+
+        when(userRepository.findAllByIdInAndStatusNot(anySet(), any(UserStatus.class)))
+            .thenReturn(List.of(userEntity));
+        when(rolesService.getRoleById(anySet())).thenReturn(createRoleListDtoRepresentation());
+        when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
+        when(userAttributeValueRepository.findAllByUserIdIn(List.of(USER_ID_VALUE)))
+            .thenReturn(createUserAttributeValueData());
+        when(userAttributeRepository.findAllById(anyList())).thenReturn(createUserAttributeMetaData());
+
+        List<UserResponseV1> result = usersService.changeUserStatus(userChangeStatusRequest, USER_ID_VALUE);
+
+        assertEquals(1, result.size());
+        assertEquals("hello", result.get(0).getAdditionalAttributes().get("mandatoryAttribute"));
     }
 }

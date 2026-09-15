@@ -53,6 +53,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -114,10 +115,12 @@ public class RolesService {
         roleEntity.setName(rolesDto.getName().trim());
         roleEntity.setDescription(rolesDto.getDescription().trim());
         roleEntity.setCreatedBy(userId);
+        roleEntity.setUpdatedBy(userId);
+        roleEntity.setUpdateDate(new Date());
 
         ArrayList<RoleScopeMappingEntity> list = new ArrayList<>();
         for (ScopesEntity scope : scopesEntityList) {
-            list.add(new RoleScopeMappingEntity(roleEntity, scope, userId, null));
+            list.add(new RoleScopeMappingEntity(roleEntity, scope, userId, userId));
         }
 
         roleEntity.setRoleScopeMapping(list);
@@ -269,11 +272,12 @@ public class RolesService {
         logger.debug(LoggerMessages.DELETE_COUNT_ROLE_SCOPE_MAPPING, rowCount, rolesEntity.getId());
         ArrayList<RoleScopeMappingEntity> list = new ArrayList<>();
         for (ScopesEntity scopes : scopesEntityList) {
-            list.add(new RoleScopeMappingEntity(rolesEntity, scopes, userId, null));
+            list.add(new RoleScopeMappingEntity(rolesEntity, scopes, userId, userId));
         }
 
         rolesEntity.setRoleScopeMapping(list);
         rolesEntity.setUpdatedBy(userId);
+        rolesEntity.setUpdateDate(new Date());
         RolesEntity updateResult = rolesRepository.save(rolesEntity);
 
         RoleCreateResponse role = RoleMapper.MAPPER.mapToRole(updateResult);
@@ -316,6 +320,7 @@ public class RolesService {
         logger.info(LoggerMessages.ROLE_NOT_MAPPED_WITH_USER, roleName);
         rolesEntity.setDeleted(true);
         rolesEntity.setUpdatedBy(userId);
+        rolesEntity.setUpdateDate(new Date());
         RolesEntity updateResult = rolesRepository.save(rolesEntity);
 
         RoleCreateResponse role = RoleMapper.MAPPER.mapToRole(updateResult);

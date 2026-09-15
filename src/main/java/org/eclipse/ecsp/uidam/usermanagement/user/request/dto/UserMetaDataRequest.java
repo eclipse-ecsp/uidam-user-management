@@ -19,15 +19,15 @@
 package org.eclipse.ecsp.uidam.usermanagement.user.request.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.FIELD_NAME_REGEX;
-import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_INPUT_FIELD_NAME_PATTERN;
+import org.springframework.util.StringUtils;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ATTRIBUTE_LABEL_REQUIRED_FOR_STATIC;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.INVALID_LENGTH;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MISSING_MANDATORY_PARAMETERS;
 
@@ -40,11 +40,10 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.MI
 @NoArgsConstructor
 public class UserMetaDataRequest {
     public static final int MIN_LENGTH = 1;
-    public static final int MAX_FIELD_NAME_LENGTH = 79;
+    public static final int MAX_FIELD_NAME_LENGTH = 50;
 
-    @Schema(description = "name", example = "isMarried")
+    @Schema(description = "name", example = "custom:companyName")
     @NotBlank(message = MISSING_MANDATORY_PARAMETERS)
-    @Pattern(regexp = FIELD_NAME_REGEX, message = INVALID_INPUT_FIELD_NAME_PATTERN)
     @Size(min = MIN_LENGTH, max = MAX_FIELD_NAME_LENGTH, message = INVALID_LENGTH)
     private String name;
     @Schema(description = "mandatory", example = "false")
@@ -61,4 +60,17 @@ public class UserMetaDataRequest {
     private String type;
     @Schema(description = "regex", example = "[a-zA-Z]{1,13}")
     private String regex;
+    @Schema(description = "Human-readable label shown in the signup UI instead of the attribute name",
+            example = "Company Name")
+    private String attributeLabel;
+
+    /**
+     * Validates that {@code attributeLabel} is mandatory when {@code dynamicAttribute} is {@code false}.
+     *
+     * @return {@code true} if the constraint is satisfied
+     */
+    @AssertTrue(message = ATTRIBUTE_LABEL_REQUIRED_FOR_STATIC)
+    public boolean isAttributeLabelValidWhenStatic() {
+        return dynamicAttribute || StringUtils.hasText(attributeLabel);
+    }
 }
