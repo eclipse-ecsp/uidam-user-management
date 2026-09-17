@@ -392,7 +392,11 @@ public class UsersServiceImpl implements UsersService {
      * @return UserManagementTenantProperties for current tenant
      */
     private UserManagementTenantProperties getTenantProperties() {
-        return tenantConfigurationService.getTenantProperties();
+        UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
+        if (tenantProperties == null) {
+            throw new IllegalStateException("Tenant configuration is not available for the current tenant");
+        }
+        return tenantProperties;
     }
     
     /**
@@ -484,8 +488,9 @@ public class UsersServiceImpl implements UsersService {
 
     private void resolveUserStatus(UserDtoBase userDto, boolean isSelfAddUser) {
         if (!(isSelfAddUser && userDto.getStatus() != null)) {
-            if (getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue()
-                    || BooleanUtils.isTrue(getTenantProperties().getIsEmailVerificationEnabled())) {
+            UserManagementTenantProperties tenantProperties = getTenantProperties();
+            if (BooleanUtils.isTrue(tenantProperties.getIsUserStatusLifeCycleEnabled())
+                    || BooleanUtils.isTrue(tenantProperties.getIsEmailVerificationEnabled())) {
                 userDto.setStatus(UserStatus.PENDING);
             } else {
                 userDto.setStatus(UserStatus.ACTIVE);
@@ -1197,8 +1202,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
         throws InActiveUserException {
-        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-        LocalDateTime now = LocalDateTime.now();
+        Instant lockUntil = lockTimestamp.toInstant();
+        Instant now = Instant.now();
         long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
         
         if (LOGGER.isDebugEnabled()) {
@@ -1246,22 +1251,22 @@ public class UsersServiceImpl implements UsersService {
             }
 
             // Check if lock period has expired based on temporary_lock_timestamp
-            LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-            LocalDateTime now = LocalDateTime.now();
+            Instant lockUntil = lockTimestamp.toInstant();
+            Instant now = Instant.now();
 
             LOGGER.debug("User {} lock expires at: {}. Current time: {}",
                 userEntity.getUserName(), lockUntil, now);
 
             // Check if current time is past the lock expiration
-            if (now.isAfter(lockUntil) || now.equals(lockUntil)) {
+            if (!now.isBefore(lockUntil)) {
                 UserStatus previousStatus = userEntity.getStatus();
                 // Unlock user using common method
-                unlockBlockedUser(userEntity, previousStatus, now);
+                unlockBlockedUser(userEntity, previousStatus, LocalDateTime.now());
                 LOGGER.info("Successfully unlocked user {} during login attempt (lock expired at {})",
                     userEntity.getUserName(), lockUntil);
                 return true;
             } else {
-                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
+                long remainingMinutes = ChronoUnit.MINUTES.between(now, lockUntil);
                 LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
                     userEntity.getUserName(), remainingMinutes);
                 return false;
@@ -2585,8 +2590,8 @@ public class UsersServiceImpl implements UsersService {
             
             // Calculate lock duration with exponential backoff
             lockDurationMinutes = calculateLockDuration(lockCount, tenantProperties);
-            LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockDurationMinutes);
-            currentUser.setTemporaryLockTimestamp(Timestamp.valueOf(lockUntil));
+            Instant lockUntil = Instant.now().plus(lockDurationMinutes, ChronoUnit.MINUTES);
+            currentUser.setTemporaryLockTimestamp(Timestamp.from(lockUntil));
             
             LOGGER.info("User {} blocked temporarily (attempt {}/{}). Lock duration: {} minutes. Lock expires at: {}",
                 currentUser.getId(), lockCount, maxLockAttempts, lockDurationMinutes, lockUntil);
@@ -2610,10 +2615,10 @@ public class UsersServiceImpl implements UsersService {
      * @return remaining lock duration in minutes
      */
     private long calculateRemainingLockDuration(UserEntity currentUser) {
-        LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
-        LocalDateTime now = LocalDateTime.now();
+        Instant lockUntil = currentUser.getTemporaryLockTimestamp().toInstant();
+        Instant now = Instant.now();
         if (lockUntil.isAfter(now)) {
-            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
+            long remaining = ChronoUnit.MINUTES.between(now, lockUntil);
             LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
                 currentUser.getId(), remaining);
             return remaining;
