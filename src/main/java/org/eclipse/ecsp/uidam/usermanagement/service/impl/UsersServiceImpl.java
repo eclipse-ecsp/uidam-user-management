@@ -26,7 +26,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -149,8 +149,6 @@ import java.text.FieldPosition;
 import java.text.MessageFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -168,6 +166,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import static java.lang.Boolean.TRUE;
@@ -219,6 +218,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ACTION_FORBIDDEN;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ATTRIBUTE_METADATA_IS_MISSING;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ATTRIBUTE_NAME_RESERVED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_CANNOT_BE_MODIFIED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_DATA_IS_INVALID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_IS_UNIQUE;
@@ -264,7 +264,7 @@ import static org.springframework.http.HttpStatus.OK;
  * Service class containing business logic for CRUD operations on user.
  */
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class UsersServiceImpl implements UsersService {
 
     @Autowired
@@ -287,19 +287,45 @@ public class UsersServiceImpl implements UsersService {
     private static final int DEFAULT_MAX_LOCK_ATTEMPTS = 5;
     private static final int MAX_LOG_LENGTH = 100;
     private static final int LOG_TRUNCATE_LENGTH = 97;
-    
+
+    // Pattern matching dangerous content (HTML tags, scripts, SQL injection) —
+    // mirrors InputSanitizer.DANGEROUS_PATTERN in the authorization server.
+    private static final Pattern DANGEROUS_INPUT_PATTERN = Pattern.compile(
+            "<[^>]*>"
+            + "|<script[^>]*>.*?</script>"
+            + "|javascript\\s*:"
+            + "|on\\w+\\s*="
+            + "|--"
+            + "|;\\s*(?:DROP|ALTER|INSERT|UPDATE|DELETE|EXEC|UNION|CREATE|TRUNCATE)"
+            + "|\\b(?:OR|AND)\\s*\\d+\\s*=\\s*\\d+"
+            + "|'\\s*(?:OR|AND)[\\s\\d]"
+            + "|\\bUNION\\s+(?:ALL\\s+)?SELECT\\b"
+            + "|/\\*.*?\\*/"
+            + "|&#\\d+;?"
+            + "|&#x[0-9a-f]+;?"
+            + "|\\\\x[0-9a-f]{2}",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+
     @Autowired
     private TenantConfigurationService tenantConfigurationService;
+    @Autowired
     private UsersRepository userRepository;
+    @Autowired
     private UserAttributeRepository userAttributeRepository;
+    @Autowired
     private UserAttributeValueRepository userAttributeValueRepository;
+    @Autowired
     private UserEventRepository userEventRepository;
+    @Autowired
     private UserRecoverySecretRepository userRecoverySecretRepository;
+    @Autowired
     private UserManagementDao userManagementDao;
     @Autowired
     private AuthorizationServerClient authorizationServerClient;
     @PersistenceContext
     private EntityManager entityManager;
+    @Autowired
     private EmailNotificationService emailNotificationService;
     @Autowired
     private RolesService rolesService;
@@ -309,8 +335,11 @@ public class UsersServiceImpl implements UsersService {
     private RolesRepository rolesRepository;
     @Autowired
     ClientRegistration clientRegistrationService;
+    @Autowired
     private CloudProfilesRepository cloudProfilesRepository;
+    @Autowired
     private EmailVerificationRepository emailVerificationRepository;
+    @Autowired
     private PasswordHistoryRepository passwordHistoryRepository;
     public static final String POLICY_VALIDATION_FAILED = "um.password.policy.validation.failed";
     private static final String METRIC_TAG_USER_TYPE = "userType";
@@ -333,7 +362,6 @@ public class UsersServiceImpl implements UsersService {
     private Map<String, BigInteger> roleNameToIdMapping = new HashMap<>();
 
     private final UidamMetricsService uidamMetricsService;
-    
     @Autowired
     private UserAuditHelper userAuditHelper;
     
@@ -395,22 +423,26 @@ public class UsersServiceImpl implements UsersService {
         if (user != null) {
             throw new RecordAlreadyExistsException(ApiConstants.USER);
         }
+
+        boolean validateMandatoryAttributes = !isSelfAddUser
+                || getTenantProperties().getAdditionalAttrCheckEnabledForSignUp();
         List<UserAttributeEntity> userAttributeEntities = new ArrayList<>();
-        if (!isSelfAddUser || getTenantProperties().getAdditionalAttrCheckEnabledForSignUp()) {
+        if (validateMandatoryAttributes) {
             userAttributeEntities = validateMissingMandatoryAttributes(userDto.getAdditionalAttributes());
+        } else if (!ObjectUtils.isEmpty(userDto.getAdditionalAttributes())) {
+            userAttributeEntities = userAttributeRepository.findAll();
         }
-        
-        if (getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue() 
-                || BooleanUtils.isTrue(getTenantProperties().getIsEmailVerificationEnabled())) {
-            userDto.setStatus(UserStatus.PENDING);
-        } else {
-            userDto.setStatus(UserStatus.ACTIVE);
-        }
+        resolveUserStatus(userDto, isSelfAddUser);
 
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(userDto);
         String passwordSalt = PasswordUtils.getSalt();
         String hashPassword = PasswordUtils.getSecurePassword(userDto.getPassword(), passwordSalt,
             getTenantProperties().getPasswordEncoder());
+        String updater = loggedInUserId != null ? String.valueOf(loggedInUserId) : SYSTEM;
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        userEntity.setCreateDate(now);
+        userEntity.setUpdatedBy(updater);
+        userEntity.setUpdateDate(now);
         userEntity.setUserPassword(hashPassword);
         userEntity.setPasswordSalt(passwordSalt);
         userEntity.setAccountRoleMapping(mapToAccountsAndRoles(userDto, loggedInUserId));
@@ -441,14 +473,24 @@ public class UsersServiceImpl implements UsersService {
                 .build());
         UserResponseBase userResponseBase = addRoleNamesAndMapToUserResponse(userEntity, version);
 
-        if ((!isSelfAddUser || getTenantProperties().getAdditionalAttrCheckEnabledForSignUp())
-            && !ObjectUtils.isEmpty(userDto.getAdditionalAttributes())
+        if (!ObjectUtils.isEmpty(userDto.getAdditionalAttributes())
             && isValidAdditionalAttributes(userDto.getAdditionalAttributes(), userAttributeEntities, true)) {
-            userResponseBase
-                .setAdditionalAttributes(persistAdditionalAttributes(userDto, savedUser).get(savedUser.getId()));
+            userResponseBase.setAdditionalAttributes(
+                persistAdditionalAttributes(userDto, savedUser, userAttributeEntities).get(savedUser.getId()));
         }
         passwordHistoryRepository.save(generateUserPasswordHistoryEntity(savedUser));
         return userResponseBase;
+    }
+
+    private void resolveUserStatus(UserDtoBase userDto, boolean isSelfAddUser) {
+        if (!(isSelfAddUser && userDto.getStatus() != null)) {
+            if (getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue()
+                    || BooleanUtils.isTrue(getTenantProperties().getIsEmailVerificationEnabled())) {
+                userDto.setStatus(UserStatus.PENDING);
+            } else {
+                userDto.setStatus(UserStatus.ACTIVE);
+            }
+        }
     }
 
     /**
@@ -528,8 +570,19 @@ public class UsersServiceImpl implements UsersService {
             // Set default account using account name-based lookup
             // Tenant context is guaranteed by the multi-tenant filter
             UserAccountsAndRoles ac = new UserAccountsAndRoles();
-            String defaultAccountName = getTenantProperties().getUserDefaultAccountName();
-            
+            // Prefer per-client account sent by auth-server (signupDefaultAccount),
+            // falling back to the tenant-level default account name.
+            Object signupDefaultAccountValue = userDto.getAdditionalAttributes() != null
+                    ? userDto.getAdditionalAttributes().get("signupDefaultAccount")
+                    : null;
+            // Guard against non-string values, since additionalAttributes accepts arbitrary JSON types.
+            String signupDefaultAccount = signupDefaultAccountValue instanceof String strValue ? strValue : null;
+            String defaultAccountName = (signupDefaultAccount != null && !signupDefaultAccount.isBlank())
+                    ? signupDefaultAccount.trim()
+                    : getTenantProperties().getUserDefaultAccountName();
+            LOGGER.debug("mapToAccountsAndRoles: resolved accountName='{}' (signupDefaultAccount='{}')",
+                    defaultAccountName, signupDefaultAccount);
+
             Optional<AccountEntity> defAccount = accountRepository.findByAccountName(defaultAccountName);
             if (defAccount.isPresent()) {
                 ac.setAccount(defaultAccountName);
@@ -603,22 +656,38 @@ public class UsersServiceImpl implements UsersService {
     /**
      * Method to save user additional attributes to database.
      *
-     * @param userDto   userRequestDto received from user api.
-     * @param savedUser userEntity persisted in db.
+     * @param userDto              userRequestDto received from user api.
+     * @param savedUser            userEntity persisted in db.
+     * @param userAttributeEntities attribute metadata already fetched by the caller (avoids re-querying
+     *                              the full user_attributes table).
      * @return Saved additional attribute data map.
      */
-    public Map<BigInteger, Map<String, Object>> persistAdditionalAttributes(UserDtoBase userDto, UserEntity savedUser) {
-        List<UserAttributeEntity> userAttributeEntities = userAttributeRepository.findAll();
+    public Map<BigInteger, Map<String, Object>> persistAdditionalAttributes(UserDtoBase userDto, UserEntity savedUser,
+            List<UserAttributeEntity> userAttributeEntities) {
         Map<String, UserAttributeEntity> userAttributeEntityByNameMap = groupUserAttributeEntityByName(
             userAttributeEntities);
-        List<UserAttributeValueEntity> userAttributeValueEntities = userDto.getAdditionalAttributes().keySet().stream()
+        Map<String, Object> filteredAdditionalAttributes = (userDto.getAdditionalAttributes() == null
+            || userDto.getAdditionalAttributes().isEmpty())
+            ? Collections.emptyMap()
+            : new java.util.HashMap<>(userDto.getAdditionalAttributes());
+
+        List<UserAttributeValueEntity> userAttributeValueEntities = filteredAdditionalAttributes.keySet().stream()
+            .filter(additionalAttribute -> {
+                boolean known = userAttributeEntityByNameMap
+                        .containsKey(additionalAttribute.toLowerCase(Locale.ROOT));
+                if (!known) {
+                    LOGGER.warn("persistAdditionalAttributes: attribute key '{}' is not defined in user_attributes "
+                            + "— skipping persistence for userId {}.", additionalAttribute, savedUser.getId());
+                }
+                return known;
+            })
             .map(additionalAttribute -> {
                 UserAttributeValueEntity userAttributeEntity = new UserAttributeValueEntity();
-                userAttributeEntity.setCreatedBy("system");
+                userAttributeEntity.setCreatedBy(SYSTEM);
                 userAttributeEntity.setUserId(savedUser.getId());
                 userAttributeEntity.setAttributeId(
                     userAttributeEntityByNameMap.get(additionalAttribute.toLowerCase(Locale.ROOT)).getId());
-                Object value = userDto.getAdditionalAttributes().get(additionalAttribute);
+                Object value = filteredAdditionalAttributes.get(additionalAttribute);
                 userAttributeEntity.setValue(
                     parseAdditionalAttributeValue(userAttributeEntityByNameMap, additionalAttribute, value));
                 return userAttributeEntity;
@@ -640,15 +709,23 @@ public class UsersServiceImpl implements UsersService {
      */
     public String parseAdditionalAttributeValue(Map<String, UserAttributeEntity> userAttributeEntityByNameMap,
                                                 String additionalAttribute, Object value) {
-        if (DATA_TYPE_MAP.get(userAttributeEntityByNameMap.get(additionalAttribute.toLowerCase(Locale.ROOT)).getTypes()
-            .toLowerCase(Locale.ROOT)).equals(JsonNode.class)) {
+        Class<?> targetClass = DATA_TYPE_MAP.get(
+            userAttributeEntityByNameMap.get(additionalAttribute.toLowerCase(Locale.ROOT)).getTypes()
+                .toLowerCase(Locale.ROOT));
+        if (targetClass.equals(JsonNode.class)) {
             return ObjectConverter.jsonNodeObjectToString(value);
-        } else if (DATA_TYPE_MAP.get(userAttributeEntityByNameMap.get(additionalAttribute.toLowerCase(Locale.ROOT))
-            .getTypes().toLowerCase(Locale.ROOT)).equals(List.class)) {
+        } else if (targetClass.equals(List.class)) {
             return String.join(",", new ArrayList<>((List) value));
         } else {
             return String.valueOf(value);
         }
+    }
+
+    private static boolean isAttributeValueSafe(String value) {
+        if (value == null || value.isEmpty()) {
+            return true;
+        }
+        return !DANGEROUS_INPUT_PATTERN.matcher(value).find();
     }
 
     /**
@@ -702,20 +779,39 @@ public class UsersServiceImpl implements UsersService {
      */
     public boolean isValidAdditionalAttributes(Map<String, Object> additionalAttributes,
                                                List<UserAttributeEntity> userAttributeEntities, boolean newUser) {
+        Map<String, Object> filteredAdditionalAttributes = Collections.emptyMap();
+        if (!ObjectUtils.isEmpty(additionalAttributes)) {
+            filteredAdditionalAttributes = new java.util.HashMap<>(additionalAttributes);
+        }
+
         if (newUser) {
-            Set<String> badDtoAttributes = findBadDtoAttributes(userAttributeEntities, additionalAttributes.keySet());
+            Set<String> badDtoAttributes = findBadDtoAttributes(
+                userAttributeEntities,
+                filteredAdditionalAttributes.keySet());
             if (!ObjectUtils.isEmpty(badDtoAttributes)) {
-                throw new ApplicationRuntimeException(FIELD_NOT_FOUND, BAD_REQUEST, String.valueOf(badDtoAttributes));
+                LOGGER.warn("isValidAdditionalAttributes: unknown attribute key(s) {} not defined in "
+                        + "user_attributes — they will be skipped during persistence.", badDtoAttributes);
             }
         }
-        Set<String> invalidAttributeValues = invalidAttributeValue(userAttributeEntities, additionalAttributes);
+        Set<String> invalidAttributeValues = invalidAttributeValue(
+            userAttributeEntities,
+            filteredAdditionalAttributes);
         if (!ObjectUtils.isEmpty(invalidAttributeValues)) {
-            throw new ApplicationRuntimeException(FIELD_DATA_IS_INVALID, BAD_REQUEST,
-                String.valueOf(invalidAttributeValues));
+            throw new ApplicationRuntimeException(
+                FIELD_DATA_IS_INVALID,
+                BAD_REQUEST,
+                String.valueOf(invalidAttributeValues)
+            );
         }
-        Set<String> duplicateAttributes = findDuplicateValueAttributes(userAttributeEntities, additionalAttributes);
+        Set<String> duplicateAttributes = findDuplicateValueAttributes(
+            userAttributeEntities,
+            filteredAdditionalAttributes);
         if (!ObjectUtils.isEmpty(duplicateAttributes)) {
-            throw new ApplicationRuntimeException(FIELD_IS_UNIQUE, BAD_REQUEST, String.valueOf(duplicateAttributes));
+            throw new ApplicationRuntimeException(
+                FIELD_IS_UNIQUE,
+                BAD_REQUEST,
+                String.valueOf(duplicateAttributes)
+            );
         }
         return true;
     }
@@ -731,7 +827,14 @@ public class UsersServiceImpl implements UsersService {
     public Set<String> findDuplicateValueAttributes(List<UserAttributeEntity> userAttributeEntities,
                                                     Map<String, Object> additionalAttributes) {
         List<UserAttributeEntity> uniqueAttributes = userAttributeEntities.stream()
-            .filter(UserAttributeEntity::getIsUnique).toList();
+            .filter(UserAttributeEntity::getIsUnique)
+            // Boolean fields (bool/bit) have only two possible values — a unique constraint
+            // on them is meaningless and would block every second user with the same value.
+            .filter(attr -> {
+                String type = attr.getTypes() != null ? attr.getTypes().toLowerCase(Locale.ROOT) : "";
+                return !type.equals("bool") && !type.equals("bit");
+            })
+            .toList();
         Map<String, UserAttributeEntity> userAttributeEntityByNameMap = groupUserAttributeEntityByName(
             uniqueAttributes);
         Map<String, Set<String>> uniqueAdditionalAttribute = additionalAttributes.entrySet().stream()
@@ -763,11 +866,33 @@ public class UsersServiceImpl implements UsersService {
         Map<String, UserAttributeEntity> userAttributeEntityMap = groupUserAttributeEntityByName(userAttributeEntities);
         return additionalAttributes.keySet().stream().filter(attribute -> {
             UserAttributeEntity userAttributeEntity = userAttributeEntityMap.get(attribute.toLowerCase(Locale.ROOT));
+            if (userAttributeEntity == null) {
+                // Unknown attribute — already warned in isValidAdditionalAttributes; skip validation.
+                return false;
+            }
+            Object value = additionalAttributes.get(attribute);
+            boolean isMandatory = Boolean.TRUE.equals(userAttributeEntity.getMandatory());
+            // Non-mandatory attributes with no value supplied require no validation.
+            if (!isMandatory && ObjectUtils.isEmpty(value)) {
+                return false;
+            }
             String dataType = userAttributeEntity.getTypes().toLowerCase(Locale.ROOT);
             Class<?> entityDataTypeClass = DATA_TYPE_MAP.get(dataType);
-            Object value = additionalAttributes.get(attribute);
-            if (entityDataTypeClass.isInstance(value) && value instanceof String regex) {
-                return !regex.matches(userAttributeEntity.getRegex());
+            // Apply configured regex against the string form of the value for ALL types
+            // (numeric, date, string, etc.) so that e.g. accountBalance's pattern is enforced.
+            String regexPattern = userAttributeEntity.getRegex();
+            if (StringUtils.isNotBlank(regexPattern) && !String.valueOf(value).matches(regexPattern)) {
+                LOGGER.warn("Custom attribute '{}' failed regex validation", attribute);
+                return true;
+            }
+            if (entityDataTypeClass.isInstance(value) && value instanceof String strValue) {
+                // Reject input that contains dangerous content (XSS / SQL injection patterns).
+                if (!isAttributeValueSafe(strValue)) {
+                    LOGGER.warn("Custom attribute '{}' contains dangerous content - rejected",
+                            attribute);
+                    return true;
+                }
+                return false;
             } else {
                 return !Boolean.TRUE.equals(isObjectCastable(dataType, value));
             }
@@ -970,6 +1095,12 @@ public class UsersServiceImpl implements UsersService {
         additionalAttributes.put(ORIGINAL_USERNAME, userEntity.getUserName());
         additionalAttributes.put(FIRSTNAME, userEntity.getFirstName());
         additionalAttributes.put(LASTNAME, userEntity.getLastName());
+        // Merge custom attribute values from user_attribute_values; putIfAbsent
+        // keeps the fixed fields above and deduplicates on key.
+        Map<BigInteger, Map<String, Object>> customAttrs = findAdditionalAttributeData(List.of(userEntity.getId()));
+        if (!CollectionUtils.isEmpty(customAttrs) && customAttrs.containsKey(userEntity.getId())) {
+            customAttrs.get(userEntity.getId()).forEach(additionalAttributes::putIfAbsent);
+        }
         userDetailsResponse.setAdditionalAttributes(additionalAttributes);
     }
 
@@ -1066,8 +1197,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
         throws InActiveUserException {
-        ZonedDateTime lockUntil = lockTimestamp.toInstant().atZone(ZoneId.systemDefault());
-        ZonedDateTime now = ZonedDateTime.now();
+        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
+        LocalDateTime now = LocalDateTime.now();
         long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
         
         if (LOGGER.isDebugEnabled()) {
@@ -1130,8 +1261,7 @@ public class UsersServiceImpl implements UsersService {
                     userEntity.getUserName(), lockUntil);
                 return true;
             } else {
-                long remainingMinutes = java.time.Duration.between(
-                    now.atZone(ZoneId.systemDefault()), lockUntil.atZone(ZoneId.systemDefault())).toMinutes();
+                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
                 LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
                     userEntity.getUserName(), remainingMinutes);
                 return false;
@@ -1384,7 +1514,7 @@ public class UsersServiceImpl implements UsersService {
             userEntity.setAccountRoleMapping(acRoleMaps);
         }
         userEntity.setUpdateDate(Timestamp.valueOf(LocalDateTime.now()));
-        userEntity.setUpdatedBy(SYSTEM);
+        userEntity.setUpdatedBy(loggedInUserId != null ? String.valueOf(loggedInUserId) : SYSTEM);
         return userRepository.save(userEntity);
     }
 
@@ -1771,6 +1901,20 @@ public class UsersServiceImpl implements UsersService {
             .toList();
     }
 
+    @Override
+    public List<UserMetaDataResponse> getSignupAttributes(Boolean dynamicAttribute) {
+        // No filter given: caller isn't asking for any user_attributes rows (the core/mandatory
+        // fields like email/password aren't stored in this table) — skip the query entirely.
+        if (dynamicAttribute == null) {
+            return Collections.emptyList();
+        }
+        List<UserAttributeEntity> rows = userAttributeRepository.findByDynamicAttribute(dynamicAttribute);
+        LOGGER.info("getSignupAttributes: dynamicAttribute={} -> {} row(s) found in user_attributes table",
+            dynamicAttribute, rows.size());
+        return rows.stream().map(UserMapper.USER_MAPPER::mapToMetaDataResponse)
+            .filter(UserManagementUtils.distinctByKey(UserMetaDataResponse::getName)).toList();
+    }
+
     /**
      * Method to get non-dynamic user fields.
      *
@@ -1809,18 +1953,28 @@ public class UsersServiceImpl implements UsersService {
         List<UserAttributeEntity> userAttributeEntities = userAttributeRepository.findAll();
         Map<String, UserAttributeEntity> userAttributeEntityByNameMap = groupUserAttributeEntityByName(
             userAttributeEntities);
+        Set<String> reservedFieldNames = getUserFieldList().stream()
+            .map(Field::getName)
+            .map(name -> name.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toSet());
         List<UserAttributeEntity> attributesToAddInDataBase = new ArrayList<>();
         userMetaDataRequests.forEach(userMetaData -> {
+            String attributeName = userMetaData.getName().toLowerCase(Locale.ROOT);
             UserAttributeEntity userAttributeEntity;
-            userMetaData.setDynamicAttribute(true);
-            if (userAttributeEntityByNameMap.containsKey(userMetaData.getName().toLowerCase(Locale.ROOT))) {
-                userAttributeEntity = userAttributeEntityByNameMap.get(userMetaData.getName().toLowerCase(Locale.ROOT));
+            if (userAttributeEntityByNameMap.containsKey(attributeName)) {
+                userAttributeEntity = userAttributeEntityByNameMap.get(attributeName);
                 UserMapper.USER_MAPPER.updateMetaDataEntity(userMetaData, userAttributeEntity);
                 userAttributeEntity.setUpdatedBy(SYSTEM);
                 userAttributeEntity.setUpdatedDate(Timestamp.from(Instant.now()));
                 attributesToAddInDataBase.add(userAttributeEntity);
             } else {
+                // New attribute — name must not collide with a mandatory/core user field.
+                if (reservedFieldNames.contains(attributeName)) {
+                    throw new ApplicationRuntimeException(ATTRIBUTE_NAME_RESERVED, BAD_REQUEST,
+                        userMetaData.getName());
+                }
                 userAttributeEntity = UserMapper.USER_MAPPER.mapToMetaDataEntity(userMetaData);
+                userAttributeEntity.setCreatedBy(SYSTEM);
                 userAttributeEntity.setCreatedDate(Timestamp.from(Instant.now()));
                 attributesToAddInDataBase.add(userAttributeEntity);
             }
@@ -1891,8 +2045,15 @@ public class UsersServiceImpl implements UsersService {
         List<UserAttributeEntity> userAttributeEntities, boolean ignoreCase, SearchType searchType,
         Map<String, Set<String>> additionalAttributes) {
         Map<String, BigInteger> userAttributeNameIdMap = mapUserAttributeIdByName(userAttributeEntities);
-        Map<BigInteger, Set<String>> filterMap = additionalAttributes.entrySet().stream().collect(Collectors.toMap(
-            additionalAttribute -> userAttributeNameIdMap.get(additionalAttribute.getKey()), Map.Entry::getValue));
+        // Case-insensitive lookup, matching groupUserAttributeEntityByName's convention; unmapped
+        // (unknown-cased) attribute names are dropped instead of colliding on a null key.
+        Map<BigInteger, Set<String>> filterMap = additionalAttributes.entrySet().stream()
+            .filter(additionalAttribute -> userAttributeNameIdMap
+                .containsKey(additionalAttribute.getKey().toLowerCase(Locale.ROOT)))
+            .collect(Collectors.toMap(
+                additionalAttribute -> userAttributeNameIdMap.get(additionalAttribute.getKey()
+                    .toLowerCase(Locale.ROOT)),
+                Map.Entry::getValue));
         List<UserAttributeSpecification> userAttributeSpecifications = filterMap.entrySet().stream()
             .filter(entry -> !CollectionUtils.isEmpty(entry.getValue())).map(entry -> {
                 BigInteger field = entry.getKey();
@@ -1906,13 +2067,12 @@ public class UsersServiceImpl implements UsersService {
                 }
             }).filter(Objects::nonNull).toList();
 
-        Specification<UserAttributeValueEntity> specification = null;
-        for (int i = 0; i < userAttributeSpecifications.size(); i++) {
-            if (i == 0) {
-                specification = userAttributeSpecifications.get(0);
-            } else {
-                specification = specification.and(userAttributeSpecifications.get(i));
-            }
+        if (userAttributeSpecifications.isEmpty()) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+        Specification<UserAttributeValueEntity> specification = userAttributeSpecifications.get(0);
+        for (int i = 1; i < userAttributeSpecifications.size(); i++) {
+            specification = specification.and(userAttributeSpecifications.get(i));
         }
         return specification;
     }
@@ -1925,7 +2085,9 @@ public class UsersServiceImpl implements UsersService {
      */
     public Map<String, BigInteger> mapUserAttributeIdByName(List<UserAttributeEntity> userAttributeEntities) {
         return userAttributeEntities.stream()
-            .collect(Collectors.toMap(UserAttributeEntity::getName, UserAttributeEntity::getId));
+            .collect(Collectors.toMap(
+                userAttributeEntity -> userAttributeEntity.getName().toLowerCase(Locale.ROOT),
+                UserAttributeEntity::getId));
     }
 
     /**
@@ -2451,8 +2613,7 @@ public class UsersServiceImpl implements UsersService {
         LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
         LocalDateTime now = LocalDateTime.now();
         if (lockUntil.isAfter(now)) {
-            long remaining = java.time.Duration.between(
-                now.atZone(ZoneId.systemDefault()), lockUntil.atZone(ZoneId.systemDefault())).toMinutes();
+            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
             LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
                 currentUser.getId(), remaining);
             return remaining;
@@ -2828,6 +2989,11 @@ public class UsersServiceImpl implements UsersService {
             validateMissingMandatoryAttributes(externalUserDto.getAdditionalAttributes());
 
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(externalUserDto);
+        String updater = loggedInUserId != null ? String.valueOf(loggedInUserId) : SYSTEM;
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        userEntity.setCreateDate(now);
+        userEntity.setUpdatedBy(updater);
+        userEntity.setUpdateDate(now);
         userEntity.setAccountRoleMapping(mapToAccountsAndRoles(externalUserDto, loggedInUserId));
         userEntity.getUserAddresses().forEach(userAddressEntity ->
             userAddressEntity.setUserEntity(userEntity));
@@ -2848,8 +3014,8 @@ public class UsersServiceImpl implements UsersService {
 
         if (!ObjectUtils.isEmpty(externalUserDto.getAdditionalAttributes())
             && isValidAdditionalAttributes(externalUserDto.getAdditionalAttributes(), userAttributeEntities, true)) {
-            userResponseBase.setAdditionalAttributes(persistAdditionalAttributes(externalUserDto, savedUser)
-                .get(savedUser.getId()));
+            userResponseBase.setAdditionalAttributes(
+                persistAdditionalAttributes(externalUserDto, savedUser, userAttributeEntities).get(savedUser.getId()));
         }
         LOGGER.debug("##Add external user end for user :{}", userResponseBase.getUserName());
         uidamMetricsService.incrementCounter(MetricInfo.builder()
@@ -3113,10 +3279,17 @@ public class UsersServiceImpl implements UsersService {
 
         validateRoles(federatedUserDto.getRoles());
 
-        final List<UserAttributeEntity> userAttributeEntities =
-            validateMissingMandatoryAttributes(federatedUserDto.getAdditionalAttributes());
+        List<UserAttributeEntity> userAttributeEntities = Collections.emptyList();
+        if (!CollectionUtils.isEmpty(federatedUserDto.getAdditionalAttributes())) {
+            userAttributeEntities = userAttributeRepository.findAll();
+        }
 
         UserEntity userEntity = UserMapper.USER_MAPPER.mapToUser(federatedUserDto);
+        String updater = loggedInUserId != null ? String.valueOf(loggedInUserId) : SYSTEM;
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        userEntity.setCreateDate(now);
+        userEntity.setUpdatedBy(updater);
+        userEntity.setUpdateDate(now);
         userEntity.setAccountRoleMapping(mapToAccountsAndRoles(federatedUserDto, loggedInUserId));
         //Set the identity provider name because userdto object in mapToUser method cannot access this field
         userEntity.setIdentityProviderName(federatedUserDto.getIdentityProviderName());
@@ -3139,8 +3312,8 @@ public class UsersServiceImpl implements UsersService {
 
         if (!ObjectUtils.isEmpty(federatedUserDto.getAdditionalAttributes())
             && isValidAdditionalAttributes(federatedUserDto.getAdditionalAttributes(), userAttributeEntities, true)) {
-            userResponseBase.setAdditionalAttributes(persistAdditionalAttributes(federatedUserDto, savedUser)
-                .get(savedUser.getId()));
+            userResponseBase.setAdditionalAttributes(
+                persistAdditionalAttributes(federatedUserDto, savedUser, userAttributeEntities).get(savedUser.getId()));
         }
         LOGGER.debug("Add federated user end for user :{}", userResponseBase.getUserName());
         uidamMetricsService.incrementCounter(MetricInfo.builder()

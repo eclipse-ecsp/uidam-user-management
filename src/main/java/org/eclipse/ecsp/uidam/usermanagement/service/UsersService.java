@@ -74,6 +74,8 @@ public interface UsersService {
 
     List<UserMetaDataResponse> getUserMetaData();
 
+    List<UserMetaDataResponse> getSignupAttributes(Boolean dynamicAttribute);
+
     UserEventResponseDto addUserEvent(UserEventsDto userEventsDto, String userId);
 
     List<UserMetaDataResponse> putUserMetaData(List<UserMetaDataRequest> userMetaDataRequests);

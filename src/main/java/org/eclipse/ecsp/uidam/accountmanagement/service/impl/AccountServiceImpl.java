@@ -193,6 +193,8 @@ public class AccountServiceImpl implements AccountService {
         }
         AccountEntity accountEntity = AccountMapper.ACCOUNT_MAPPER.mapToAccount(accountDto, roleNameToId);
         accountEntity.setCreatedBy(String.valueOf(loggedInUserId));
+        accountEntity.setUpdatedBy(String.valueOf(loggedInUserId));
+        accountEntity.setUpdateDate(new Timestamp(System.currentTimeMillis()));
         accountEntity.setStatus(AccountStatus.ACTIVE);
         AccountEntity savedAccount = accountRepository.save(accountEntity);
         
