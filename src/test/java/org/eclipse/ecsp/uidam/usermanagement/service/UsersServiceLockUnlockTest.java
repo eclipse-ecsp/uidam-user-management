@@ -34,7 +34,9 @@ import org.eclipse.ecsp.uidam.usermanagement.repository.UserEventRepository;
 import org.eclipse.ecsp.uidam.usermanagement.repository.UsersRepository;
 import org.eclipse.ecsp.uidam.usermanagement.service.impl.UsersServiceImpl;
 import org.eclipse.ecsp.uidam.usermanagement.utilities.UserAuditHelper;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -167,6 +169,25 @@ class UsersServiceLockUnlockTest {
     private static final int MIN_REMAINING_TIME = 29;
     private static final int BLOCKED_USERS_COUNT = 3;
     private static final int ATTRIBUTE_MAP_SIZE = 2;
+
+    private static ch.qos.logback.classic.Level originalLogLevel;
+
+    // Elevate the log level so the debug/info-guarded branches in verifyUserStatus's
+    // blocked-user handling (which call sanitizeForLogging) are actually exercised.
+    @BeforeAll
+    static void raiseLogLevel() {
+        ch.qos.logback.classic.Logger logger =
+            (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(UsersServiceImpl.class);
+        originalLogLevel = logger.getLevel();
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+    }
+
+    @AfterAll
+    static void restoreLogLevel() {
+        ch.qos.logback.classic.Logger logger =
+            (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(UsersServiceImpl.class);
+        logger.setLevel(originalLogLevel);
+    }
 
     @BeforeEach
     @AfterEach
@@ -480,6 +501,28 @@ class UsersServiceLockUnlockTest {
         // Then
         assertTrue(result);
         verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testCheckAndUnlockIfEligible_ExceptionDuringUnlock_ReturnsFalse() throws Exception {
+        // Given: lock has expired, so the unlock path is taken, but persisting the
+        // unlocked user fails, forcing the catch block to be exercised.
+        UserEntity user = createTestUser(BigInteger.ONE, "testuser", UserStatus.BLOCKED);
+        LocalDateTime lockUntil = LocalDateTime.now().minusMinutes(LOCK_DURATION_10_MINUTES);
+        user.setTemporaryLockTimestamp(Timestamp.valueOf(lockUntil));
+
+        when(tenantProperties.getTemporaryLockEnabled()).thenReturn(true);
+        when(userRepository.save(any(UserEntity.class))).thenThrow(new RuntimeException("db unavailable"));
+
+        Method method = UsersServiceImpl.class.getDeclaredMethod("checkAndUnlockIfEligible",
+            UserEntity.class);
+        method.setAccessible(true);
+
+        // When
+        boolean result = (boolean) method.invoke(usersServiceSpy, user);
+
+        // Then
+        assertFalse(result);
     }
 
     @Test

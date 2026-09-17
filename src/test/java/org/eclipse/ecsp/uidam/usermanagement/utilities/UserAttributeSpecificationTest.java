@@ -28,6 +28,7 @@ import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import java.math.BigInteger;
 import java.util.Optional;
 import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,14 +54,14 @@ class UserAttributeSpecificationTest {
 
     @Test
     void toPredicateSearchTypeSuffixAndIgnoreCaseTrue() {
-        Object key = 1;
+        Object key = BigInteger.ONE;
         SearchType searchType = SearchType.SUFFIX;
         SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, true);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
         Mockito.when(builder.or(any(Predicate[].class))).thenReturn(predicate);
-        Mockito.when(builder.equal(any(Path.class), any(Integer.class))).thenReturn(predicate);
+        Mockito.when(builder.equal(any(Path.class), any(BigInteger.class))).thenReturn(predicate);
         Mockito.when(builder.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
         Predicate predicate = userAttributeSpecification.toPredicate(userEntityRoot, criteriaQuery, builder);
         assertEquals(true, Optional.ofNullable(predicate).isPresent());
@@ -68,14 +69,14 @@ class UserAttributeSpecificationTest {
 
     @Test
     void toPredicateSearchTypePrefixAndIgnoreCaseTrue() {
-        Object key = 1;
+        Object key = BigInteger.ONE;
         SearchType searchType = SearchType.PREFIX;
         SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, true);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
         Mockito.when(builder.or(any(Predicate[].class))).thenReturn(predicate);
-        Mockito.when(builder.equal(any(Path.class), any(Integer.class))).thenReturn(predicate);
+        Mockito.when(builder.equal(any(Path.class), any(BigInteger.class))).thenReturn(predicate);
         Mockito.when(builder.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
         Predicate predicate = userAttributeSpecification.toPredicate(userEntityRoot, criteriaQuery, builder);
         assertEquals(true, Optional.ofNullable(predicate).isPresent());
@@ -83,14 +84,14 @@ class UserAttributeSpecificationTest {
 
     @Test
     void toPredicateSearchTypeContainsAndIgnoreCaseTrue() {
-        Object key = 1;
+        Object key = BigInteger.ONE;
         SearchType searchType = SearchType.CONTAINS;
         SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, true);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
         Mockito.when(builder.or(any(Predicate[].class))).thenReturn(predicate);
-        Mockito.when(builder.equal(any(Path.class), any(Integer.class))).thenReturn(predicate);
+        Mockito.when(builder.equal(any(Path.class), any(BigInteger.class))).thenReturn(predicate);
         Mockito.when(builder.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
         Predicate predicate = userAttributeSpecification.toPredicate(userEntityRoot, criteriaQuery, builder);
         assertEquals(true, Optional.ofNullable(predicate).isPresent());
@@ -98,14 +99,14 @@ class UserAttributeSpecificationTest {
 
     @Test
     void toPredicateSearchTypeContainsAndIgnoreCaseFalse() {
-        Object key = 1;
+        Object key = BigInteger.ONE;
         SearchType searchType = SearchType.CONTAINS;
         SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), searchType, false);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
         Mockito.when(builder.or(any(Predicate[].class))).thenReturn(predicate);
-        Mockito.when(builder.equal(any(Path.class), any(Integer.class))).thenReturn(predicate);
+        Mockito.when(builder.equal(any(Path.class), any(BigInteger.class))).thenReturn(predicate);
         Mockito.when(builder.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
         Predicate predicate = userAttributeSpecification.toPredicate(userEntityRoot, criteriaQuery, builder);
         assertEquals(true, Optional.ofNullable(predicate).isPresent());
@@ -113,13 +114,13 @@ class UserAttributeSpecificationTest {
 
     @Test
     void toPredicateSearchTypeNullAndIgnoreCaseFalse() {
-        Object key = 1;
+        Object key = BigInteger.ONE;
         SearchCriteria searchCriteria = new SearchCriteria(key, Set.of("harman"), null, false);
         UserAttributeSpecification userAttributeSpecification = new UserAttributeSpecification(searchCriteria);
         Mockito.when(userEntityRoot.get(anyString())).thenReturn(path);
         Mockito.when(path.getJavaType()).thenReturn(String.class);
         Mockito.when(builder.or(any(Predicate[].class))).thenReturn(predicate);
-        Mockito.when(builder.equal(any(Path.class), any(Integer.class))).thenReturn(predicate);
+        Mockito.when(builder.equal(any(Path.class), any(BigInteger.class))).thenReturn(predicate);
         Mockito.when(builder.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
         Predicate predicate = userAttributeSpecification.toPredicate(userEntityRoot, criteriaQuery, builder);
         assertEquals(true, Optional.ofNullable(predicate).isPresent());

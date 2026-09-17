@@ -41,6 +41,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -71,6 +72,8 @@ public class ScopesService {
         // convert dto to entity
         ScopesEntity scopeEntity = ScopeMapper.MAPPER.mapToScopeEntity(scopeDto);
         scopeEntity.setCreatedBy(userId);
+        scopeEntity.setUpdateBy(userId);
+        scopeEntity.setUpdateDate(new Date());
         ScopesEntity createResult = null;
         try {
             createResult = scopesRepository.save(scopeEntity);
@@ -169,6 +172,7 @@ public class ScopesService {
         }
 
         scopeEntity.setUpdateBy(userId);
+        scopeEntity.setUpdateDate(new Date());
         ScopesEntity updateResult = scopesRepository.save(scopeEntity);
 
         Scope scope = ScopeMapper.MAPPER.mapToScope(updateResult);

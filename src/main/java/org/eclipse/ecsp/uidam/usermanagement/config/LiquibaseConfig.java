@@ -263,8 +263,8 @@ public class LiquibaseConfig  {
         
         if (tenantDs != null) {
             // Try to extract JDBC URL from tenant datasource
-            try {
-                String url = tenantDs.getConnection().getMetaData().getURL();
+            try (Connection connection = tenantDs.getConnection()) {
+                String url = connection.getMetaData().getURL();
                 LOGGER.info("Extracted JDBC URL from tenant datasource for tenant {}: {}", tenantId, url);
                 return url;
             } catch (SQLException e) {

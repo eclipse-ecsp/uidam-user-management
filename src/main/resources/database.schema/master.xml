@@ -30,4 +30,9 @@
     <!-- Release 2.1 - Per-user captchaRequired and mfaRequired attribute definitions -->
     <include file="changesets/2_1_release/user_attributes_data.xml" relativeToChangelogFile="true"/>
 
+    <include file="changesets/2_1_release/uidam-portal-client.xml" relativeToChangelogFile="true"/>
+
+    <!-- Release 2.2 - signupSourceClientId attribute and attribute_label column -->
+    <include file="changesets/2_2_release/user_attributes_data.xml" relativeToChangelogFile="true"/>
+
 </databaseChangeLog>
