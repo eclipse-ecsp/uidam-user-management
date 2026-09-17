@@ -30,6 +30,10 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -201,22 +205,58 @@ public final class ObjectConverter {
 
     /**
      * Converts String to Time.
+     * Accepts both full SQL format "HH:mm:ss" and the browser time-input
+     * short format "HH:mm" (seconds are appended as ":00" when absent).
      *
-     * @param value The Time to be converted.
-     * @return The converted String value.
+     * @param value The Time string to be converted.
+     * @return The converted Time value.
      */
     public static Time stringToTime(String value) {
+        // Browser <input type="time"> sends "HH:mm"; Time.valueOf() requires "HH:mm:ss"
+        if (value != null && value.matches("\\d{2}:\\d{2}")) {
+            value = value + ":00";
+        }
         return Time.valueOf(value);
     }
 
     /**
      * Converts String to Timestamp.
+     * Accepts SQL format "yyyy-MM-dd HH:mm:ss[.nanos]" and the ISO 8601
+     * formats produced by browser datetime-local inputs: "yyyy-MM-ddTHH:mm"
+     * and "yyyy-MM-ddTHH:mm:ss".
      *
-     * @param value The Timestamp to be converted.
-     * @return The converted String value.
+     * @param value The Timestamp string to be converted.
+     * @return The converted Timestamp value.
      */
     public static Timestamp stringToTimestamp(String value) {
-        return Timestamp.valueOf(value);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Timestamp.valueOf(value);
+        } catch (IllegalArgumentException firstException) {
+            // continue
+        }
+
+        try {
+            return Timestamp.valueOf(LocalDateTime.parse(value));
+        } catch (DateTimeParseException secondException) {
+            // continue
+        }
+
+        try {
+            return Timestamp.from(OffsetDateTime.parse(value).toInstant());
+        } catch (DateTimeParseException thirdException) {
+            // continue
+        }
+
+        try {
+            return Timestamp.from(Instant.parse(value));
+        } catch (DateTimeParseException ex) {
+            throw new ApplicationRuntimeException(
+                "Cannot convert from String to Timestamp: " + value, ex);
+        }
     }
 
     /**

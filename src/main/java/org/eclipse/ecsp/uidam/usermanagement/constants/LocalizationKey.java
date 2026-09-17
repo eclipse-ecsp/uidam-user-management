@@ -128,4 +128,6 @@ public interface LocalizationKey {
     String SCOPE_DOES_NOT_EXIST = "Scope does not exist";
     String DELETE_ENTITY_FAILURE = "delete.entity.failure";
     String ROLE_DOES_NOT_EXIST = "Role does not exist";
+    String ATTRIBUTE_LABEL_REQUIRED_FOR_STATIC = "attribute.label.required.for.static";
+    String ATTRIBUTE_NAME_RESERVED = "attribute.name.reserved";
 }

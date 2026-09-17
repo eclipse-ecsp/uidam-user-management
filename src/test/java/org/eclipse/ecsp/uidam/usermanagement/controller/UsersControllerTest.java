@@ -605,6 +605,8 @@ public class UsersControllerTest {
             + "    \"unique\": false,\n"
             + "    \"readOnly\": false,\n"
             + "    \"searchable\": true,\n"
+            + "    \"dynamicAttribute\": false,\n"
+            + "    \"attributeLabel\": \"Is Married\",\n"
             + "    \"type\": \"TEXT\",\n"
             + "    \"regex\": \"[a-zA-Z]{1,13}\"\n"
             + "  }\n"
@@ -636,6 +638,8 @@ public class UsersControllerTest {
             + "    \"unique\": false,\n"
             + "    \"readOnly\": false,\n"
             + "    \"searchable\": true,\n"
+            + "    \"dynamicAttribute\": false,\n"
+            + "    \"attributeLabel\": \"Is Married\",\n"
             + "    \"type\": \"TEXT\",\n"
             + "    \"regex\": \"[a-zA-Z]{1,13}\"\n"
             + "  }\n"
@@ -908,6 +912,22 @@ public class UsersControllerTest {
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(asJsonString(getExternalUserDto())))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void selfAddUserInvalidAdditionalAttribute_PreservesFieldNameInParameters() throws Exception {
+        // ApplicationRuntimeException thrown for an invalid custom sign-up attribute (e.g. a
+        // regex mismatch) must be rethrown as-is, not re-wrapped, so the real field name(s) stay
+        // in "parameters" instead of being flattened into an opaque message string.
+        when(usersService.addUser(any(UserDtoV1.class), eq(null), eq(true)))
+            .thenThrow(new org.eclipse.ecsp.uidam.usermanagement.exception.ApplicationRuntimeException(
+                org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_DATA_IS_INVALID,
+                org.springframework.http.HttpStatus.BAD_REQUEST, "[accountBalance]"));
+        mockMvc.perform(post(VERSION_V1 + USER_RESOURCE_PATH + USERS_SELF_PATH)
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(asJsonString(getExternalUserDto())))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.parameters[0]").value("[accountBalance]"));
     }
 
     @Test

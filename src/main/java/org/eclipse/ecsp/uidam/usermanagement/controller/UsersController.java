@@ -228,6 +228,9 @@ public class UsersController {
             BeanUtils.copyProperties(userResponseV1, selfAddUserResponseV1);
         } catch (RecordAlreadyExistsException e) {
             throw new RecordAlreadyExistsException(ApiConstants.USER);
+        } catch (ApplicationRuntimeException e) {
+            // re-wrapping below would flatten them into an opaque string and lose them.
+            throw e;
         } catch (Exception e) {
             throw new ApplicationRuntimeException(
                     "Failed to create user '" + userDto.getUserName() + "': " + e.getMessage(), BAD_REQUEST);
@@ -332,8 +335,14 @@ public class UsersController {
     )
     @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ViewUsers", "ManageUsers"})
     @GetMapping(value = PATH_USER_ATTRIBUTES)
-    public ResponseEntity<List<UserMetaDataResponse>> getUserAttributes() {
-        LOGGER.info("Get user attributes");
+    public ResponseEntity<List<UserMetaDataResponse>> getUserAttributes(
+            @RequestParam(value = "dynamicAttribute", required = false)
+            @Parameter(description = "Optional filter: true=dynamic attributes, false=static attributes")
+            Boolean dynamicAttribute) {
+        LOGGER.info("Get user attributes, dynamicAttribute filter={}", dynamicAttribute);
+        if (dynamicAttribute != null) {
+            return new ResponseEntity<>(usersService.getSignupAttributes(dynamicAttribute), HttpStatus.OK);
+        }
         return new ResponseEntity<>(usersService.getUserMetaData(), HttpStatus.OK);
     }
 

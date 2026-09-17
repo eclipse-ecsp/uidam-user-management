@@ -107,9 +107,7 @@ class ScopesServiceTest {
     @Test
     void testAddScopeUniqueConstraintViolation() {
         ScopeDto scopeDto = new ScopeDto("DummyScope", "dummy create scope", true);
-        ScopesEntity scopeEntity = ScopeMapper.MAPPER.mapToScopeEntity(scopeDto);
-        scopeEntity.setCreatedBy("DummyUser");
-        when(scopesRepository.save(scopeEntity)).thenThrow(DataIntegrityViolationException.class);
+        when(scopesRepository.save(Mockito.any(ScopesEntity.class))).thenThrow(DataIntegrityViolationException.class);
 
         RecordAlreadyExistsException exception = Assertions.assertThrows(RecordAlreadyExistsException.class, () -> {
             scopeService.addScope(scopeDto, "DummyUser");
