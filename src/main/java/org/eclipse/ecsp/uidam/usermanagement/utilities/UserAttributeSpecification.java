@@ -27,6 +27,7 @@ import lombok.NoArgsConstructor;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAttributeValueEntity;
 import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.springframework.data.jpa.domain.Specification;
+import java.math.BigInteger;
 import java.util.List;
 import static org.eclipse.ecsp.uidam.usermanagement.enums.SearchType.CONTAINS;
 import static org.eclipse.ecsp.uidam.usermanagement.enums.SearchType.PREFIX;
@@ -124,7 +125,7 @@ public class UserAttributeSpecification implements Specification<UserAttributeVa
         predicatesValues = new Predicate[predicateList.size()];
         predicateList.toArray(predicatesValues);
         Predicate predicateValue = builder.or(predicatesValues);
-        Integer field = (Integer) criteria.getKey();
+        BigInteger field = (BigInteger) criteria.getKey();
         Predicate predicateField = builder.equal(root.get("attributeId"), field);
         return builder.and(predicateField, predicateValue);
     }

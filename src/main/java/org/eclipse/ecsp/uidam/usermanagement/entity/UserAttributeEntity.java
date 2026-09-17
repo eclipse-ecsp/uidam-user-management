@@ -63,6 +63,8 @@ public class UserAttributeEntity {
     @Column(nullable = false)
     private String types;
     private String regex;
+    @Column(name = "attribute_label")
+    private String attributeLabel;
     @Column(name = "created_by")
     private String createdBy = SYSTEM;
     @Column(name = "created_date")

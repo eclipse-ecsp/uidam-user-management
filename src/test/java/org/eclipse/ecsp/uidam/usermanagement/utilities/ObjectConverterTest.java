@@ -28,11 +28,13 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ObjectConverterTest {
@@ -151,11 +153,49 @@ class ObjectConverterTest {
     }
 
     @Test
+    void stringToTime_shortFormat_hhmm_appendsSeconds() {
+        // Browser <input type="time"> sends "HH:mm" without seconds
+        Time result = ObjectConverter.stringToTime("14:30");
+        assertEquals(Time.valueOf("14:30:00"), result);
+    }
+
+    @Test
     void stringToTimestamp() {
         Timestamp timestamp = Timestamp.valueOf(LocalDateTime.now());
         String stringToConvert = String.valueOf(timestamp);
         Timestamp stringToTimestamp = ObjectConverter.stringToTimestamp(stringToConvert);
         assertEquals(timestamp, stringToTimestamp);
+    }
+
+    @Test
+    void stringToTimestamp_isoFormatWithTandNoSeconds_convertsCorrectly() {
+        // Browser <input type="datetime-local"> sends "yyyy-MM-ddTHH:mm"
+        Timestamp result = ObjectConverter.stringToTimestamp("2026-07-22T01:31");
+        assertEquals(Timestamp.valueOf("2026-07-22 01:31:00"), result);
+    }
+
+    @Test
+    void stringToTimestamp_isoFormatWithTandSeconds_convertsCorrectly() {
+        // Full ISO 8601 with seconds "yyyy-MM-ddTHH:mm:ss"
+        Timestamp result = ObjectConverter.stringToTimestamp("2026-07-22T01:31:45");
+        assertEquals(Timestamp.valueOf("2026-07-22 01:31:45"), result);
+    }
+
+    @Test
+    void stringToTimestamp_null_returnsNull() {
+        assertNull(ObjectConverter.stringToTimestamp(null));
+    }
+
+    @Test
+    void stringToTimestampWithIsoFormat() {
+        String stringToConvert = "2026-09-02T10:15:30+05:30";
+        Timestamp timestamp = ObjectConverter.stringToTimestamp(stringToConvert);
+        assertEquals(Timestamp.from(OffsetDateTime.parse(stringToConvert).toInstant()), timestamp);
+    }
+
+    @Test
+    void stringToTimestampWithBlankValue() {
+        assertEquals(null, ObjectConverter.stringToTimestamp(""));
     }
 
     @Test
