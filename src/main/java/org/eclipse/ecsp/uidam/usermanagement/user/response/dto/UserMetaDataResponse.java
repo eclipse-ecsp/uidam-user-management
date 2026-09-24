@@ -35,4 +35,5 @@ public class UserMetaDataResponse {
     private Boolean dynamicAttribute;
     private String type;
     private String regex;
+    private String attributeLabel;
 }

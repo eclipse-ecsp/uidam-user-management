@@ -22,6 +22,7 @@ package org.eclipse.ecsp.uidam.usermanagement.repository;
 import org.eclipse.ecsp.uidam.usermanagement.entity.UserAttributeEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.math.BigInteger;
+import java.util.List;
 
 
 /**
@@ -30,4 +31,6 @@ import java.math.BigInteger;
 public interface UserAttributeRepository extends JpaRepository<UserAttributeEntity, BigInteger> {
 
     UserAttributeEntity findByName(String attributeName);
+
+    List<UserAttributeEntity> findByDynamicAttribute(Boolean dynamicAttribute);
 }
