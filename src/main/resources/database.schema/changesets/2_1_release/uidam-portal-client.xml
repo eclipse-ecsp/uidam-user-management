@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+
+
+    <changeSet id="uidam-portal-client" author="System">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM ${schema}.client_details WHERE client_id = 'uidam-portal'
+            </sqlCheck>
+        </preConditions>
+
+        <insert tableName="client_details">
+            <column name="CLIENT_ID" value="uidam-portal"/>
+            <column name="TENANT_ID" value="default_tenant"/>
+            <column name="CLIENT_NAME" value="uidam-portal"/>
+            <column name="CLIENT_SECRET"
+                    value="${initial.data.client.secret}"/>
+            <column name="AUTHORIZED_GRANT_TYPES" value="client_credentials,authorization_code"/>
+            <column name="REDIRECT_URI" value="https://oauth.pstmn.io/v1/callback"/>
+            <column name="SCOPES"
+                    value="UIDAMSystem,SelfManage,OAuth2ClientMgmt,ViewUsers,ManageUsers,ManageUserRolesAndPermissions,ManageAccounts,ViewAccounts"/>
+            <column name="CLIENT_AUTHENTICATION_METHODS" value="client_secret_basic,client_secret_post,none"/>
+            <column name="ACCESS_TOKEN_VALIDITY" value="3600"/>
+            <column name="REFRESH_TOKEN_VALIDITY" value="3600"/>
+            <column name="AUTHORIZATION_CODE_VALIDITY" value="300"/>
+            <column name="CLIENT_SECRET_EXPIRES_AT" value="null"/>
+            <column name="REQUIRE_AUTHORIZATION_CONSENT" value="false"/>
+            <column name="STATUS" value="approved"/>
+            <column name="APPROVED_BY" value="admin"/>
+            <column name="APPROVED_DATE" value="${now}"/>
+            <column name="CREATED_BY" value="system"/>
+            <column name="CREATE_DATE" value="${now}"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

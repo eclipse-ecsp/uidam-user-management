@@ -34,6 +34,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -132,6 +134,11 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
             throw new ClientRegistrationException(ClientRegistrationResponseCode.SP_CLIENT_DOES_NOT_EXIST);
         }
         client.get().setStatus(ClientStatus.DELETED.getValue());
+        String updater = StringUtils.hasText(client.get().getUpdatedBy())
+                ? client.get().getUpdatedBy()
+                : client.get().getCreatedBy();
+        client.get().setUpdatedBy(updater);
+        client.get().setUpdateDate(Instant.now());
         clientRepository.save(client.get());
         logger.debug("deleted client in system with clientId {} !", clientId);
         return Optional.of(ClientRegistrationResponseMessage.SP_REGISTRATION_DELETE_SUCCESS_200_MSG.getMessage());
@@ -182,6 +189,8 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
                 : tenantConfigurationService.getTenantProperties().getClientRegistration()
                         .getAuthorizationCodeValidity());
         client.setCreatedBy(request.getCreatedBy());
+        client.setUpdatedBy(request.getCreatedBy());
+        client.setUpdateDate(Instant.now());
         client.setStatus(tenantConfigurationService.getTenantProperties().getClientRegistration().getDefaultStatus());
         // to be updated when multi-tenancy implemented
         client.setTenantId(DEFAULT_TENANT_ID);
@@ -269,7 +278,11 @@ public class ClientRegistrationServiceImpl implements ClientRegistration {
             ValidationUtils.validateStatus(request.getStatus());
             client.setStatus(request.getStatus());
         }
-        client.setUpdatedBy(request.getCreatedBy());
+        String updater = StringUtils.hasText(request.getCreatedBy())
+            ? request.getCreatedBy()
+            : (StringUtils.hasText(client.getUpdatedBy()) ? client.getUpdatedBy() : client.getCreatedBy());
+        client.setUpdatedBy(updater);
+        client.setUpdateDate(Instant.now());
         return client;
     }
 
