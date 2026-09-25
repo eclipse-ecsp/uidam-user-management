@@ -115,6 +115,8 @@ public final class ApiConstants {
     public static final String RESULTS = "results";
     public static final String USER = "User";
     public static final String USERS = "Users";
+    public static final String USER_ATTRIBUTE = "UserAttribute";
+    public static final String USER_ATTRIBUTE_VALUE = "UserAttributeValue";
     public static final String STATUS_FIELD_DESCRIPTION =
         "Status. Allowed values are: [PENDING, REJECTED, ACTIVE, DEACTIVATED]";
     public static final String IS_EXTERNAL_USER_DESCRIPTION =
@@ -126,6 +128,11 @@ public final class ApiConstants {
     public static final String SUMMARY_GET_EXTERNAL_USER = "Get external user";
     public static final String SUMMARY_GET_USER_ATTRIBUTES = "Get user attributes";
     public static final String SUMMARY_PUT_USER_ATTRIBUTES = "Add/Modify additional attributes to user";
+    public static final String SUMMARY_GET_ADDITIONAL_USER_ATTRIBUTES = "Get all additional attribute definitions";
+    public static final String SUMMARY_DELETE_USER_ATTRIBUTE = "Delete an additional attribute definition";
+    public static final String SUMMARY_GET_USER_ATTRIBUTE_VALUES = "Get a user's additional attribute values";
+    public static final String SUMMARY_PUT_USER_ATTRIBUTE_VALUES = "Add/Modify a user's additional attribute values";
+    public static final String SUMMARY_DELETE_USER_ATTRIBUTE_VALUE = "Delete a user's additional attribute value";
     public static final String SUMMARY_GET_SELF_USER = "Get my user data";
 
     public static final String SUMMARY_ADD_SELF_USER = "Create end user.";
@@ -147,6 +154,12 @@ public final class ApiConstants {
     public static final String BUILDER_NAME = "custom";
     public static final String PATH_VARIABLE_USERNAME = "/{userName}";
     public static final String PATH_USER_ATTRIBUTES = "/attributes";
+    public static final String PATH_VARIABLE_ATTRIBUTE_NAME = "/{attributeName}";
+    public static final String ATTRIBUTE_NAME = "attributeName";
+    public static final String PATH_USER_ATTRIBUTES_ADDITIONAL = PATH_USER_ATTRIBUTES + "/additional";
+    public static final String PATH_USER_ATTRIBUTE_DEFINITION = PATH_USER_ATTRIBUTES + PATH_VARIABLE_ATTRIBUTE_NAME;
+    public static final String PATH_USER_ATTRIBUTE_VALUES = PATH_VARIABLE_ID + PATH_USER_ATTRIBUTES + "/values";
+    public static final String PATH_USER_ATTRIBUTE_VALUE = PATH_USER_ATTRIBUTE_VALUES + PATH_VARIABLE_ATTRIBUTE_NAME;
     public static final String CAPTCHA_REQUIRED = "required";
     public static final String CAPTCHA_ENFORCE_AFTER_NO_OF_FAILURES = "enforceAfterNoOfFailures";
     public static final String PATH_BY_USERNAME = "/byUserName";
@@ -293,6 +306,13 @@ public final class ApiConstants {
     public static final String ROLES_SCOPES_FILTER_PATH = "/filter";
 
     public static final String CLIENT_RESOURCE_PATH = "/oauth2/client";
+    public static final String CLIENT_FILTER_PATH = "/filter";
+    public static final String SORT_BY_DEFAULT_FOR_FILTER_CLIENTS = "CLIENT_NAMES";
+    public static final String IGNORE_CASE_DEFAULT_FOR_FILTER_CLIENTS = "false";
+    public static final String SEARCH_TYPE_DEFAULT_FOR_FILTER_CLIENTS = "EQUAL";
+    public static final int MIN_PAGE_NUMBER = 0;
+    public static final int MIN_PAGE_SIZE = 1;
+    public static final int MAX_PAGE_SIZE = 100;
 
     public static final String SPACE = " ";
     public static final String COMMA = ",";

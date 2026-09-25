@@ -33,10 +33,15 @@ import org.eclipse.ecsp.uidam.usermanagement.utilities.AesEncryptionDecryption;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -50,6 +55,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -96,6 +102,7 @@ class ClientRegistrationTest {
     private static final int ONE_HUNDRED_INT = 100;
     private static final Long TWO_THOUSAND = 2000L;
     private static final int TWO_THOUSAN_INT = 2000;
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     @BeforeEach
     public void setup() {
@@ -496,6 +503,159 @@ class ClientRegistrationTest {
             http.add("Accept", "application/json");
             http.add(ApiConstants.CORRELATION_ID, "12345");
         }).exchange().expectStatus().isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void testFilterClients() {
+        mockFilterResult(getClient());
+
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.OK)
+            .expectBody()
+            .jsonPath("$.data.items[0].clientId").isEqualTo("testClient")
+            .jsonPath("$.data.items[0].status").isEqualTo("approved")
+            .jsonPath("$.data.items[0].clientSecret").isEqualTo("")
+            .jsonPath("$.data.totalItems").isEqualTo(1)
+            .jsonPath("$.data.totalPages").isEqualTo(1)
+            .jsonPath("$.data.page").isEqualTo(0);
+    }
+
+    @Test
+    void testFilterClientsByCriteria() {
+        mockFilterResult(getClient());
+
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter?pageNumber=0&pageSize=10&sortBy=CLIENT_IDS&sortOrder=ASC"
+                + "&ignoreCase=true&searchType=CONTAINS")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{\"clientIds\":[\"testClient\"],\"clientNames\":[\"name\"],\"statuses\":[\"APPROVED\"]}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.OK)
+            .expectBody()
+            .jsonPath("$.data.items[0].clientId").isEqualTo("testClient")
+            .jsonPath("$.data.items[0].clientSecret").isEqualTo("");
+    }
+
+    @Test
+    void testFilterClientsWithLowerCaseStatuses() {
+        mockFilterResult(getClient());
+
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{\"statuses\":[\"approved\",\"registered\",\"rejected\"]}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.OK)
+            .expectBody()
+            .jsonPath("$.data.items[0].status").isEqualTo("approved")
+            .jsonPath("$.data.items[0].clientSecret").isEqualTo("");
+    }
+
+    @Test
+    void testFilterClientsNoMatch() {
+        mockFilterResult();
+
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{\"clientNames\":[\"unknown\"]}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.OK)
+            .expectBody()
+            .jsonPath("$.data.items").isEmpty()
+            .jsonPath("$.data.totalItems").isEqualTo(0);
+    }
+
+    @Test
+    void testFilterClientsClientWithoutOptionalAttributes() {
+        ClientEntity client = getClient();
+        client.setRedirectUrls(null);
+        client.setAuthenticationMethods(null);
+        client.setScopes("");
+        client.setPostLogoutRedirectUris("http://logout.com/test");
+        mockFilterResult(client);
+
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.OK)
+            .expectBody()
+            .jsonPath("$.data.items[0].postLogoutRedirectUris[0]").isEqualTo("http://logout.com/test")
+            .jsonPath("$.data.items[0].redirectUris").doesNotExist();
+    }
+
+    @Test
+    void testFilterClients_invalidPageNumber() {
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter?pageNumber=-1")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void testFilterClients_pageSizeAboveLimit() {
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter?pageSize=101")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void testFilterClients_invalidStatus() {
+        webTestClient.post()
+            .uri("/v1/oauth2/client/filter")
+            .headers(http -> {
+                http.add("Content-Type", "application/json");
+                http.add("Accept", "application/json");
+                http.add(ApiConstants.CORRELATION_ID, "12345");
+            })
+            .bodyValue("{\"statuses\":[\"UNKNOWN\"]}")
+            .exchange()
+            .expectStatus().isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    private void mockFilterResult(ClientEntity... clients) {
+        List<ClientEntity> content = List.of(clients);
+        when(clientRepository.findAll(ArgumentMatchers.<Specification<ClientEntity>>any(), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(content, PageRequest.of(0, DEFAULT_PAGE_SIZE), content.size()));
     }
 
     private ClientEntity getClient() {

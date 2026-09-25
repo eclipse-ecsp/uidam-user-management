@@ -203,6 +203,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.OK;
 
@@ -1769,6 +1770,18 @@ class UsersServiceTest {
 
         assertThrows(ApplicationRuntimeException.class,
             () -> usersService.putUserMetaData(List.of(userMetaDataRequest)));
+    }
+
+    @Test
+    void deleteUserAttributeRejectedWhenValuesExist() throws ResourceNotFoundException {
+        when(userAttributeRepository.findAll()).thenReturn(createUserAttributeMetaData());
+        when(userAttributeValueRepository.existsByAttributeId(ATTR_ID_VALUE_1)).thenReturn(true);
+
+        ApplicationRuntimeException exception = assertThrows(ApplicationRuntimeException.class,
+            () -> usersService.deleteUserAttribute("mandatoryAttribute"));
+
+        assertEquals(CONFLICT, exception.getHttpStatus());
+        verify(userAttributeRepository, never()).delete(any(UserAttributeEntity.class));
     }
 
     List<UserAttributeEntity> createUserAttributeMetaData() {
@@ -3557,6 +3570,50 @@ class UsersServiceTest {
             () -> ((UsersServiceImpl) usersService)
                 .isValidAdditionalAttributes(additionalAttributes, List.of(uuidAttribute), true));
         assertEquals(FIELD_DATA_IS_INVALID, exception.getKey());
+    }
+
+    @Test
+    void testUpdateUserAttributeValuesUsesNormalizedAttributeLookup() throws ResourceNotFoundException {
+        UserEntity userEntity = new UserEntity();
+        userEntity.setId(USER_ID_VALUE);
+
+        UserAttributeEntity testDateAttribute = new UserAttributeEntity(ATTR_ID_VALUE, "testDate", false, false,
+            false, true, true, "date", ".*", null, "system", null, "system", null);
+        Map<String, Object> attributeValues = new HashMap<>();
+        attributeValues.put("testDate", "2026-09-18");
+
+        when(userRepository.findByIdAndStatusNot(USER_ID_VALUE, UserStatus.DELETED)).thenReturn(userEntity);
+        when(userAttributeRepository.findAll()).thenReturn(List.of(testDateAttribute));
+        when(userAttributeValueRepository.findAllByUserIdAndAttributeIdIn(eq(USER_ID_VALUE), anyList()))
+            .thenReturn(Collections.emptyList());
+        when(userAttributeValueRepository.findAllByUserIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(userAttributeValueRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertDoesNotThrow(() -> usersService.updateUserAttributeValues(USER_ID_VALUE, attributeValues));
+
+        verify(userAttributeValueRepository).saveAll(anyList());
+    }
+
+    @Test
+    void testUpdateUserAttributeValuesAcceptsCommaDelimitedTextList() throws ResourceNotFoundException {
+        UserEntity userEntity = new UserEntity();
+        userEntity.setId(USER_ID_VALUE);
+
+        UserAttributeEntity testListAttribute = new UserAttributeEntity(ATTR_ID_VALUE, "testList", false, false,
+            false, true, true, "_text", ".*", null, "system", null, "system", null);
+        Map<String, Object> attributeValues = new HashMap<>();
+        attributeValues.put("testList", "v1,v2,v3");
+
+        when(userRepository.findByIdAndStatusNot(USER_ID_VALUE, UserStatus.DELETED)).thenReturn(userEntity);
+        when(userAttributeRepository.findAll()).thenReturn(List.of(testListAttribute));
+        when(userAttributeValueRepository.findAllByUserIdAndAttributeIdIn(eq(USER_ID_VALUE), anyList()))
+            .thenReturn(Collections.emptyList());
+        when(userAttributeValueRepository.findAllByUserIdIn(anyList())).thenReturn(Collections.emptyList());
+        when(userAttributeValueRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertDoesNotThrow(() -> usersService.updateUserAttributeValues(USER_ID_VALUE, attributeValues));
+
+        verify(userAttributeValueRepository).saveAll(anyList());
     }
 
     @Test
