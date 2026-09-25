@@ -85,10 +85,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ACCOUNT_NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ACCOUNT_ROLE_ASSOCIATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ASCENDING;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ASSOCIATE_USERS_TO_ROLE_PATH;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ATTRIBUTE_NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.DESCENDING;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.END_USER_TAG;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.EXTERNAL_USER;
@@ -110,6 +112,10 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_FILTER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_GET_EXTERNAL_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ATTRIBUTES;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ATTRIBUTES_ADDITIONAL;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ATTRIBUTE_DEFINITION;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ATTRIBUTE_VALUE;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ATTRIBUTE_VALUES;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_USER_ID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_VARIABLE_ID;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.PATH_VARIABLE_USERNAME;
@@ -130,14 +136,19 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMA
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_DELETE_EXTERNAL_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_DELETE_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_DELETE_USERS_BY_FILTER;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_DELETE_USER_ATTRIBUTE;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_DELETE_USER_ATTRIBUTE_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_EDIT_EXTERNAL_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_EDIT_USER;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_ADDITIONAL_USER_ATTRIBUTES;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_EXTERNAL_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_SELF_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_USERS_BY_FILTER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_USER_ATTRIBUTES;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_GET_USER_ATTRIBUTE_VALUES;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_PUT_USER_ATTRIBUTES;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_PUT_USER_ATTRIBUTE_VALUES;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_SELF_DELETE_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_SELF_EDIT_USER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.SUMMARY_SELF_RESET;
@@ -365,6 +376,126 @@ public class UsersController {
                                                                             userMetaDataRequests) {
         LOGGER.info("Put user attributes");
         return new ResponseEntity<>(usersService.putUserMetaData(userMetaDataRequests), HttpStatus.OK);
+    }
+
+    /**
+     * API to get metadata for every additional attribute defined in the user_attributes table
+     * (both dynamic and static-defined custom attributes).
+     *
+     * @return List of additional attribute metadata.
+     */
+    @Operation(summary = SUMMARY_GET_ADDITIONAL_USER_ATTRIBUTES,
+        description = "Get all additional attribute definitions from the user_attributes table.",
+        tags = {USERS_TAG},
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Success")
+        }
+    )
+    @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ViewUsers", "ManageUsers"})
+    @GetMapping(value = PATH_USER_ATTRIBUTES_ADDITIONAL)
+    public ResponseEntity<List<UserMetaDataResponse>> getAdditionalUserAttributes() {
+        LOGGER.info("Get additional user attributes");
+        return new ResponseEntity<>(usersService.getAllUserAttributes(), HttpStatus.OK);
+    }
+
+    /**
+     * API to delete an additional attribute definition. Rejected if any user has a stored value for it.
+     *
+     * @param attributeName name of the attribute definition to delete.
+     * @throws ResourceNotFoundException if no attribute definition exists with the given name.
+     */
+    @Operation(summary = SUMMARY_DELETE_USER_ATTRIBUTE,
+        description = "Deletes an additional attribute definition. Fails with 409 if any user "
+            + "has a stored value for it.",
+        tags = {USERS_TAG},
+        responses = {
+            @ApiResponse(responseCode = "204", description = "Success"),
+            @ApiResponse(responseCode = "409", description = "Attribute has values referenced by users")
+        }
+    )
+    @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ManageUsers"})
+    @DeleteMapping(value = PATH_USER_ATTRIBUTE_DEFINITION)
+    public ResponseEntity<Void> deleteUserAttribute(
+        @PathVariable(value = ATTRIBUTE_NAME) @Parameter(description = "Attribute name", required = true)
+        String attributeName) throws ResourceNotFoundException {
+        LOGGER.info("Delete user attribute definition request received for: {}", attributeName);
+        usersService.deleteUserAttribute(attributeName);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    /**
+     * API to get a single user's additional attribute values.
+     *
+     * @param id user id.
+     * @return map of attribute name to value.
+     * @throws ResourceNotFoundException if the user does not exist.
+     */
+    @Operation(summary = SUMMARY_GET_USER_ATTRIBUTE_VALUES,
+        description = "Get a user's additional attribute name/value pairs.",
+        tags = {USERS_TAG},
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Success")
+        }
+    )
+    @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ViewUsers", "ManageUsers"})
+    @GetMapping(value = PATH_USER_ATTRIBUTE_VALUES)
+    public ResponseEntity<Map<String, Object>> getUserAttributeValues(
+        @PathVariable(value = ID) @Parameter(description = "User ID", required = true) BigInteger id)
+        throws ResourceNotFoundException {
+        LOGGER.info("Get user attribute values request received for user id: {}", id);
+        return new ResponseEntity<>(usersService.getUserAttributeValues(id), HttpStatus.OK);
+    }
+
+    /**
+     * API to add/modify a single user's additional attribute values.
+     *
+     * @param id              user id.
+     * @param attributeValues map of attribute name to value.
+     * @return map of the user's attribute name to value after the update.
+     * @throws ResourceNotFoundException if the user does not exist.
+     */
+    @Operation(summary = SUMMARY_PUT_USER_ATTRIBUTE_VALUES,
+        description = "Add/Modify a user's additional attribute values.",
+        tags = {USERS_TAG},
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Success")
+        }
+    )
+    @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ManageUsers"})
+    @PutMapping(value = PATH_USER_ATTRIBUTE_VALUES, consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> putUserAttributeValues(
+        @PathVariable(value = ID) @Parameter(description = "User ID", required = true) BigInteger id,
+        @RequestBody @Parameter(name = "Request payload", description = "Attribute name/value pairs to add/modify")
+        Map<String, Object> attributeValues) throws ResourceNotFoundException {
+        LOGGER.info("Put user attribute values request received for user id: {}", id);
+        return new ResponseEntity<>(usersService.updateUserAttributeValues(id, attributeValues), HttpStatus.OK);
+    }
+
+    /**
+     * API to delete a single user's stored value for one additional attribute.
+     *
+     * @param id            user id.
+     * @param attributeName name of the attribute value to delete.
+     * @throws ResourceNotFoundException if the user, the attribute definition, or the stored
+     *      value does not exist.
+     */
+    @Operation(summary = SUMMARY_DELETE_USER_ATTRIBUTE_VALUE,
+        description = "Deletes a user's stored value for one additional attribute.",
+        tags = {USERS_TAG},
+        responses = {
+            @ApiResponse(responseCode = "204", description = "Success")
+        }
+    )
+    @SecurityRequirement(name = "JwtAuthValidator", scopes = {"ManageUsers"})
+    @DeleteMapping(value = PATH_USER_ATTRIBUTE_VALUE)
+    public ResponseEntity<Void> deleteUserAttributeValue(
+        @PathVariable(value = ID) @Parameter(description = "User ID", required = true) BigInteger id,
+        @PathVariable(value = ATTRIBUTE_NAME) @Parameter(description = "Attribute name", required = true)
+        String attributeName) throws ResourceNotFoundException {
+        LOGGER.info("Delete user attribute value request received for user id: {}, attribute: {}", id,
+            attributeName);
+        usersService.deleteUserAttributeValue(id, attributeName);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     /**

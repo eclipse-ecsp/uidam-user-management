@@ -101,6 +101,7 @@ public interface LocalizationKey {
     String FIELD_NOT_FOUND = "field.not.found";
     String ACTION_FORBIDDEN = "action.forbidden";
     String DELETE_OPERATION_FAILED = "delete.operation.failed";
+    String ATTRIBUTE_HAS_REFERENCED_VALUES = "attribute.has.referenced.values";
     String USER_ROLES_NOT_FOUND = "user.roles.not.found";
     String FIELD_CANNOT_BE_MODIFIED = "field.cannot.be.modified";
     String MISSING_CORRELATION_ID = "missing.correlation.id";

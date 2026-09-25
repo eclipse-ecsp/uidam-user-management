@@ -18,9 +18,14 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * ENUM with client status.
  */
+@Schema(type = "string", allowableValues = {"approved", "deleted", "registered", "rejected"})
 public enum ClientStatus {
 
     APPROVED("approved"), DELETED("deleted"), REGISTERED("registered"), REJECTED("rejected");
@@ -31,8 +36,28 @@ public enum ClientStatus {
         this.value = value;
     }
 
+    @JsonValue
     public String getValue() {
         return value;
+    }
+
+    /**
+     * Resolve a client status from its JSON value or enum name.
+     *
+     * @param value client status value from the request payload.
+     * @return matching ClientStatus enum.
+     */
+    @JsonCreator
+    public static ClientStatus fromValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        for (ClientStatus status : values()) {
+            if (status.value.equalsIgnoreCase(value) || status.name().equalsIgnoreCase(value)) {
+                return status;
+            }
+        }
+        throw new IllegalArgumentException("Invalid client status: " + value);
     }
 
 }

@@ -26,6 +26,7 @@ public enum ClientRegistrationResponseMessage {
     SP_REGISTRATION_SUCCESS_201_MSG("Client registered successfully!!"),
     SP_REGISTRATION_UPDATE_SUCCESS_200_MSG("Client updated successfully!!"),
     SP_REGISTRATION_RETRIEVE_SUCCESS_200_MSG("Client details retrieved successfully."),
+    SP_REGISTRATION_FILTER_SUCCESS_200_MSG("Client details filtered successfully."),
     SP_REGISTRATION_DELETE_SUCCESS_200_MSG("Client deleted successfully!!");
 
     private String message;

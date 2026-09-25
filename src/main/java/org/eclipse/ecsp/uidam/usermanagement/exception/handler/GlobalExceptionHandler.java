@@ -39,7 +39,6 @@ import org.eclipse.ecsp.uidam.usermanagement.exception.UserAccountRoleMappingExc
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.BaseRepresentation;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.BaseResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ResponseMessage;
-import org.hibernate.validator.internal.engine.path.PathImpl;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -374,8 +373,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
             while (iterator.hasNext()) {
                 ConstraintViolation<?> constraintViolation = iterator.next();
-                PathImpl propertyPath = (PathImpl) constraintViolation.getPropertyPath();
+                Path propertyPath = constraintViolation.getPropertyPath();
+                String leafNodeName = null;
                 for (Path.Node node : propertyPath) {
+                    leafNodeName = node.getName();
                     if (node.getKey() instanceof ResponseMessage response) {
                         baseRepresentation.addMessage(response);
                     }
@@ -383,7 +384,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 if (baseRepresentation.getMessages().isEmpty()) {
                     baseRepresentation.addMessage(new ResponseMessage(constraintViolation.getMessageTemplate(),
                         "field value [" + constraintViolation.getInvalidValue() + "]",
-                        propertyPath.getLeafNode().getName()));
+                        leafNodeName));
                 }
             }
         } else {

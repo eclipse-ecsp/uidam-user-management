@@ -122,7 +122,7 @@
         <!-- Jacoco property -->
         <jacoco.ut.execution.data.file>${project.build.directory}/coverage-reports/jacoco-ut.exec
         </jacoco.ut.execution.data.file>
-        <ecsp-utils.version>1.2.0</ecsp-utils.version>
+        <ecsp-utils.version>1.2.3</ecsp-utils.version>
         <mustache.compiler.version>0.9.14</mustache.compiler.version>
         
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
