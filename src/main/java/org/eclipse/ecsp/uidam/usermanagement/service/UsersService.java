@@ -44,6 +44,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -76,9 +77,56 @@ public interface UsersService {
 
     List<UserMetaDataResponse> getSignupAttributes(Boolean dynamicAttribute);
 
+    /**
+     * Returns metadata for every additional attribute defined in the user_attributes table
+     * (both dynamic and static-defined custom attributes).
+     *
+     * @return list of additional attribute metadata.
+     */
+    List<UserMetaDataResponse> getAllUserAttributes();
+
     UserEventResponseDto addUserEvent(UserEventsDto userEventsDto, String userId);
 
     List<UserMetaDataResponse> putUserMetaData(List<UserMetaDataRequest> userMetaDataRequests);
+
+    /**
+     * Deletes an additional attribute definition from the user_attributes table, along with
+     * every stored value for that attribute in user_attribute_values.
+     *
+     * @param attributeName name of the attribute definition to delete.
+     * @throws ResourceNotFoundException if no attribute definition exists with the given name.
+     */
+    void deleteUserAttribute(String attributeName) throws ResourceNotFoundException;
+
+    /**
+     * Returns a single user's additional attribute name/value pairs from user_attribute_values.
+     *
+     * @param userId user id.
+     * @return map of attribute name to value.
+     * @throws ResourceNotFoundException if the user does not exist.
+     */
+    Map<String, Object> getUserAttributeValues(BigInteger userId) throws ResourceNotFoundException;
+
+    /**
+     * Adds/updates a single user's additional attribute values in user_attribute_values.
+     *
+     * @param userId          user id.
+     * @param attributeValues map of attribute name to value.
+     * @return map of the user's attribute name to value after the update.
+     * @throws ResourceNotFoundException if the user does not exist.
+     */
+    Map<String, Object> updateUserAttributeValues(BigInteger userId, Map<String, Object> attributeValues)
+            throws ResourceNotFoundException;
+
+    /**
+     * Deletes a single user's stored value for one additional attribute from user_attribute_values.
+     *
+     * @param userId        user id.
+     * @param attributeName name of the attribute value to delete.
+     * @throws ResourceNotFoundException if the user, the attribute definition, or the stored value
+     *      does not exist.
+     */
+    void deleteUserAttributeValue(BigInteger userId, String attributeName) throws ResourceNotFoundException;
 
     void updateUserPasswordUsingRecoverySecret(UserUpdatePasswordDto userUpdatePasswordDto)
             throws ResourceNotFoundException, RecoverySecretExpireException;

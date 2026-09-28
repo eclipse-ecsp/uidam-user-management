@@ -190,6 +190,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVAL
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.INVALID_PAYLOAD_ERROR_MESSAGE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.LASTNAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.MFA_REQUIRED_ATTRIBUTE;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.NO_ROLEID_FOR_FILTER;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.OPERATION;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.ORIGINAL_USERNAME;
@@ -210,6 +211,8 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USERS
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ACCOUNT_ROLE_ASSOCIATION_CODE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ACCOUNT_ROLE_MAPPING_TABLE_NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ADDRESS_ENTITY_TABLE_NAME;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ATTRIBUTE;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ATTRIBUTE_VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_DISASSOCIATE_ERROR_MSG;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ENTITY_TABLE_NAME;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ID_NOT_FOUND_MESSAGE;
@@ -217,6 +220,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.USER_ID_VARIABLE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants.VALUE;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ACTION_FORBIDDEN;
+import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ATTRIBUTE_HAS_REFERENCED_VALUES;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ATTRIBUTE_METADATA_IS_MISSING;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.ATTRIBUTE_NAME_RESERVED;
 import static org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey.FIELD_CANNOT_BE_MODIFIED;
@@ -258,6 +262,7 @@ import static org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria.Roo
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria.RootParam.USER_ADDRESS_ROOT;
 import static org.eclipse.ecsp.uidam.usermanagement.utilities.SearchCriteria.RootParam.USER_ROOT;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.OK;
 
 /**
@@ -281,7 +286,8 @@ public class UsersServiceImpl implements UsersService {
         Map.entry("float4", Float.class), Map.entry("float8", Double.class), Map.entry("money", Double.class),
         Map.entry("name", String.class), Map.entry("text", String.class), Map.entry("date", Date.class),
         Map.entry("time", Time.class), Map.entry("timetz", Time.class), Map.entry("timestamp", Timestamp.class),
-        Map.entry("_abc", List.class), Map.entry("uuid", UUID.class), Map.entry("json", String.class),
+        Map.entry("_abc", List.class), Map.entry("_text", List.class), Map.entry("uuid", UUID.class),
+        Map.entry("json", String.class),
         Map.entry("jsonb", JsonNode.class));
     
     private static final int DEFAULT_MAX_LOCK_ATTEMPTS = 5;
@@ -392,11 +398,7 @@ public class UsersServiceImpl implements UsersService {
      * @return UserManagementTenantProperties for current tenant
      */
     private UserManagementTenantProperties getTenantProperties() {
-        UserManagementTenantProperties tenantProperties = tenantConfigurationService.getTenantProperties();
-        if (tenantProperties == null) {
-            throw new IllegalStateException("Tenant configuration is not available for the current tenant");
-        }
-        return tenantProperties;
+        return tenantConfigurationService.getTenantProperties();
     }
     
     /**
@@ -488,9 +490,8 @@ public class UsersServiceImpl implements UsersService {
 
     private void resolveUserStatus(UserDtoBase userDto, boolean isSelfAddUser) {
         if (!(isSelfAddUser && userDto.getStatus() != null)) {
-            UserManagementTenantProperties tenantProperties = getTenantProperties();
-            if (BooleanUtils.isTrue(tenantProperties.getIsUserStatusLifeCycleEnabled())
-                    || BooleanUtils.isTrue(tenantProperties.getIsEmailVerificationEnabled())) {
+            if (getTenantProperties().getIsUserStatusLifeCycleEnabled().booleanValue()
+                    || BooleanUtils.isTrue(getTenantProperties().getIsEmailVerificationEnabled())) {
                 userDto.setStatus(UserStatus.PENDING);
             } else {
                 userDto.setStatus(UserStatus.ACTIVE);
@@ -714,13 +715,17 @@ public class UsersServiceImpl implements UsersService {
      */
     public String parseAdditionalAttributeValue(Map<String, UserAttributeEntity> userAttributeEntityByNameMap,
                                                 String additionalAttribute, Object value) {
-        Class<?> targetClass = DATA_TYPE_MAP.get(
-            userAttributeEntityByNameMap.get(additionalAttribute.toLowerCase(Locale.ROOT)).getTypes()
-                .toLowerCase(Locale.ROOT));
+        UserAttributeEntity userAttributeEntity = userAttributeEntityByNameMap.get(
+            additionalAttribute.toLowerCase(Locale.ROOT));
+        String dataType = userAttributeEntity.getTypes().toLowerCase(Locale.ROOT);
+        Class<?> targetClass = DATA_TYPE_MAP.get(dataType);
         if (targetClass.equals(JsonNode.class)) {
             return ObjectConverter.jsonNodeObjectToString(value);
         } else if (targetClass.equals(List.class)) {
-            return String.join(",", new ArrayList<>((List) value));
+            if (value instanceof String stringValue) {
+                return String.join(",", ObjectConverter.stringToList(stringValue));
+            }
+            return ((List<?>) value).stream().map(String::valueOf).collect(Collectors.joining(","));
         } else {
             return String.valueOf(value);
         }
@@ -913,18 +918,26 @@ public class UsersServiceImpl implements UsersService {
      */
     private Boolean isObjectCastable(String dataType, Object value) {
         try {
-            if (DATA_TYPE_MAP.get(dataType).equals(JsonNode.class)
+            Class<?> targetClass = DATA_TYPE_MAP.get(dataType.toLowerCase(Locale.ROOT));
+            if (Objects.isNull(targetClass)) {
+                return false;
+            }
+            if (targetClass.equals(JsonNode.class)
                 && ObjectConverter.jsonNodeObjectToString(value) != null) {
                 return true;
             } else if (dataType.equalsIgnoreCase("bit")) {
                 Boolean.valueOf(String.valueOf(value));
                 return true;
-            } else if (DATA_TYPE_MAP.get(dataType).equals(List.class)) {
-                new ArrayList<>((List<?>) value);
+            } else if (targetClass.equals(List.class)) {
+                if (value instanceof String stringValue) {
+                    ObjectConverter.stringToList(stringValue);
+                } else {
+                    new ArrayList<>((List<?>) value);
+                }
                 return true;
             } else {
                 String data = String.valueOf(value);
-                ObjectConverter.convert(data, DATA_TYPE_MAP.get(dataType));
+                ObjectConverter.convert(data, targetClass);
                 return true;
             }
         } catch (Exception exception) {
@@ -1202,8 +1215,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
         throws InActiveUserException {
-        Instant lockUntil = lockTimestamp.toInstant();
-        Instant now = Instant.now();
+        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
+        LocalDateTime now = LocalDateTime.now();
         long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
         
         if (LOGGER.isDebugEnabled()) {
@@ -1251,22 +1264,22 @@ public class UsersServiceImpl implements UsersService {
             }
 
             // Check if lock period has expired based on temporary_lock_timestamp
-            Instant lockUntil = lockTimestamp.toInstant();
-            Instant now = Instant.now();
+            LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
+            LocalDateTime now = LocalDateTime.now();
 
             LOGGER.debug("User {} lock expires at: {}. Current time: {}",
                 userEntity.getUserName(), lockUntil, now);
 
             // Check if current time is past the lock expiration
-            if (!now.isBefore(lockUntil)) {
+            if (now.isAfter(lockUntil) || now.equals(lockUntil)) {
                 UserStatus previousStatus = userEntity.getStatus();
                 // Unlock user using common method
-                unlockBlockedUser(userEntity, previousStatus, LocalDateTime.now());
+                unlockBlockedUser(userEntity, previousStatus, now);
                 LOGGER.info("Successfully unlocked user {} during login attempt (lock expired at {})",
                     userEntity.getUserName(), lockUntil);
                 return true;
             } else {
-                long remainingMinutes = ChronoUnit.MINUTES.between(now, lockUntil);
+                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
                 LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
                     userEntity.getUserName(), remainingMinutes);
                 return false;
@@ -1989,6 +2002,135 @@ public class UsersServiceImpl implements UsersService {
     }
 
     /**
+     * Method to get metadata for every additional attribute defined in the user_attributes
+     * table, regardless of its dynamicAttribute flag.
+     *
+     * @return list of additional attribute metadata.
+     */
+    @Override
+    public List<UserMetaDataResponse> getAllUserAttributes() {
+        return userAttributeRepository.findAll().stream()
+            .map(UserMapper.USER_MAPPER::mapToMetaDataResponse)
+            .filter(UserManagementUtils.distinctByKey(UserMetaDataResponse::getName)).toList();
+    }
+
+    /**
+     * Method to delete an additional attribute definition. Refuses to delete while any user has a
+     * stored value for it, to avoid silently losing that data.
+     *
+     * @param attributeName name of the attribute definition to delete.
+     * @throws ResourceNotFoundException if no attribute definition exists with the given name.
+     */
+    @Override
+    @Transactional
+    public void deleteUserAttribute(String attributeName) throws ResourceNotFoundException {
+        UserAttributeEntity userAttributeEntity = findUserAttributeByName(attributeName);
+        if (userAttributeValueRepository.existsByAttributeId(userAttributeEntity.getId())) {
+            throw new ApplicationRuntimeException(ATTRIBUTE_HAS_REFERENCED_VALUES, CONFLICT, attributeName);
+        }
+        userAttributeRepository.delete(userAttributeEntity);
+        LOGGER.info("Deleted user attribute definition '{}'", attributeName);
+    }
+
+    /**
+     * Method to get a single user's additional attribute name/value pairs.
+     *
+     * @param userId user id.
+     * @return map of attribute name to value.
+     * @throws ResourceNotFoundException if the user does not exist.
+     */
+    @Override
+    public Map<String, Object> getUserAttributeValues(BigInteger userId) throws ResourceNotFoundException {
+        getUserEntity(userId);
+        Map<BigInteger, Map<String, Object>> additionalAttributes = findAdditionalAttributeData(List.of(userId));
+        return ObjectUtils.isEmpty(additionalAttributes)
+            ? Collections.emptyMap() : additionalAttributes.getOrDefault(userId, Collections.emptyMap());
+    }
+
+    /**
+     * Method to add/update a single user's additional attribute values.
+     *
+     * @param userId          user id.
+     * @param attributeValues map of attribute name to value.
+     * @return map of the user's attribute name to value after the update.
+     * @throws ResourceNotFoundException if the user does not exist.
+     */
+    @Override
+    @Transactional
+    @Modifying
+    public Map<String, Object> updateUserAttributeValues(BigInteger userId, Map<String, Object> attributeValues)
+        throws ResourceNotFoundException {
+        getUserEntity(userId);
+        if (ObjectUtils.isEmpty(attributeValues)) {
+            return getUserAttributeValues(userId);
+        }
+        List<UserAttributeEntity> userAttributeEntities = userAttributeRepository.findAll();
+        Set<String> badDtoAttributes = findBadDtoAttributes(userAttributeEntities, attributeValues.keySet());
+        if (!ObjectUtils.isEmpty(badDtoAttributes)) {
+            throw new ApplicationRuntimeException(FIELD_NOT_FOUND, BAD_REQUEST, String.valueOf(badDtoAttributes));
+        }
+        Map<String, UserAttributeEntity> userAttributeEntitiesMap = groupUserAttributeEntityByName(
+            userAttributeEntities);
+        Set<String> readOnlyAttributes = attributeValues.keySet().stream()
+            .filter(key -> Boolean.TRUE.equals(
+                userAttributeEntitiesMap.get(key.toLowerCase(Locale.ROOT)).getReadOnly()))
+            .collect(Collectors.toSet());
+        if (!ObjectUtils.isEmpty(readOnlyAttributes)) {
+            throw new ApplicationRuntimeException(ACTION_FORBIDDEN, BAD_REQUEST,
+                String.valueOf(readOnlyAttributes), FIELD_CANNOT_BE_MODIFIED);
+        }
+        isValidAdditionalAttributes(attributeValues, userAttributeEntities, false);
+        List<BigInteger> attributeIds = attributeValues.keySet().stream()
+            .map(key -> userAttributeEntitiesMap.get(key.toLowerCase(Locale.ROOT)).getId()).toList();
+        UserEntity userEntity = getUserEntity(userId);
+        patchAdditionalAttribute(attributeValues, userEntity, userAttributeEntitiesMap, attributeIds);
+        LOGGER.info("Updated additional attribute value(s) {} for userId {}", attributeValues.keySet(), userId);
+        return getUserAttributeValues(userId);
+    }
+
+    /**
+     * Method to delete a single user's stored value for one additional attribute.
+     *
+     * @param userId        user id.
+     * @param attributeName name of the attribute value to delete.
+     * @throws ResourceNotFoundException if the user, the attribute definition, or the stored
+     *      value does not exist.
+     */
+    @Override
+    @Transactional
+    public void deleteUserAttributeValue(BigInteger userId, String attributeName) throws ResourceNotFoundException {
+        getUserEntity(userId);
+        UserAttributeEntity userAttributeEntity = findUserAttributeByName(attributeName);
+        if (Boolean.TRUE.equals(userAttributeEntity.getReadOnly())) {
+            throw new ApplicationRuntimeException(ACTION_FORBIDDEN, BAD_REQUEST, attributeName,
+                FIELD_CANNOT_BE_MODIFIED);
+        }
+        UserAttributeValueEntity userAttributeValueEntity = userAttributeValueRepository
+            .findByUserIdAndAttributeId(userId, userAttributeEntity.getId());
+        if (userAttributeValueEntity == null) {
+            throw new ResourceNotFoundException(USER_ATTRIBUTE_VALUE, USER_ID_VARIABLE, String.valueOf(userId));
+        }
+        userAttributeValueRepository.delete(userAttributeValueEntity);
+        LOGGER.info("Deleted attribute value '{}' for userId {}", attributeName, userId);
+    }
+
+    /**
+     * Method to find an attribute definition by name (case-insensitive).
+     *
+     * @param attributeName name of the attribute definition.
+     * @return matching attribute definition.
+     * @throws ResourceNotFoundException if no attribute definition exists with the given name.
+     */
+    private UserAttributeEntity findUserAttributeByName(String attributeName) throws ResourceNotFoundException {
+        UserAttributeEntity userAttributeEntity = groupUserAttributeEntityByName(userAttributeRepository.findAll())
+            .get(attributeName.toLowerCase(Locale.ROOT));
+        if (userAttributeEntity == null) {
+            throw new ResourceNotFoundException(USER_ATTRIBUTE, NAME, attributeName);
+        }
+        return userAttributeEntity;
+    }
+
+    /**
      * Method to map and return user attribute with user attribute metadata as
      * response.
      *
@@ -2117,16 +2259,21 @@ public class UsersServiceImpl implements UsersService {
         }
         Map<BigInteger, UserAttributeValueEntity> finalUserAttributeValueEntitiesMap = userAttributeValueEntitiesMap;
         additionalAttributes.forEach((key, value) -> {
+            String normalizedKey = key.toLowerCase(Locale.ROOT);
+            UserAttributeEntity userAttributeEntity = userAttributeEntitiesMap.get(normalizedKey);
+            if (Objects.isNull(userAttributeEntity)) {
+                throw new ApplicationRuntimeException(FIELD_NOT_FOUND, BAD_REQUEST, key);
+            }
             if (!finalUserAttributeValueEntitiesMap.isEmpty()
-                && finalUserAttributeValueEntitiesMap.containsKey(userAttributeEntitiesMap.get(key).getId())) {
+                && finalUserAttributeValueEntitiesMap.containsKey(userAttributeEntity.getId())) {
                 UserAttributeValueEntity userAttributeValueEntity = finalUserAttributeValueEntitiesMap
-                    .get(userAttributeEntitiesMap.get(key).getId());
+                    .get(userAttributeEntity.getId());
                 userAttributeValueEntity.setValue(parseAdditionalAttributeValue(userAttributeEntitiesMap, key, value));
                 finalAttributeValueEntities.add(userAttributeValueEntity);
             } else {
                 UserAttributeValueEntity userAttributeValueEntity = new UserAttributeValueEntity();
                 userAttributeValueEntity.setUserId(userEntity.getId());
-                userAttributeValueEntity.setAttributeId(userAttributeEntitiesMap.get(key).getId());
+                userAttributeValueEntity.setAttributeId(userAttributeEntity.getId());
                 userAttributeValueEntity.setValue(parseAdditionalAttributeValue(userAttributeEntitiesMap, key, value));
                 finalAttributeValueEntities.add(userAttributeValueEntity);
             }
@@ -2590,8 +2737,8 @@ public class UsersServiceImpl implements UsersService {
             
             // Calculate lock duration with exponential backoff
             lockDurationMinutes = calculateLockDuration(lockCount, tenantProperties);
-            Instant lockUntil = Instant.now().plus(lockDurationMinutes, ChronoUnit.MINUTES);
-            currentUser.setTemporaryLockTimestamp(Timestamp.from(lockUntil));
+            LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockDurationMinutes);
+            currentUser.setTemporaryLockTimestamp(Timestamp.valueOf(lockUntil));
             
             LOGGER.info("User {} blocked temporarily (attempt {}/{}). Lock duration: {} minutes. Lock expires at: {}",
                 currentUser.getId(), lockCount, maxLockAttempts, lockDurationMinutes, lockUntil);
@@ -2615,10 +2762,10 @@ public class UsersServiceImpl implements UsersService {
      * @return remaining lock duration in minutes
      */
     private long calculateRemainingLockDuration(UserEntity currentUser) {
-        Instant lockUntil = currentUser.getTemporaryLockTimestamp().toInstant();
-        Instant now = Instant.now();
+        LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
+        LocalDateTime now = LocalDateTime.now();
         if (lockUntil.isAfter(now)) {
-            long remaining = ChronoUnit.MINUTES.between(now, lockUntil);
+            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
             LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
                 currentUser.getId(), remaining);
             return remaining;
@@ -2913,6 +3060,7 @@ public class UsersServiceImpl implements UsersService {
         }
 
         String uidamAuthToken = cacheTokenService.getAccessToken();
+        //dont remove this. check why not able to create a token here later
         if (StringUtils.isNotEmpty(uidamAuthToken)) {
             BaseResponseFromAuthorization response = authorizationServerClient.revokeTokenByAdmin(uidamAuthToken,
                 username);

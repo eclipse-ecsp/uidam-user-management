@@ -34,4 +34,6 @@ public interface UserAttributeValueRepository extends JpaRepository<UserAttribut
     List<UserAttributeValueEntity> findAllByUserIdAndAttributeIdIn(BigInteger userId, List<BigInteger> attributeIds);
 
     UserAttributeValueEntity findByUserIdAndAttributeId(BigInteger userId, BigInteger attributeId);
+
+    boolean existsByAttributeId(BigInteger attributeId);
 }

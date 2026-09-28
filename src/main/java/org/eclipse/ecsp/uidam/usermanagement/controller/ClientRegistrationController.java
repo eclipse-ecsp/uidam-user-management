@@ -19,23 +19,33 @@
 package org.eclipse.ecsp.uidam.usermanagement.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.ClientFilterDto;
 import org.eclipse.ecsp.uidam.usermanagement.auth.request.dto.RegisteredClientDetails;
 import org.eclipse.ecsp.uidam.usermanagement.constants.ApiConstants;
+import org.eclipse.ecsp.uidam.usermanagement.constants.LocalizationKey;
 import org.eclipse.ecsp.uidam.usermanagement.enums.ClientRegistrationResponseCode;
 import org.eclipse.ecsp.uidam.usermanagement.enums.ClientRegistrationResponseMessage;
+import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
+import org.eclipse.ecsp.uidam.usermanagement.enums.SortOrder;
 import org.eclipse.ecsp.uidam.usermanagement.service.ClientRegistration;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.BaseResponse;
+import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.ClientFilterResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,6 +62,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
  * Rest controller for client registration.
  */
 @RestController
+@Validated
 @RequestMapping(value = ApiConstants.API_VERSION + ApiConstants.CLIENT_RESOURCE_PATH, produces = APPLICATION_JSON_VALUE)
 public class ClientRegistrationController {
     private static Logger logger = LoggerFactory.getLogger(ClientRegistrationController.class);
@@ -144,6 +155,63 @@ public class ClientRegistrationController {
         logger.info("#Delete client request, client id: {}", clientId);
         Optional<String> response = clientRegistrationService.deleteRegisteredClient(clientId);
         return buildResponse(ClientRegistrationResponseCode.SP_SUCCESS.getCode(), response.get(), null, HttpStatus.OK);
+    }
+
+    /**
+     * Filter clients api.
+     *
+     * @param pageNumber      zero based index of the page to retrieve
+     * @param pageSize        number of clients to display per page
+     * @param sortBy          client attribute the result is ordered by
+     * @param sortOrder       order results in ASC or DESC order
+     * @param ignoreCase      make search case-sensitive/case-insensitive
+     * @param searchType      match values as PREFIX, SUFFIX, CONTAINS or EQUAL
+     * @param clientFilterDto filter criteria for each field
+     * @return response with the matching clients, client secret excluded
+     */
+    @PostMapping(ApiConstants.CLIENT_FILTER_PATH)
+    @Operation(summary = "Filter clients", description = "Retrieve clients matching defined criteria", responses = {
+        @ApiResponse(responseCode = "200", description = "Success", 
+                content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, 
+                schema = @Schema(implementation = BaseResponse.class))) })
+    @SecurityRequirement(name = "JwtAuthValidator", scopes = { "OAuth2ClientMgmt" })
+    public ResponseEntity<BaseResponse> filterClients(
+            @RequestParam(name = ApiConstants.PAGE_NUMBER, required = false,
+                    defaultValue = ApiConstants.PAGE_NUMBER_DEFAULT)
+            @Parameter(description = ApiConstants.PAGE_NUMBER_DESCRIPTION)
+            @Min(value = ApiConstants.MIN_PAGE_NUMBER, message = LocalizationKey.INVALID_LENGTH) Integer pageNumber,
+            @RequestParam(name = ApiConstants.PAGE_SIZE, required = false,
+                    defaultValue = ApiConstants.PAGE_SIZE_DEFAULT)
+            @Parameter(description = ApiConstants.PAGE_SIZE_DESCRIPTION)
+            @Min(value = ApiConstants.MIN_PAGE_SIZE, message = LocalizationKey.INVALID_LENGTH)
+            @Max(value = ApiConstants.MAX_PAGE_SIZE, message = LocalizationKey.INVALID_LENGTH) Integer pageSize,
+            @RequestParam(name = ApiConstants.SORT_BY, required = false,
+                    defaultValue = ApiConstants.SORT_BY_DEFAULT_FOR_FILTER_CLIENTS)
+            @Parameter(description = ApiConstants.SORT_BY_DESCRIPTION) ClientFilterDto.ClientFilterDtoEnum sortBy,
+            @RequestParam(name = ApiConstants.SORT_ORDER, required = false, defaultValue = ApiConstants.DESCENDING)
+            @Parameter(description = ApiConstants.SORT_ORDER_DESCRIPTION, schema = @Schema(
+                    allowableValues = { ApiConstants.DESCENDING, ApiConstants.ASCENDING })) SortOrder sortOrder,
+            @RequestParam(name = ApiConstants.IGNORE_CASE, required = false,
+                    defaultValue = ApiConstants.IGNORE_CASE_DEFAULT_FOR_FILTER_CLIENTS)
+            @Parameter(description = ApiConstants.IGNORE_CASE_DESCRIPTION,
+                    schema = @Schema(allowableValues = { "true", "false" })) boolean ignoreCase,
+            @RequestParam(name = ApiConstants.SEARCH_TYPE, required = false,
+                    defaultValue = ApiConstants.SEARCH_TYPE_DEFAULT_FOR_FILTER_CLIENTS)
+            @Parameter(description = ApiConstants.SEARCH_TYPE_DESCRIPTION, schema = @Schema(
+                    allowableValues = { "PREFIX", "SUFFIX", "CONTAINS", "EQUAL" })) SearchType searchType,
+            @Valid @RequestBody @Parameter(name = "Request payload",
+                    description = "Parameters and values by which to filter. To get all clients, leave empty.")
+            ClientFilterDto clientFilterDto) {
+        logger.debug("#Filter clients request, page: {}, size: {}", pageNumber, pageSize);
+        ClientFilterResponse clients = clientRegistrationService.filterClients(clientFilterDto, pageNumber, pageSize,
+                sortBy.getField(), sortOrder.sortOrderLowerCase(), ignoreCase, searchType);
+        // Exclude client secret from the response for security reasons
+        if (clients.getItems() != null) {
+            clients.getItems().forEach(client -> client.setClientSecret(""));
+        }
+        return buildResponse(ClientRegistrationResponseCode.SP_SUCCESS.getCode(),
+                ClientRegistrationResponseMessage.SP_REGISTRATION_FILTER_SUCCESS_200_MSG.getMessage(), clients,
+                HttpStatus.OK);
     }
 
     /**
