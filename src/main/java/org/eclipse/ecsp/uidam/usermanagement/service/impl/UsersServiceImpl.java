@@ -149,6 +149,7 @@ import java.text.FieldPosition;
 import java.text.MessageFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -398,7 +399,8 @@ public class UsersServiceImpl implements UsersService {
      * @return UserManagementTenantProperties for current tenant
      */
     private UserManagementTenantProperties getTenantProperties() {
-        return tenantConfigurationService.getTenantProperties();
+        return Objects.requireNonNull(tenantConfigurationService.getTenantProperties(),
+            "Tenant properties are not configured");
     }
     
     /**
@@ -1215,8 +1217,8 @@ public class UsersServiceImpl implements UsersService {
      */
     private void handleTemporaryLock(String userName, Timestamp lockTimestamp) 
         throws InActiveUserException {
-        LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-        LocalDateTime now = LocalDateTime.now();
+        Instant lockUntil = lockTimestamp.toInstant();
+        Instant now = Instant.now();
         long minutesLeft = ChronoUnit.MINUTES.between(now, lockUntil);
         
         if (LOGGER.isDebugEnabled()) {
@@ -1264,8 +1266,8 @@ public class UsersServiceImpl implements UsersService {
             }
 
             // Check if lock period has expired based on temporary_lock_timestamp
-            LocalDateTime lockUntil = lockTimestamp.toLocalDateTime();
-            LocalDateTime now = LocalDateTime.now();
+            Instant lockUntil = lockTimestamp.toInstant();
+            Instant now = Instant.now();
 
             LOGGER.debug("User {} lock expires at: {}. Current time: {}",
                 userEntity.getUserName(), lockUntil, now);
@@ -1274,12 +1276,13 @@ public class UsersServiceImpl implements UsersService {
             if (now.isAfter(lockUntil) || now.equals(lockUntil)) {
                 UserStatus previousStatus = userEntity.getStatus();
                 // Unlock user using common method
-                unlockBlockedUser(userEntity, previousStatus, now);
+                unlockBlockedUser(userEntity, previousStatus,
+                    LocalDateTime.ofInstant(now, ZoneId.systemDefault()));
                 LOGGER.info("Successfully unlocked user {} during login attempt (lock expired at {})",
                     userEntity.getUserName(), lockUntil);
                 return true;
             } else {
-                long remainingMinutes = java.time.Duration.between(now, lockUntil).toMinutes();
+                long remainingMinutes = ChronoUnit.MINUTES.between(now, lockUntil);
                 LOGGER.debug("User {} still within lock period. Remaining: {} minutes",
                     userEntity.getUserName(), remainingMinutes);
                 return false;
@@ -1344,7 +1347,7 @@ public class UsersServiceImpl implements UsersService {
         LOGGER.debug("Processing {} blocked users for scheduled unlock", blockedUsers.size());
 
         int unlockedCount = 0;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
 
         for (UserEntity user : blockedUsers) {
             try {
@@ -2022,14 +2025,14 @@ public class UsersServiceImpl implements UsersService {
      * @throws ResourceNotFoundException if no attribute definition exists with the given name.
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = ResourceNotFoundException.class)
     public void deleteUserAttribute(String attributeName) throws ResourceNotFoundException {
         UserAttributeEntity userAttributeEntity = findUserAttributeByName(attributeName);
         if (userAttributeValueRepository.existsByAttributeId(userAttributeEntity.getId())) {
             throw new ApplicationRuntimeException(ATTRIBUTE_HAS_REFERENCED_VALUES, CONFLICT, attributeName);
         }
         userAttributeRepository.delete(userAttributeEntity);
-        LOGGER.info("Deleted user attribute definition '{}'", attributeName);
+        LOGGER.info("Deleted user attribute definition '{}'", sanitizeForLogging(attributeName));
     }
 
     /**
@@ -2056,7 +2059,7 @@ public class UsersServiceImpl implements UsersService {
      * @throws ResourceNotFoundException if the user does not exist.
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = ResourceNotFoundException.class)
     @Modifying
     public Map<String, Object> updateUserAttributeValues(BigInteger userId, Map<String, Object> attributeValues)
         throws ResourceNotFoundException {
@@ -2084,7 +2087,8 @@ public class UsersServiceImpl implements UsersService {
             .map(key -> userAttributeEntitiesMap.get(key.toLowerCase(Locale.ROOT)).getId()).toList();
         UserEntity userEntity = getUserEntity(userId);
         patchAdditionalAttribute(attributeValues, userEntity, userAttributeEntitiesMap, attributeIds);
-        LOGGER.info("Updated additional attribute value(s) {} for userId {}", attributeValues.keySet(), userId);
+        LOGGER.info("Updated additional attribute value(s) {} for userId {}",
+            attributeValues.keySet().stream().map(this::sanitizeForLogging).toList(), userId);
         return getUserAttributeValues(userId);
     }
 
@@ -2097,7 +2101,7 @@ public class UsersServiceImpl implements UsersService {
      *      value does not exist.
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = ResourceNotFoundException.class)
     public void deleteUserAttributeValue(BigInteger userId, String attributeName) throws ResourceNotFoundException {
         getUserEntity(userId);
         UserAttributeEntity userAttributeEntity = findUserAttributeByName(attributeName);
@@ -2111,7 +2115,7 @@ public class UsersServiceImpl implements UsersService {
             throw new ResourceNotFoundException(USER_ATTRIBUTE_VALUE, USER_ID_VARIABLE, String.valueOf(userId));
         }
         userAttributeValueRepository.delete(userAttributeValueEntity);
-        LOGGER.info("Deleted attribute value '{}' for userId {}", attributeName, userId);
+        LOGGER.info("Deleted attribute value '{}' for userId {}", sanitizeForLogging(attributeName), userId);
     }
 
     /**
@@ -2737,8 +2741,8 @@ public class UsersServiceImpl implements UsersService {
             
             // Calculate lock duration with exponential backoff
             lockDurationMinutes = calculateLockDuration(lockCount, tenantProperties);
-            LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockDurationMinutes);
-            currentUser.setTemporaryLockTimestamp(Timestamp.valueOf(lockUntil));
+            Instant lockUntil = Instant.now().plus(lockDurationMinutes, ChronoUnit.MINUTES);
+            currentUser.setTemporaryLockTimestamp(Timestamp.from(lockUntil));
             
             LOGGER.info("User {} blocked temporarily (attempt {}/{}). Lock duration: {} minutes. Lock expires at: {}",
                 currentUser.getId(), lockCount, maxLockAttempts, lockDurationMinutes, lockUntil);
@@ -2762,10 +2766,10 @@ public class UsersServiceImpl implements UsersService {
      * @return remaining lock duration in minutes
      */
     private long calculateRemainingLockDuration(UserEntity currentUser) {
-        LocalDateTime lockUntil = currentUser.getTemporaryLockTimestamp().toLocalDateTime();
-        LocalDateTime now = LocalDateTime.now();
+        Instant lockUntil = currentUser.getTemporaryLockTimestamp().toInstant();
+        Instant now = Instant.now();
         if (lockUntil.isAfter(now)) {
-            long remaining = java.time.Duration.between(now, lockUntil).toMinutes();
+            long remaining = ChronoUnit.MINUTES.between(now, lockUntil);
             LOGGER.debug("User {} still blocked. Remaining lock duration: {} minutes", 
                 currentUser.getId(), remaining);
             return remaining;

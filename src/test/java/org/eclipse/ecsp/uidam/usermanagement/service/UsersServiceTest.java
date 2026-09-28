@@ -1773,7 +1773,7 @@ class UsersServiceTest {
     }
 
     @Test
-    void deleteUserAttributeRejectedWhenValuesExist() throws ResourceNotFoundException {
+    void deleteUserAttributeRejectedWhenValuesExist() {
         when(userAttributeRepository.findAll()).thenReturn(createUserAttributeMetaData());
         when(userAttributeValueRepository.existsByAttributeId(ATTR_ID_VALUE_1)).thenReturn(true);
 
@@ -3573,7 +3573,7 @@ class UsersServiceTest {
     }
 
     @Test
-    void testUpdateUserAttributeValuesUsesNormalizedAttributeLookup() throws ResourceNotFoundException {
+    void testUpdateUserAttributeValuesUsesNormalizedAttributeLookup() {
         UserEntity userEntity = new UserEntity();
         userEntity.setId(USER_ID_VALUE);
 
@@ -3595,7 +3595,7 @@ class UsersServiceTest {
     }
 
     @Test
-    void testUpdateUserAttributeValuesAcceptsCommaDelimitedTextList() throws ResourceNotFoundException {
+    void testUpdateUserAttributeValuesAcceptsCommaDelimitedTextList() {
         UserEntity userEntity = new UserEntity();
         userEntity.setId(USER_ID_VALUE);
 

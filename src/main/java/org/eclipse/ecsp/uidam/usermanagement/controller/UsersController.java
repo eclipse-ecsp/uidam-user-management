@@ -63,6 +63,7 @@ import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserDetailsRespon
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserEventResponseDto;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserMetaDataResponse;
 import org.eclipse.ecsp.uidam.usermanagement.user.response.dto.UserResponseV1;
+import org.eclipse.ecsp.uidam.usermanagement.utilities.InputSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -418,7 +419,7 @@ public class UsersController {
     public ResponseEntity<Void> deleteUserAttribute(
         @PathVariable(value = ATTRIBUTE_NAME) @Parameter(description = "Attribute name", required = true)
         String attributeName) throws ResourceNotFoundException {
-        LOGGER.info("Delete user attribute definition request received for: {}", attributeName);
+        LOGGER.info("Delete user attribute definition request received for: {}", InputSanitizer.forLog(attributeName));
         usersService.deleteUserAttribute(attributeName);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
@@ -493,7 +494,7 @@ public class UsersController {
         @PathVariable(value = ATTRIBUTE_NAME) @Parameter(description = "Attribute name", required = true)
         String attributeName) throws ResourceNotFoundException {
         LOGGER.info("Delete user attribute value request received for user id: {}, attribute: {}", id,
-            attributeName);
+            InputSanitizer.forLog(attributeName));
         usersService.deleteUserAttributeValue(id, attributeName);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
