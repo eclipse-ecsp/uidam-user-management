@@ -20,6 +20,7 @@ package org.eclipse.ecsp.uidam.usermanagement.repository;
 
 import org.eclipse.ecsp.uidam.usermanagement.entity.ClientEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -30,7 +31,8 @@ import java.util.Optional;
  * Repository class for client registration.
  */
 @Repository
-public interface ClientRepository extends JpaRepository<ClientEntity, BigInteger> {
+public interface ClientRepository extends JpaRepository<ClientEntity, BigInteger>,
+        JpaSpecificationExecutor<ClientEntity> {
 
     @Query("SELECT c FROM ClientEntity c WHERE c.clientId = :clientId")
     Optional<ClientEntity> findByClientId(@Param("clientId") String clientId);

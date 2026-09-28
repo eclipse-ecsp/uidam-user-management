@@ -16,7 +16,7 @@
   ~
   -->
 
-<configuration scan="true" scanPeriod="60 seconds">
+<configuration>
     <springProperty scope="context" name="GRAYLOG_ENABLED" source="APP_GRAYLOG_ENABLED"/>
     <springProperty scope="context" name="GRAYLOG_HOST" source="APP_GRAYLOG_HOST"/>
     <springProperty scope="context" name="GRAYLOG_PORT" source="APP_GRAYLOG_PORT"/>
@@ -30,12 +30,9 @@
     <springProperty scope="context" name="REGISTRY_COMMON_LOG_LEVEL" source="APP_REGISTRY_COMMON_LOG_LEVEL"/>
     <springProperty scope="context" name="PROP_LOAD_LOG_LEVEL" source="APP_PROP_LOAD_LOG_LEVEL"/>
     <conversionRule conversionWord="crlf"
-                    converterClass="org.owasp.security.logging.mask.CRLFConverter"/>
+                    class="org.owasp.security.logging.mask.CRLFConverter"/>
     <property name="PATTERN_PROPERTY" value="(Bearer ([a-zA-Z0-9_=]+)\.([a-zA-Z0-9_=]+)\.([a-zA-Z0-9_\-\+\/=]*))|(client_secret=\[(.*?)\])|(?:password=\\[(.*?)])|(?:&amp;password=(.*?)&amp;)|(?:password=(.*?)[\s,\]\)])|\&quot;password\&quot;:\&quot;(.*?)\&quot;|(?:email[s]?=\\[(.*?)])|(?:&amp;email[s]?=(.*?)&amp;)|(?:email[s]?=(.*?)[\s,\]\)])|\&quot;email[s]?\&quot;:\&quot;(.*?)\&quot;"/>
     <property name="MASK" value="****" />
-
-    <springProperty scope="context" name="GRAYLOG_ENABLED"
-                    source="graylog.enabled"/>
 
     <appender name="GELF"
               class="de.siegmar.logbackgelf.GelfTcpAppender">
@@ -122,41 +119,27 @@
         </encoder>
     </appender>
 
-    <root level="${LOG_LEVEL:-INFO}">
-       <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </root>
+    <condition class="ch.qos.logback.core.boolex.PropertyEqualityCondition">
+        <key>GRAYLOG_ENABLED</key>
+        <value>true</value>
+    </condition>
+    <if>
+        <then>
+            <root level="${LOG_LEVEL:-INFO}">
+                <appender-ref ref="ASYNC-GELF"/>
+            </root>
+        </then>
+        <else>
+            <root level="${LOG_LEVEL:-INFO}">
+                <appender-ref ref="ASYNC-STDOUT"/>
+            </root>
+        </else>
+    </if>
 
-    <logger name="org.eclipse.ecsp" level="${IGNITE_LOG_LEVEL:-ERROR}"
-            additivity="false">
-        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </logger>
-    <logger name="org.eclipse.ecsp.uidam"
-            level="${SVC_LOG_LEVEL:-INFO}" additivity="false">
-        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </logger>
-    <logger name="org.eclipse.ecsp.ignite.sql"
-            level="${STORAGE_LOG_LEVEL:-ERROR}" additivity="false">
-        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </logger>
-    <logger name="org.springframework"
-            level="${SPRING_LOG_LEVEL:-ERROR}" additivity="false">
-        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </logger>
+    <logger name="org.eclipse.ecsp" level="${IGNITE_LOG_LEVEL:-ERROR}"/>
+    <logger name="org.eclipse.ecsp.uidam" level="${SVC_LOG_LEVEL:-INFO}"/>
+    <logger name="org.eclipse.ecsp.ignite.sql" level="${STORAGE_LOG_LEVEL:-ERROR}"/>
+    <logger name="org.springframework" level="${SPRING_LOG_LEVEL:-ERROR}"/>
     <logger name="org.eclipse.ecsp.register" level="${REGISTRY_COMMON_LOG_LEVEL}" additivity="false">
         <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
     </logger>
@@ -167,17 +150,7 @@
         <appender-ref ref="${LOG_APPENDER:-STDOUT}"/>
     </logger>
     <logger name="org.eclipse.ecsp.uidam.usermanagement.config.TenantDefaultPropertiesProcessor"
-            level="${PROP_LOAD_LOG_LEVEL}" additivity="false">
-        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </logger>
+            level="${PROP_LOAD_LOG_LEVEL}"/>
     <logger name="org.eclipse.ecsp.uidam.usermanagement.config.ConfigRefreshListener"
-            level="${PROP_LOAD_LOG_LEVEL}" additivity="false">
-        <if condition='p("GRAYLOG_ENABLED").contains("true")'>
-            <then><appender-ref ref="ASYNC-GELF" /></then>
-            <else><appender-ref ref="ASYNC-STDOUT" /></else>
-        </if>
-    </logger>
+            level="${PROP_LOAD_LOG_LEVEL}"/>
 </configuration>
