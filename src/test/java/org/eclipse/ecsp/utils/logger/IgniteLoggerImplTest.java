@@ -145,9 +145,7 @@ class IgniteLoggerImplTest {
         log(level, withEvent ? unreadEvent : null, overload);
 
         assertTrue(appender.list.isEmpty());
-        if (List.of("trace", "debug", "info").contains(level)) {
-            verifyNoInteractions(unreadEvent);
-        }
+        verifyNoInteractions(unreadEvent);
     }
 
     @ParameterizedTest

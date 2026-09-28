@@ -30,16 +30,17 @@ import org.eclipse.ecsp.uidam.usermanagement.enums.SearchType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 import java.util.List;
 import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyChar;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Test cases for ClientSearchSpecification.
@@ -59,16 +60,16 @@ class ClientSearchSpecificationTest {
     @BeforeEach
     void setUp() {
         CollectorRegistry.defaultRegistry.clear();
-        clientEntityRoot = Mockito.mock(Root.class);
-        criteriaQuery = Mockito.mock(CriteriaQuery.class);
-        builder = Mockito.mock(CriteriaBuilder.class);
-        path = Mockito.mock(Path.class);
-        expression = Mockito.mock(Expression.class);
-        predicate = Mockito.mock(Predicate.class);
-        Mockito.when(clientEntityRoot.get(anyString())).thenReturn(path);
-        Mockito.when(builder.upper(path)).thenReturn(expression);
-        Mockito.when(builder.like(any(Expression.class), anyString(), anyChar())).thenReturn(predicate);
-        Mockito.when(builder.or(any(Predicate[].class))).thenReturn(predicate);
+        clientEntityRoot = mock(Root.class);
+        criteriaQuery = mock(CriteriaQuery.class);
+        builder = mock(CriteriaBuilder.class);
+        path = mock(Path.class);
+        expression = mock(Expression.class);
+        predicate = mock(Predicate.class);
+        when(clientEntityRoot.get(anyString())).thenReturn(path);
+        when(builder.upper(path)).thenReturn(expression);
+        when(builder.like(any(Expression.class), anyString(), anyChar())).thenReturn(predicate);
+        when(builder.or(any(Predicate[].class))).thenReturn(predicate);
     }
 
     @Test
