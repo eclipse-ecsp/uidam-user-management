@@ -20,12 +20,10 @@ package org.eclipse.ecsp.uidam.usermanagement.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * ENUM with client status.
  */
-@Schema(type = "string", allowableValues = {"approved", "deleted", "registered", "rejected"})
 public enum ClientStatus {
 
     APPROVED("approved"), DELETED("deleted"), REGISTERED("registered"), REJECTED("rejected");

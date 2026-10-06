@@ -18,7 +18,6 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.auth.request.dto;
 
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -62,8 +61,7 @@ public class ClientFilterDto {
         @Size(min = MIN_ELEMENT_LENGTH, max = MAX_CLIENT_NAME_LENGTH,
             message = INVALID_ELEMENT_LENGTH) String> clientNames;
 
-    @ArraySchema(schema = @Schema(implementation = ClientStatus.class,
-        allowableValues = {"approved", "deleted", "registered", "rejected"}))
+    @Schema(description = "List of client statuses")
     @Size(min = MIN_PER_SET, max = MAX_PER_SET, message = INVALID_LENGTH)
     @Valid
     private Set<@NotNull(message = INVALID_NULL_ELEMENT) ClientStatus> statuses;

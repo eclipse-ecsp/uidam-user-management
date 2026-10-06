@@ -1,0 +1,875 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ Copyright (c) 2023-24 Harman International
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~  http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  ~
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!--
+        Release 2.2 - Data Archival & Retention Framework: stored procedures.
+
+        Deploys the exact same PL/pgSQL used in scripts/archival-framework/run_archival_job.sql
+        (kept there too, unmodified, for manual/POC use) as Liquibase changesets, so the CronJob
+        Job container can rely on these objects existing via the normal migration path instead of
+        a separate manual script load. Runs after add-archival-retention-config.xml (the tables
+        these procedures reference must already exist).
+
+        Default export format remains JSONL_GZIP (archival_config.export_format default). Gzip
+        applies only to the self-hosted/DISK path (local volume write); the S3 path pushes the
+        export directly via aws_s3.query_export_to_s3, uncompressed, with no local staging. One
+        combined manifest is written per job type after the run completes.
+
+        dbms="postgresql" on every changeSet here: this file's DDL is 100% PL/pgSQL and is not
+        portable to other database engines.
+    -->
+
+    <changeSet id="create-aws-s3-export-extensions-v1" author="UIDAM Team" dbms="postgresql" runAlways="true">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">SELECT CASE WHEN EXISTS (SELECT 1 FROM ${schema}.archival_config WHERE export_type = 'S3') THEN 1 ELSE 0 END</sqlCheck>
+            <sqlCheck expectedResult="1">SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'aws_s3') THEN 1 ELSE 0 END</sqlCheck>
+        </preConditions>
+        <comment>Enable aws_commons/aws_s3 only when some job uses export_type=S3 and the engine exposes the extension (RDS/Aurora); runAlways so a later switch to S3 is still picked up; skipped on self-hosted PostgreSQL or DISK-only deployments</comment>
+        <sql splitStatements="true">
+            CREATE EXTENSION IF NOT EXISTS aws_commons;
+            CREATE EXTENSION IF NOT EXISTS aws_s3;
+        </sql>
+    </changeSet>
+
+    <changeSet id="create-archival-path-safety-function-v1" author="UIDAM Team" dbms="postgresql">
+        <comment>Allow-list guard for every archival export path</comment>
+        <sql splitStatements="false" stripComments="false">
+            <![CDATA[
+CREATE OR REPLACE FUNCTION archival_assert_safe_path(p_path TEXT) RETURNS VOID
+LANGUAGE plpgsql
+AS $func$
+BEGIN
+    IF p_path IS NULL OR p_path = '' OR p_path !~ '^[A-Za-z0-9_./-]+$' OR p_path LIKE '%..%' THEN
+        RAISE EXCEPTION 'Unsafe archival export path rejected: % (only [A-Za-z0-9_./-] allowed, ".." segments forbidden)', p_path;
+    END IF;
+END;
+$func$;
+            ]]>
+        </sql>
+    </changeSet>
+
+    <changeSet id="create-archival-export-batch-function-v8" author="UIDAM Team" dbms="postgresql">
+        <comment>Shared export dispatcher (S3 vs DISK, JSONL_GZIP vs CSV) used by every archival job type</comment>
+        <sql splitStatements="false" stripComments="false">
+            <![CDATA[
+CREATE OR REPLACE FUNCTION archival_export_batch(
+    p_job_type          VARCHAR,
+    p_tenant_id         VARCHAR,
+    p_table_short_name  VARCHAR,
+    p_source_temp_table VARCHAR,
+    p_row_count         BIGINT,
+    p_chunk_number      BIGINT,
+    p_run_id            VARCHAR,
+    p_export_type       VARCHAR,
+    p_export_path       TEXT,
+    p_file_name_pattern VARCHAR,
+    p_export_format     VARCHAR,
+    p_generate_manifest BOOLEAN,
+    p_retention_days    INTEGER,
+    p_s3_bucket         VARCHAR,
+    p_s3_region         VARCHAR,
+    p_local_volume_root VARCHAR
+) RETURNS TEXT
+LANGUAGE plpgsql
+AS $func$
+DECLARE
+    v_ext             VARCHAR;
+    v_base_path       TEXT;
+    v_data_path       TEXT;
+    v_file_name       TEXT;
+    v_manifest_path   TEXT;
+    v_dir             TEXT;
+    v_full_data_path  TEXT;
+    v_full_manifest_path TEXT;
+    v_manifest_json   TEXT;
+    v_rows_uploaded   BIGINT;
+    v_files_uploaded  INTEGER;
+    v_bytes_uploaded  BIGINT;
+    v_file_size       BIGINT;
+BEGIN
+    IF p_export_type NOT IN ('S3', 'DISK') THEN
+        RAISE EXCEPTION 'archival_config.export_type must be S3 or DISK (got %)', p_export_type;
+    END IF;
+
+    -- Resolve {tenant}/{jobType}/{table} placeholders (D20), then add the <yyyy>/<mm> date folders.
+    v_base_path := replace(replace(replace(p_export_path,
+                       '{tenant}', p_tenant_id), '{jobType}', p_job_type), '{table}', p_table_short_name);
+    v_base_path := rtrim(v_base_path, '/') || '/' || to_char(now(), 'YYYY') || '/' || to_char(now(), 'MM')
+        || '/' || to_char(now(), 'DD');
+
+    -- JSONL_GZIP is only gzip'd on the DISK path; S3 is pushed directly, uncompressed.
+    v_ext := CASE
+        WHEN p_export_format = 'CSV' THEN 'csv'
+        WHEN p_export_type = 'S3' THEN 'jsonl'
+        ELSE 'jsonl.gz'
+    END;
+
+    -- _part<n> guarantees uniqueness even when multiple chunks of the same table land in the
+    -- same run within the same wall-clock second (the timestamp token alone is not sufficient).
+    v_data_path := v_base_path || '/' ||
+        replace(replace(replace(p_file_name_pattern,
+            '{table}', p_table_short_name), '{jobType}', p_job_type),
+            '{yyyyMMddTHHmmssZ}', to_char(now() AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS"Z"'))
+        || '_part' || p_chunk_number
+        || '.' || v_ext;
+    v_file_name := regexp_replace(v_data_path, '^.*/', '');
+    v_manifest_path := regexp_replace(v_data_path, '\.' || regexp_replace(v_ext, '\.', '\\.', 'g') || '$', '')
+        || '.manifest.json';
+
+    IF p_export_type = 'S3' THEN
+        -- Direct-to-S3, uncompressed, no local staging (aws_s3 extension does the upload itself).
+        IF p_export_format = 'CSV' THEN
+            SELECT rows_uploaded, files_uploaded, bytes_uploaded
+            INTO v_rows_uploaded, v_files_uploaded, v_bytes_uploaded
+            FROM aws_s3.query_export_to_s3(
+                format('SELECT * FROM %I', p_source_temp_table),
+                aws_commons.create_s3_uri(p_s3_bucket, v_data_path, p_s3_region),
+                options := 'format csv, header true');
+        ELSE
+            SELECT rows_uploaded, files_uploaded, bytes_uploaded
+            INTO v_rows_uploaded, v_files_uploaded, v_bytes_uploaded
+            FROM aws_s3.query_export_to_s3(
+                format('SELECT to_jsonb(t)::text FROM %I t', p_source_temp_table),
+                aws_commons.create_s3_uri(p_s3_bucket, v_data_path, p_s3_region),
+                options := 'format text');
+        END IF;
+
+        -- Mandatory row-count reconciliation (D14): the direct S3 export must match the batch.
+        IF v_rows_uploaded IS DISTINCT FROM p_row_count THEN
+            RAISE EXCEPTION 'Export row-count mismatch for % at s3://%/%: expected % row(s), exported %',
+                p_table_short_name, p_s3_bucket, v_data_path, p_row_count, v_rows_uploaded;
+        END IF;
+        RAISE NOTICE 'Exported % row(s) directly to s3://%/%', p_row_count, p_s3_bucket, v_data_path;
+
+        v_file_size := v_bytes_uploaded;
+
+        IF to_regclass('pg_temp.tmp_archival_manifest_entries') IS NOT NULL THEN
+            INSERT INTO tmp_archival_manifest_entries (run_id, job_type, table_name, file_path, record_count, file_size_bytes, archived_at)
+            VALUES (p_run_id, p_job_type, p_table_short_name, v_data_path, p_row_count, v_file_size, now());
+        END IF;
+    ELSE
+        v_full_data_path := rtrim(p_local_volume_root, '/') || '/' || ltrim(v_data_path, '/');
+        v_dir := regexp_replace(v_full_data_path, '/[^/]+$', '');
+        --  %L only SQL-escapes the literal, not the shell command it becomes.
+        PERFORM archival_assert_safe_path(v_dir);
+        PERFORM archival_assert_safe_path(v_full_data_path);
+        EXECUTE format('COPY (SELECT 1) TO PROGRAM %L', 'mkdir -p -- ' || v_dir);
+
+        IF p_export_format = 'CSV' THEN
+            EXECUTE format('COPY (SELECT * FROM %I) TO %L WITH (FORMAT csv, HEADER true)',
+                p_source_temp_table, v_full_data_path);
+        ELSE
+            EXECUTE format('COPY (SELECT to_jsonb(t)::text FROM %I t) TO PROGRAM %L',
+                p_source_temp_table, 'gzip -c > ' || v_full_data_path);
+        END IF;
+        -- Mandatory row-count reconciliation (D14): COPY's own row count, via GET DIAGNOSTICS,
+        -- abort before any delete can happen (D9).
+        GET DIAGNOSTICS v_rows_uploaded = ROW_COUNT;
+        IF v_rows_uploaded IS DISTINCT FROM p_row_count THEN
+            RAISE EXCEPTION 'Export row-count mismatch for % at %: expected % row(s), COPY wrote %',
+                p_table_short_name, v_full_data_path, p_row_count, v_rows_uploaded;
+        END IF;
+        RAISE NOTICE 'Wrote % row(s) to %', p_row_count, v_full_data_path;
+
+        -- File size is optional metadata: never let a stat failure break the export itself.
+        BEGIN
+            SELECT (pg_stat_file(v_full_data_path)).size INTO v_file_size;
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_file_size := NULL;
+        END;
+
+        IF to_regclass('pg_temp.tmp_archival_manifest_entries') IS NOT NULL THEN
+            INSERT INTO tmp_archival_manifest_entries (run_id, job_type, table_name, file_path, record_count, file_size_bytes, archived_at)
+            VALUES (p_run_id, p_job_type, p_table_short_name, v_data_path, p_row_count, v_file_size, now());
+        END IF;
+    END IF;
+
+    RETURN v_data_path;
+END;
+$func$;
+            ]]>
+        </sql>
+    </changeSet>
+
+    <changeSet id="create-archival-process-single-table-procedure-v6" author="UIDAM Team" dbms="postgresql">
+        <comment>Generic per-table drain loop shared by every table except the two joint-snapshot cases (authorization/consent, user-cascade), which are inlined in run_archival_job</comment>
+        <sql splitStatements="false" stripComments="false">
+            <![CDATA[
+CREATE OR REPLACE PROCEDURE archival_process_single_table(
+    IN p_run_pk            NUMERIC(38,0),
+    IN p_job_type           VARCHAR,
+    IN p_tenant_id          VARCHAR,
+    IN p_table_name         VARCHAR,
+    IN p_table_short_name   VARCHAR,
+    IN p_id_column          VARCHAR,
+    IN p_predicate          TEXT,
+    IN p_action             VARCHAR,
+    IN p_run_id             VARCHAR,
+    IN p_chunk_size         INTEGER,
+    IN p_sleep_time_ms      INTEGER,
+    IN p_chunk_threshold    INTEGER,
+    IN p_export_type        VARCHAR,
+    IN p_export_path        TEXT,
+    IN p_file_name_pattern  VARCHAR,
+    IN p_export_format      VARCHAR,
+    IN p_generate_manifest  BOOLEAN,
+    IN p_retention_days     INTEGER,
+    IN p_s3_bucket          VARCHAR,
+    IN p_s3_region          VARCHAR,
+    IN p_local_volume_root  VARCHAR
+)
+LANGUAGE plpgsql
+AS $proc$
+DECLARE
+    v_should_archive BOOLEAN := p_action IN ('ARCHIVE', 'ARCHIVE_THEN_DELETE');
+    v_should_delete  BOOLEAN := p_action IN ('DELETE', 'ARCHIVE_THEN_DELETE');
+    v_start        TIMESTAMPTZ := clock_timestamp();
+    v_total_archived BIGINT := 0;
+    v_total_deleted  BIGINT := 0;
+    v_chunk_number BIGINT := 0;
+    v_batch_count  BIGINT;
+    v_deleted_count BIGINT;
+    v_remaining    BIGINT;
+    v_last_path    TEXT;
+    v_status       VARCHAR := 'NA';
+    v_del_status   VARCHAR := 'NA';
+    v_err          TEXT;
+BEGIN
+    LOOP
+        DROP TABLE IF EXISTS tmp_archival_batch;
+        EXECUTE format('CREATE TEMP TABLE tmp_archival_batch ON COMMIT DROP AS SELECT * FROM %s WHERE %s LIMIT %L',
+                       p_table_name, p_predicate, p_chunk_size);
+        GET DIAGNOSTICS v_batch_count = ROW_COUNT;
+        IF v_batch_count = 0 THEN
+            DROP TABLE tmp_archival_batch;
+            EXIT;
+        END IF;
+        v_chunk_number := v_chunk_number + 1;
+
+        IF v_should_archive THEN
+            v_last_path := archival_export_batch(
+                p_job_type, p_tenant_id, p_table_short_name, 'tmp_archival_batch', v_batch_count, v_chunk_number,
+                p_run_id, p_export_type, p_export_path, p_file_name_pattern, p_export_format, p_generate_manifest,
+                p_retention_days, p_s3_bucket, p_s3_region, p_local_volume_root);
+            v_status := 'SUCCESS';
+            v_total_archived := v_total_archived + v_batch_count;
+        END IF;
+
+        -- Mandatory row-count reconciliation (D14): the export call above raised on failure,
+        -- so reaching here means it already succeeded for exactly v_batch_count rows -- only
+        -- then is the delete issued (D9, archive-then-verify-then-delete).
+        IF v_should_delete THEN
+            EXECUTE format('DELETE FROM %s t USING tmp_archival_batch b WHERE t.%I = b.%I',
+                           p_table_name, p_id_column, p_id_column);
+            GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+            v_del_status := 'SUCCESS';
+            v_total_deleted := v_total_deleted + v_deleted_count;
+        END IF;
+
+        DROP TABLE tmp_archival_batch;
+        PERFORM pg_sleep(p_sleep_time_ms / 1000.0);
+
+        IF NOT v_should_delete THEN
+            -- ARCHIVE-only: nothing shrinks the candidate set between iterations (no delete,
+            -- no archived_at/marker column exists yet), so draining further would just
+            -- re-export the same rows. Process exactly one chunk per call; repeated daily
+            -- calls naturally work through any remaining backlog over time.
+            EXIT;
+        END IF;
+
+        -- Tail guard: stop once the remaining backlog is small, rather than after every batch.
+        EXECUTE format('SELECT count(*) FROM (SELECT 1 FROM %s WHERE %s LIMIT %L) x',
+                       p_table_name, p_predicate, p_chunk_threshold + 1) INTO v_remaining;
+        EXIT WHEN v_remaining <= p_chunk_threshold;
+    END LOOP;
+
+    -- Note: if a later chunk in this drain loop fails, the EXCEPTION handler below catches it,
+    -- but PostgreSQL rolls back every DML statement issued since this procedure's own BEGIN --
+    -- including earlier chunks' already-committed-looking DELETEs -- before this INSERT runs.
+    -- The corresponding archive files already written to S3/disk for those earlier chunks are
+    -- unaffected and simply become harmless duplicates on the next retry -- this procedure is
+    -- restartable (a retry is always safe and correct), not "partially durable within one call".
+    INSERT INTO ${schema}.archival_run_detail
+        (run_id, table_name, start_time, end_time, records_archived, records_deleted, file_path,
+         archival_status, deletion_status, error_message)
+    VALUES
+        (p_run_pk, p_table_name, v_start, clock_timestamp(), v_total_archived, v_total_deleted, v_last_path,
+         v_status, v_del_status, v_err);
+EXCEPTION
+    WHEN OTHERS THEN
+        v_err := SQLERRM;
+        INSERT INTO ${schema}.archival_run_detail
+            (run_id, table_name, start_time, end_time, records_archived, records_deleted, file_path,
+             archival_status, deletion_status, error_message)
+        VALUES
+            (p_run_pk, p_table_name, v_start, clock_timestamp(), v_total_archived, v_total_deleted, v_last_path,
+             CASE WHEN v_status = 'SUCCESS' THEN 'SUCCESS' ELSE 'FAILED' END,
+             'FAILED', v_err);
+        RAISE;
+END;
+$proc$;
+            ]]>
+        </sql>
+    </changeSet>
+
+    <changeSet id="create-run-archival-job-procedure-v11" author="UIDAM Team" dbms="postgresql">
+        <comment>Single entry point, called once per tenant -- loops over every enabled archival_config row internally</comment>
+        <sql splitStatements="false" stripComments="false">
+            <![CDATA[
+CREATE OR REPLACE PROCEDURE run_archival_job(
+    IN p_tenant_id VARCHAR
+)
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_config         RECORD;
+    v_should_archive BOOLEAN;
+    v_should_delete  BOOLEAN;
+    v_cutoff         TIMESTAMPTZ;
+    v_is_due         BOOLEAN;
+    v_last_run_failed BOOLEAN;
+    v_run_id         UUID;
+    v_run_pk         NUMERIC(38,0);
+    v_run_start      TIMESTAMPTZ;
+    v_run_status     VARCHAR;
+    v_run_error      TEXT;
+    v_manifest_json  TEXT;
+    v_manifest_file_count BIGINT;
+    v_manifest_base_path TEXT;
+    v_manifest_path  TEXT;
+    v_full_manifest_path TEXT;
+    v_dir            TEXT;
+    v_lock_acquired  BOOLEAN;
+BEGIN
+    CREATE TEMP TABLE IF NOT EXISTS tmp_archival_manifest_entries (
+        run_id VARCHAR NOT NULL,
+        job_type VARCHAR NOT NULL,
+        table_name VARCHAR NOT NULL,
+        file_path TEXT NOT NULL,
+        record_count BIGINT NOT NULL,
+        file_size_bytes BIGINT,
+        archived_at TIMESTAMPTZ NOT NULL
+    ) ON COMMIT DROP;
+    TRUNCATE tmp_archival_manifest_entries;
+
+    IF p_tenant_id IS NULL OR p_tenant_id !~ '^[A-Za-z0-9_-]+$' THEN
+        RAISE EXCEPTION 'p_tenant_id must match ^[A-Za-z0-9_-]+$ (got %)', p_tenant_id;
+    END IF;
+
+    -- Table-driven job list: every ENABLED row in this tenant's own ${schema}.archival_config
+    -- is processed automatically in this one call -- adding a new job type is a pure data
+    -- change (INSERT one archival_config row), never a change to this procedure or its caller.
+    FOR v_config IN SELECT * FROM ${schema}.archival_config ORDER BY job_type LOOP
+        BEGIN
+            IF NOT v_config.enabled THEN
+                RAISE NOTICE 'Job type % is disabled, skipping (tenant %)', v_config.job_type, p_tenant_id;
+                CONTINUE;
+            END IF;
+
+            -- Due-check: only READS last_run_at -- updated inline, per job type, after that
+            -- job type's own processing below (safe: archival_config is per-tenant, not shared).
+            v_is_due := (v_config.last_run_at IS NULL)
+                OR (v_config.last_run_at::date + (v_config.run_interval_days || ' days')::interval <= current_date);
+            IF NOT v_is_due THEN
+                v_last_run_failed := false;
+                SELECT COALESCE(status = 'FAILED', false)
+                INTO v_last_run_failed
+                FROM ${schema}.archival_run
+                WHERE tenant_id = p_tenant_id
+                  AND job_type = v_config.job_type
+                ORDER BY start_time DESC, id DESC
+                LIMIT 1;
+
+                v_is_due := v_last_run_failed;
+            END IF;
+            IF NOT v_is_due THEN
+                RAISE NOTICE 'Job type % not due yet (last_run_at=%, interval=% day(s)), skipping (tenant %)',
+                    v_config.job_type, v_config.last_run_at, v_config.run_interval_days, p_tenant_id;
+                CONTINUE;
+            END IF;
+
+            -- Serialize per tenant/job-type so a concurrent/retried CronJob
+            -- invocation cannot select and export/delete the same candidate rows twice.
+            v_lock_acquired := pg_try_advisory_xact_lock(hashtextextended(p_tenant_id || ':' || v_config.job_type, 0));
+            IF NOT v_lock_acquired THEN
+                RAISE NOTICE 'Job type % for tenant % is already being processed by another run, skipping',
+                    v_config.job_type, p_tenant_id;
+                CONTINUE;
+            END IF;
+
+            IF v_config.action NOT IN ('ARCHIVE', 'DELETE', 'ARCHIVE_THEN_DELETE') THEN
+                RAISE EXCEPTION 'archival_config.action must be one of ARCHIVE, DELETE, ARCHIVE_THEN_DELETE (got % for %)',
+                    v_config.action, v_config.job_type;
+            END IF;
+            -- Standalone ARCHIVE has no durable archived-row marker, so every invocation
+            -- reselects and re-exports the same first chunk; the backlog behind it only drains
+            -- once action is DELETE/ARCHIVE_THEN_DELETE. Allowed by design -- warn, don't block.
+            IF v_config.action = 'ARCHIVE' THEN
+                RAISE WARNING 'archival_config.action=ARCHIVE for %: records will be re-exported on every run because no archived-row marker exists',
+                    v_config.job_type;
+            END IF;
+            v_should_archive := v_config.action IN ('ARCHIVE', 'ARCHIVE_THEN_DELETE');
+            v_should_delete := v_config.action IN ('DELETE', 'ARCHIVE_THEN_DELETE');
+
+            IF v_config.export_type NOT IN ('S3', 'DISK') THEN
+                RAISE EXCEPTION 'archival_config.export_type must be S3 or DISK (got % for %)',
+                    v_config.export_type, v_config.job_type;
+            END IF;
+            -- Destination now lives per job type in archival_config itself: only the field(s)
+            -- this row's own export_type actually needs are required -- the other export
+            -- type's field(s) are simply ignored/unused on this row.
+            IF v_config.export_type = 'S3' AND v_should_archive AND (
+                v_config.s3_bucket_name IS NULL OR v_config.s3_bucket_name = ''
+                OR v_config.s3_region IS NULL OR v_config.s3_region = '') THEN
+                RAISE EXCEPTION 'archival_config.export_type=S3 for % requires both s3_bucket_name and s3_region to be set',
+                    v_config.job_type;
+            END IF;
+            IF v_config.export_type = 'DISK' AND v_should_archive
+                AND (v_config.disk_mount_path IS NULL OR v_config.disk_mount_path = '') THEN
+                RAISE EXCEPTION 'archival_config.export_type=DISK for % requires disk_mount_path to be set',
+                    v_config.job_type;
+            END IF;
+
+            v_cutoff := now() - (v_config.retention_days || ' days')::interval
+                              - (v_config.safe_period_hours || ' hours')::interval;
+
+            v_run_id := gen_random_uuid();
+            v_run_start := clock_timestamp();
+            v_run_status := 'COMPLETED';
+            v_run_error := NULL;
+
+            INSERT INTO ${schema}.archival_run (run_id, job_type, tenant_id, start_time, status, archive_path)
+            VALUES (v_run_id, v_config.job_type, p_tenant_id, v_run_start, 'IN_PROGRESS',
+                    replace(replace(v_config.export_path, '{tenant}', p_tenant_id), '{jobType}', v_config.job_type))
+            RETURNING id INTO v_run_pk;
+
+            BEGIN
+                CASE v_config.job_type
+
+                WHEN 'TOKEN_CONFIG' THEN
+                    DECLARE
+                        v_batch_count BIGINT;
+                        v_consent_count BIGINT;
+                        v_remaining BIGINT;
+                        v_path TEXT;
+                        v_chunk_number BIGINT := 0;
+                        v_auth_archived BIGINT := 0;
+                        v_auth_deleted BIGINT := 0;
+                        v_consent_archived BIGINT := 0;
+                        v_consent_deleted BIGINT := 0;
+                        v_auth_start TIMESTAMPTZ := clock_timestamp();
+                        v_consent_start TIMESTAMPTZ := clock_timestamp();
+                    BEGIN
+                        LOOP
+                            DROP TABLE IF EXISTS tmp_archival_batch;
+                            DROP TABLE IF EXISTS tmp_archival_consent_batch;
+                            -- An authorization is only eligible once EVERY one of its
+                            -- artifacts has expired (a NULL column means that artifact was never issued
+                            -- and does not block eligibility); using OR incorrectly deleted rows whose
+                            -- refresh/other token was still valid just because one artifact had expired.
+                            CREATE TEMP TABLE tmp_archival_batch ON COMMIT DROP AS
+                            SELECT * FROM ${schema}.authorization
+                            WHERE (access_token_expires_at IS NULL OR access_token_expires_at <= v_cutoff)
+                               AND (authorization_code_expires_at IS NULL OR authorization_code_expires_at <= v_cutoff)
+                               AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at <= v_cutoff)
+                               AND (oidc_id_token_expires_at IS NULL OR oidc_id_token_expires_at <= v_cutoff)
+                               AND (user_code_expires_at IS NULL OR user_code_expires_at <= v_cutoff)
+                               AND (device_code_expires_at IS NULL OR device_code_expires_at <= v_cutoff)
+                            ORDER BY id
+                            LIMIT v_config.chunk_size;
+                            GET DIAGNOSTICS v_batch_count = ROW_COUNT;
+                            EXIT WHEN v_batch_count = 0;
+                            v_chunk_number := v_chunk_number + 1;
+
+                            -- Consent rows whose (client, principal) pair has no remaining valid token.
+                            -- (authorization_consent has no status/expiry column of its own.) Mirrors the
+                            -- all-tokens-expired predicate above instead of checking access_token alone.
+                            CREATE TEMP TABLE tmp_archival_consent_batch ON COMMIT DROP AS
+                            SELECT ac.* FROM ${schema}.authorization_consent ac
+                            WHERE EXISTS (SELECT 1 FROM tmp_archival_batch b
+                                          WHERE b.registered_client_id = ac.registered_client_id
+                                            AND b.principal_name = ac.principal_name)
+                              AND NOT EXISTS (SELECT 1 FROM ${schema}.authorization a
+                                               WHERE a.registered_client_id = ac.registered_client_id
+                                                 AND a.principal_name = ac.principal_name
+                                                 AND (
+                                                   (a.access_token_expires_at IS NOT NULL AND a.access_token_expires_at > v_cutoff) OR
+                                                   (a.authorization_code_expires_at IS NOT NULL AND a.authorization_code_expires_at > v_cutoff) OR
+                                                   (a.refresh_token_expires_at IS NOT NULL AND a.refresh_token_expires_at > v_cutoff) OR
+                                                   (a.oidc_id_token_expires_at IS NOT NULL AND a.oidc_id_token_expires_at > v_cutoff) OR
+                                                   (a.user_code_expires_at IS NOT NULL AND a.user_code_expires_at > v_cutoff) OR
+                                                   (a.device_code_expires_at IS NOT NULL AND a.device_code_expires_at > v_cutoff)
+                                                 ));
+                            GET DIAGNOSTICS v_consent_count = ROW_COUNT;
+
+                            IF v_should_archive THEN
+                                v_path := archival_export_batch(v_config.job_type, p_tenant_id, 'authorization',
+                                    'tmp_archival_batch', v_batch_count, v_chunk_number, v_run_id::varchar, v_config.export_type,
+                                    v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                                    v_config.generate_manifest, v_config.retention_days,
+                                    v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+                                v_auth_archived := v_auth_archived + v_batch_count;
+                                IF v_consent_count > 0 THEN
+                                    PERFORM archival_export_batch(v_config.job_type, p_tenant_id, 'authorization_consent',
+                                        'tmp_archival_consent_batch', v_consent_count, v_chunk_number, v_run_id::varchar,
+                                        v_config.export_type, v_config.export_path, v_config.file_name_pattern,
+                                        v_config.export_format, v_config.generate_manifest, v_config.retention_days,
+                                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+                                    v_consent_archived := v_consent_archived + v_consent_count;
+                                END IF;
+                            END IF;
+
+                            IF v_should_delete THEN
+                                DECLARE
+                                    v_auth_deleted_now BIGINT;
+                                    v_consent_deleted_now BIGINT;
+                                BEGIN
+                                    -- Consent (child/referenced) first, then authorization (parent) -- §5.3.
+                                    DELETE FROM ${schema}.authorization_consent ac USING tmp_archival_consent_batch b
+                                        WHERE ac.registered_client_id = b.registered_client_id AND ac.principal_name = b.principal_name;
+                                    GET DIAGNOSTICS v_consent_deleted_now = ROW_COUNT;
+                                    DELETE FROM ${schema}.authorization a USING tmp_archival_batch b WHERE a.id = b.id;
+                                    GET DIAGNOSTICS v_auth_deleted_now = ROW_COUNT;
+                                    -- Derive deleted counts from ROW_COUNT, not the selected batch size.
+                                    v_auth_deleted := v_auth_deleted + v_auth_deleted_now;
+                                    v_consent_deleted := v_consent_deleted + v_consent_deleted_now;
+                                END;
+                            END IF;
+
+                            DROP TABLE tmp_archival_batch;
+                            DROP TABLE tmp_archival_consent_batch;
+                            PERFORM pg_sleep(v_config.sleep_time_ms / 1000.0);
+
+                            IF NOT v_should_delete THEN
+                                EXIT;
+                            END IF;
+
+                            SELECT count(*) INTO v_remaining FROM (
+                                SELECT 1 FROM ${schema}.authorization
+                                WHERE (access_token_expires_at IS NULL OR access_token_expires_at <= v_cutoff)
+                                  AND (authorization_code_expires_at IS NULL OR authorization_code_expires_at <= v_cutoff)
+                                  AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at <= v_cutoff)
+                                  AND (oidc_id_token_expires_at IS NULL OR oidc_id_token_expires_at <= v_cutoff)
+                                  AND (user_code_expires_at IS NULL OR user_code_expires_at <= v_cutoff)
+                                  AND (device_code_expires_at IS NULL OR device_code_expires_at <= v_cutoff)
+                                LIMIT v_config.chunk_threshold + 1) x;
+                            EXIT WHEN v_remaining <= v_config.chunk_threshold;
+                        END LOOP;
+
+                        INSERT INTO ${schema}.archival_run_detail (run_id, table_name, start_time, end_time, records_archived,
+                            records_deleted, file_path, archival_status, deletion_status)
+                        VALUES (v_run_pk, '${schema}.authorization', v_auth_start, clock_timestamp(), v_auth_archived,
+                            v_auth_deleted, v_path, CASE WHEN v_auth_archived > 0 THEN 'SUCCESS' ELSE 'NA' END,
+                            CASE WHEN v_auth_deleted > 0 THEN 'SUCCESS' ELSE 'NA' END);
+                        INSERT INTO ${schema}.archival_run_detail (run_id, table_name, start_time, end_time, records_archived,
+                            records_deleted, file_path, archival_status, deletion_status)
+                        VALUES (v_run_pk, '${schema}.authorization_consent', v_consent_start, clock_timestamp(), v_consent_archived,
+                            v_consent_deleted, NULL, CASE WHEN v_consent_archived > 0 THEN 'SUCCESS' ELSE 'NA' END,
+                            CASE WHEN v_consent_deleted > 0 THEN 'SUCCESS' ELSE 'NA' END);
+                    END;
+
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.authorization_security_context', 'authorization_security_context', 'id',
+                        format('updated_date <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.authorization_request', 'authorization_request', 'id',
+                        format('created_date <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.mfa_flow_state', 'mfa_flow_state', 'username',
+                        format('updated_date <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                WHEN 'AUDIT_ARCHIVAL' THEN
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.audit_log', 'audit_log', 'id',
+                        format('"timestamp" <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                WHEN 'SOFT_DELETE_DATA_ARCHIVAL' THEN
+                    DECLARE
+                        v_batch_count BIGINT;
+                        v_remaining BIGINT;
+                        v_chunk_number BIGINT := 0;
+                        v_user_archived BIGINT := 0;
+                        v_user_deleted BIGINT := 0;
+                        v_user_deleted_now BIGINT;
+                        v_start TIMESTAMPTZ := clock_timestamp();
+                        v_path TEXT;
+                        v_child RECORD;
+                        v_child_count BIGINT;
+                        v_child_deleted_count BIGINT;
+                    BEGIN
+                        LOOP
+                            CREATE TEMP TABLE tmp_archival_batch ON COMMIT DROP AS
+                            SELECT * FROM ${schema}."user"
+                            WHERE status = 'DELETED' AND update_date <= v_cutoff
+                            ORDER BY id
+                            LIMIT v_config.chunk_size;
+                            GET DIAGNOSTICS v_batch_count = ROW_COUNT;
+                            EXIT WHEN v_batch_count = 0;
+                            v_chunk_number := v_chunk_number + 1;
+
+                            IF v_should_archive THEN
+                                v_path := archival_export_batch(v_config.job_type, p_tenant_id, 'user',
+                                    'tmp_archival_batch', v_batch_count, v_chunk_number, v_run_id::varchar, v_config.export_type,
+                                    v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                                    v_config.generate_manifest, v_config.retention_days,
+                                    v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+                                v_user_archived := v_user_archived + v_batch_count;
+                            END IF;
+
+                            FOR v_child IN
+                                SELECT * FROM (VALUES
+                                    ('${schema}.user_address', 'user_id'),
+                                    ('${schema}.user_attribute_values', 'user_id'),
+                                    ('${schema}.user_event_details', 'user_id'),
+                                    ('${schema}.user_recovery_secret_details', 'user_id'),
+                                    ('${schema}.user_verification', 'user_id'),
+                                    ('${schema}.user_password_history', 'user_id'),
+                                    ('${schema}.user_mfa_secret', 'user_id'),
+                                    ('${schema}.user_mfa_backup_code', 'user_id'),
+                                    ('${schema}.user_account_role_mapping', 'user_id'),
+                                    ('${schema}.cloud_profile', 'user_id')
+                                ) AS t(table_name, fk_column)
+                            LOOP
+                                DROP TABLE IF EXISTS tmp_archival_child;
+                                EXECUTE format(
+                                    'CREATE TEMP TABLE tmp_archival_child ON COMMIT DROP AS
+                                     SELECT c.* FROM %s c JOIN tmp_archival_batch b ON c.%I = b.id',
+                                    v_child.table_name, v_child.fk_column);
+                                GET DIAGNOSTICS v_child_count = ROW_COUNT;
+                                IF v_child_count > 0 AND v_should_archive THEN
+                                    PERFORM archival_export_batch(v_config.job_type, p_tenant_id, v_child.table_name,
+                                        'tmp_archival_child', v_child_count, v_chunk_number, v_run_id::varchar, v_config.export_type,
+                                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                                        v_config.generate_manifest, v_config.retention_days,
+                                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+                                END IF;
+                                IF v_child_count > 0 AND v_should_delete THEN
+                                    EXECUTE format('DELETE FROM %s c USING tmp_archival_child b WHERE c.id = b.id',
+                                        v_child.table_name);
+                                    -- Derive the deleted count from ROW_COUNT.
+                                    GET DIAGNOSTICS v_child_deleted_count = ROW_COUNT;
+                                ELSE
+                                    v_child_deleted_count := 0;
+                                END IF;
+                                INSERT INTO ${schema}.archival_run_detail (run_id, table_name, start_time, end_time,
+                                    records_archived, records_deleted, archival_status, deletion_status)
+                                VALUES (v_run_pk, v_child.table_name, v_start, clock_timestamp(),
+                                    CASE WHEN v_should_archive THEN v_child_count ELSE 0 END,
+                                    v_child_deleted_count,
+                                    CASE WHEN v_should_archive AND v_child_count > 0 THEN 'SUCCESS' ELSE 'NA' END,
+                                    CASE WHEN v_should_delete AND v_child_count > 0 THEN 'SUCCESS' ELSE 'NA' END);
+                                DROP TABLE tmp_archival_child;
+                            END LOOP;
+
+                            IF v_should_delete THEN
+                                DELETE FROM ${schema}."user" u USING tmp_archival_batch b WHERE u.id = b.id;
+                                -- Derive the deleted count from ROW_COUNT.
+                                GET DIAGNOSTICS v_user_deleted_now = ROW_COUNT;
+                                v_user_deleted := v_user_deleted + v_user_deleted_now;
+                            END IF;
+
+                            DROP TABLE tmp_archival_batch;
+                            PERFORM pg_sleep(v_config.sleep_time_ms / 1000.0);
+
+                            IF NOT v_should_delete THEN
+                                EXIT;
+                            END IF;
+
+                            SELECT count(*) INTO v_remaining FROM (
+                                SELECT 1 FROM ${schema}."user" WHERE status = 'DELETED' AND update_date <= v_cutoff
+                                LIMIT v_config.chunk_threshold + 1) x;
+                            EXIT WHEN v_remaining <= v_config.chunk_threshold;
+                        END LOOP;
+
+                        INSERT INTO ${schema}.archival_run_detail (run_id, table_name, start_time, end_time, records_archived,
+                            records_deleted, file_path, archival_status, deletion_status)
+                        VALUES (v_run_pk, '${schema}.user', v_start, clock_timestamp(), v_user_archived, v_user_deleted, v_path,
+                            CASE WHEN v_user_archived > 0 THEN 'SUCCESS' ELSE 'NA' END,
+                            CASE WHEN v_user_deleted > 0 THEN 'SUCCESS' ELSE 'NA' END);
+                    END;
+
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.account', 'account', 'id',
+                        format('status = ''DELETED'' AND update_date <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                    -- role_scope_mapping (child, FK fk_role/fk_scope) must drain before role (parent).
+                    -- Scope has no soft-delete/is_deleted marker, only update_date, so
+                    -- the previous "OR scope update_date <= cutoff" branch deleted mappings for active
+                    -- scopes that simply hadn't been touched recently. Restrict the drain to mappings
+                    -- owned by roles that are actually soft-deleted.
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.role_scope_mapping', 'role_scope_mapping', 'id',
+                        format('role_id IN (SELECT id FROM ${schema}.role WHERE is_deleted = true AND update_date <= %L::timestamptz)',
+                            v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.role', 'role', 'id',
+                        format('is_deleted = true AND update_date <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                    CALL archival_process_single_table(v_run_pk, v_config.job_type, p_tenant_id,
+                        '${schema}.client_details', 'client_details', 'id',
+                        -- ClientEntity persists ClientStatus.DELETED.getValue() = lowercase
+                        -- 'deleted'; the previous uppercase literal never matched (case-sensitive compare).
+                        format('status = ''deleted'' AND update_date <= %L::timestamptz', v_cutoff), v_config.action, v_run_id::text,
+                        v_config.chunk_size, v_config.sleep_time_ms, v_config.chunk_threshold, v_config.export_type,
+                        v_config.export_path, v_config.file_name_pattern, v_config.export_format,
+                        v_config.generate_manifest, v_config.retention_days,
+                        v_config.s3_bucket_name, v_config.s3_region, v_config.disk_mount_path);
+
+                ELSE
+                    RAISE EXCEPTION 'Unknown job_type % -- not in the allow-list (SDD §5.3)', v_config.job_type;
+                END CASE;
+
+                IF v_run_status <> 'FAILED' AND v_config.generate_manifest THEN
+                    SELECT count(*) INTO v_manifest_file_count
+                    FROM tmp_archival_manifest_entries
+                    WHERE run_id = v_run_id::text
+                      AND job_type = v_config.job_type;
+
+                    -- Skip entirely when this job type archived nothing this run (D-skip-empty).
+                    IF v_manifest_file_count > 0 THEN
+                        SELECT jsonb_build_object(
+                            'tenantId', p_tenant_id,
+                            'jobType', v_config.job_type,
+                            'runId', v_run_id::text,
+                            'generatedAt', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+                            'fileCount', count(*),
+                            'totalRecords', coalesce(sum(record_count), 0),
+                            'totalSizeBytes', sum(file_size_bytes),
+                            'files', jsonb_agg(
+                                jsonb_build_object(
+                                    'tableName', table_name,
+                                    'filePath', file_path,
+                                    'recordCount', record_count,
+                                    'fileSizeBytes', file_size_bytes,
+                                    'archivedAt', to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                                ) ORDER BY archived_at, table_name, file_path
+                            )
+                        )::text
+                        INTO v_manifest_json
+                        FROM tmp_archival_manifest_entries
+                        WHERE run_id = v_run_id::text
+                          AND job_type = v_config.job_type;
+
+                        -- Manifest lives alongside the data files it describes: same {tenant}/{jobType}/<yyyy>/<mm> folder.
+                        v_manifest_base_path := replace(replace(v_config.export_path,
+                                                   '{tenant}', p_tenant_id), '{jobType}', v_config.job_type);
+                        v_manifest_base_path := rtrim(v_manifest_base_path, '/') || '/' || to_char(now(), 'YYYY')
+                            || '/' || to_char(now(), 'MM') || '/' || to_char(now(), 'DD');
+                        v_manifest_path := v_manifest_base_path || '/manifest_' || v_config.job_type || '_' ||
+                            to_char(now() AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS"Z"') || '.json';
+
+                        IF v_config.export_type = 'S3' THEN
+                            PERFORM aws_s3.query_export_to_s3(
+                                format('SELECT %L::text', v_manifest_json),
+                                aws_commons.create_s3_uri(v_config.s3_bucket_name, v_manifest_path, v_config.s3_region),
+                                options := 'format text');
+                        ELSE
+                            v_full_manifest_path := rtrim(v_config.disk_mount_path, '/') || '/' || ltrim(v_manifest_path, '/');
+                            v_dir := regexp_replace(v_full_manifest_path, '/[^/]+$', '');
+                            -- %L only SQL-escapes the literal, not the shell command it becomes.
+                            PERFORM archival_assert_safe_path(v_dir);
+                            PERFORM archival_assert_safe_path(v_full_manifest_path);
+                            EXECUTE format('COPY (SELECT 1) TO PROGRAM %L', 'mkdir -p -- ' || v_dir);
+                            EXECUTE format('COPY (SELECT %L::text) TO %L', v_manifest_json, v_full_manifest_path);
+                        END IF;
+                    END IF;
+                END IF;
+
+            EXCEPTION
+                WHEN OTHERS THEN
+                    v_run_status := 'FAILED';
+                    v_run_error := SQLERRM;
+            END;
+
+            IF v_run_status <> 'FAILED' AND EXISTS (
+                SELECT 1 FROM ${schema}.archival_run_detail
+                WHERE run_id = v_run_pk AND (archival_status = 'FAILED' OR deletion_status = 'FAILED')
+            ) THEN
+                v_run_status := 'FAILED';
+            END IF;
+
+            UPDATE ${schema}.archival_run r SET
+                status = v_run_status,
+                end_time = clock_timestamp(),
+                total_tables = (SELECT count(*) FROM ${schema}.archival_run_detail WHERE run_id = v_run_pk),
+                total_records = (SELECT coalesce(sum(records_archived), 0) FROM ${schema}.archival_run_detail WHERE run_id = v_run_pk),
+                total_files = (SELECT count(*) FROM ${schema}.archival_run_detail WHERE run_id = v_run_pk AND records_archived > 0),
+                error_message = v_run_error
+            WHERE r.id = v_run_pk;
+
+            -- Safe here (unlike a shared cross-tenant table) because this row lives in this
+            -- tenant's own schema.
+            UPDATE ${schema}.archival_config SET last_run_at = now(), updated_at = now()
+            WHERE job_type = v_config.job_type;
+
+            IF v_run_status = 'FAILED' THEN
+                RAISE NOTICE 'run_archival_job(%, %) finished with errors: %', v_config.job_type, p_tenant_id, v_run_error;
+            ELSE
+                RAISE NOTICE 'run_archival_job(%, %) completed successfully', v_config.job_type, p_tenant_id;
+            END IF;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE WARNING 'run_archival_job: job_type % failed for tenant % (no run record was finalized): %',
+                    v_config.job_type, p_tenant_id, SQLERRM;
+        END;
+    END LOOP;
+END;
+$procedure$;
+            ]]>
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
