@@ -35,4 +35,8 @@
     <!-- Release 2.2 - signupSourceClientId attribute and attribute_label column -->
     <include file="changesets/2_2_release/user_attributes_data.xml" relativeToChangelogFile="true"/>
 
+    <!-- Release 2.2 - Data Archival & Retention Framework -->
+    <include file="changesets/2_2_release/add-archival-retention-config.xml" relativeToChangelogFile="true" />
+    <include file="changesets/2_2_release/add-archival-stored-procedures.xml" relativeToChangelogFile="true" />
+
 </databaseChangeLog>

@@ -117,6 +117,24 @@ public class UserManagementTenantProperties {
             private String initialDataClientSecret;
             private String initialDataUserSalt;
             private String initialDataUserPwd;
+            private String tokenAction;
+            private String tokenRunIntervalDays;
+            private String tokenRetentionDays;
+            private String tokenS3BucketName;
+            private String tokenS3Region;
+            private String tokenDiskMountPath;
+            private String auditAction;
+            private String auditRunIntervalDays;
+            private String auditRetentionDays;
+            private String auditS3BucketName;
+            private String auditS3Region;
+            private String auditDiskMountPath;
+            private String softDeleteDataAction;
+            private String softDeleteDataRunIntervalDays;
+            private String softDeleteDataRetentionDays;
+            private String softDeleteDataS3BucketName;
+            private String softDeleteDataS3Region;
+            private String softDeleteDataDiskMountPath;
         }
     }
 }
