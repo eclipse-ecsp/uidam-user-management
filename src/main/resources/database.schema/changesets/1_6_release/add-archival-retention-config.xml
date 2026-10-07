@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ Copyright (c) 2023-24 Harman International
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~  http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  ~
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!--
+        Data Archival & Retention Framework
+
+        archival_config is a single, tenant-agnostic static policy table — exactly 3 rows,
+        one per job type, seeded below — read by run_archival_job() on every invocation.
+
+        archival_run / archival_run_detail are the per-tenant execution/audit trail: this
+        changeset runs once per tenant (via ${schema}, like every other table here), so each
+        tenant ends up with its own copy of all 3 tables in its own schema.
+
+        This is the sole audit trail for archival going forward; it does not replace or alter
+        cleanup_job_audit — that removal, if/when CleanupJob is retired, is a separate change.
+    -->
+    <changeSet id="add-archival-retention-config-create-tables" author="UIDAM Team">
+        <comment>Create the archival_config policy table plus the per-tenant archival_run/archival_run_detail audit tables</comment>
+
+        <createTable tableName="archival_config">
+            <!-- TOKEN_CONFIG | AUDIT_ARCHIVAL | SOFT_DELETE_DATA_ARCHIVAL, fixed, not admin-extensible -->
+            <column name="job_type" type="${STRING_TINY}">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="PK_ARCHIVAL_CONFIG"/>
+            </column>
+            <column name="enabled" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <!-- ARCHIVE | DELETE | ARCHIVE_THEN_DELETE, CHECK-constrained below -->
+            <column name="action" type="${STRING_TINY}" defaultValue="ARCHIVE_THEN_DELETE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="run_interval_days" type="INT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="retention_days" type="INT" defaultValueNumeric="30">
+                <constraints nullable="false"/>
+            </column>
+            <!-- S3 | DISK -->
+            <column name="export_type" type="${STRING_TINY}" defaultValue="DISK"/>
+            <!-- supports {tenant}/{jobType}/{table} placeholder tokens -->
+            <column name="export_path" type="${STRING_MEDIUM}"/>
+            <!-- supports {table}/{jobType}/{yyyyMMddTHHmmssZ} placeholder tokens -->
+            <column name="file_name_pattern" type="${STRING_SMALL}"/>
+            <column name="s3_bucket_name" type="${STRING_SMALL}"/>
+            <column name="s3_region" type="${STRING_TINY}"/>
+            <column name="disk_mount_path" type="${STRING_MEDIUM}" defaultValue="/var/lib/postgresql/data/archive"/>
+            <column name="export_format" type="${STRING_TINY}" defaultValue="JSONL_GZIP"/>
+            <column name="generate_manifest" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="chunk_size" type="INT" defaultValueNumeric="10000">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sleep_time_ms" type="INT" defaultValueNumeric="2000">
+                <constraints nullable="false"/>
+            </column>
+            <column name="chunk_threshold" type="INT" defaultValueNumeric="200">
+                <constraints nullable="false"/>
+            </column>
+            <column name="safe_period_hours" type="INT" defaultValueNumeric="2">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_run_at" type="${DATE_TIME_TZ}"/>
+            <column name="created_at" type="${DATE_TIME_TZ}" defaultValueComputed="${SYSTEM_DATETIME}"/>
+            <column name="updated_at" type="${DATE_TIME_TZ}"/>
+        </createTable>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_action
+            CHECK (action IN ('ARCHIVE', 'DELETE', 'ARCHIVE_THEN_DELETE'));</sql>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_run_interval_days CHECK (run_interval_days > 0);</sql>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_retention_days CHECK (retention_days > 0);</sql>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_chunk_size CHECK (chunk_size > 0);</sql>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_sleep_time_ms CHECK (sleep_time_ms >= 0);</sql>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_chunk_threshold CHECK (chunk_threshold >= 0);</sql>
+        <sql>ALTER TABLE ${schema}.archival_config ADD CONSTRAINT chk_archival_config_safe_period_hours CHECK (safe_period_hours >= 0);</sql>
+
+        <createTable tableName="archival_run">
+            <column name="id" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="PK_ARCHIVAL_RUN"/>
+            </column>
+            <!-- external/globally-unique run identifier, distinct from id -->
+            <column name="run_id" type="${UUID_TYPE}" defaultValueComputed="gen_random_uuid()">
+                <constraints nullable="false" unique="true" uniqueConstraintName="UK_ARCHIVAL_RUN_RUN_ID"/>
+            </column>
+            <column name="job_type" type="${STRING_TINY}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tenant_id" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="${DATE_TIME_TZ}"/>
+            <column name="end_time" type="${DATE_TIME_TZ}"/>
+            <!-- IN_PROGRESS | COMPLETED | FAILED | PARTIAL -->
+            <column name="status" type="${STRING_TINY}"/>
+            <column name="total_tables" type="INT"/>
+            <column name="total_records" type="BIGINT"/>
+            <column name="total_files" type="INT"/>
+            <column name="archive_path" type="${STRING_BIG}"/>
+            <column name="error_message" type="${CLOB}"/>
+        </createTable>
+
+        <createTable tableName="archival_run_detail">
+            <column name="id" type="${BIG_INTEGER}" defaultValueComputed="${UUID_FUNCTION}">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="PK_ARCHIVAL_RUN_DETAIL"/>
+            </column>
+            <column name="run_id" type="${BIG_INTEGER}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="table_name" type="${STRING_SMALL}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="${DATE_TIME_TZ}"/>
+            <column name="end_time" type="${DATE_TIME_TZ}"/>
+            <column name="records_archived" type="BIGINT"/>
+            <column name="records_deleted" type="BIGINT"/>
+            <column name="file_path" type="${STRING_BIG}"/>
+            <!-- SUCCESS | FAILED | NA -->
+            <column name="archival_status" type="${STRING_TINY}"/>
+            <column name="deletion_status" type="${STRING_TINY}"/>
+            <column name="error_message" type="${CLOB}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="archival_run_detail" baseColumnNames="run_id"
+                                  referencedTableName="archival_run" referencedColumnNames="id"
+                                  constraintName="FK_ARCHIVAL_RUN_DETAIL_RUN"/>
+
+        <createIndex indexName="idx_archival_run_job_type" tableName="archival_run">
+            <column name="job_type"/>
+            <column name="start_time"/>
+        </createIndex>
+        <createIndex indexName="idx_archival_run_detail_run_id" tableName="archival_run_detail">
+            <column name="run_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Single source of truth for archival_config: creates all 3 rows on a fresh database, and
+         on every later run refreshes only the deployment-owned columns (run interval and export
+         destination), leaving enabled/retention_days untouched if changed directly in the DB. -->
+    <changeSet id="add-archival-retention-config-value-insert-or-update" author="UIDAM Team" dbms="postgresql" runAlways="true">
+        <comment>Seed archival_config on first run and refresh deployment-owned settings on every run</comment>
+        <sql splitStatements="false">
+            INSERT INTO ${schema}.archival_config
+                (job_type, enabled, retention_days, export_path, file_name_pattern,
+                 run_interval_days, s3_bucket_name, s3_region, disk_mount_path)
+            VALUES
+                ('TOKEN_CONFIG', true, ${token.retention_days}, 'uidam_archives/{tenant}/token',
+                 '{table}_{jobType}_{yyyyMMddTHHmmssZ}', ${token.run_interval_days},
+                 '${token.s3_bucket_name}', '${token.s3_region}', '${token.disk_mount_path}'),
+                ('AUDIT_ARCHIVAL', true, ${audit.retention_days}, 'uidam_archives/{tenant}/audit',
+                 '{table}_{jobType}_{yyyyMMddTHHmmssZ}', ${audit.run_interval_days},
+                 '${audit.s3_bucket_name}', '${audit.s3_region}', '${audit.disk_mount_path}'),
+                ('SOFT_DELETE_DATA_ARCHIVAL', true, ${soft_delete_data.retention_days}, 'uidam_archives/{tenant}/soft-delete-data',
+                 '{table}_{jobType}_{yyyyMMddTHHmmssZ}', ${soft_delete_data.run_interval_days},
+                 '${soft_delete_data.s3_bucket_name}', '${soft_delete_data.s3_region}', '${soft_delete_data.disk_mount_path}')
+            ON CONFLICT (job_type) DO UPDATE SET
+                retention_days = EXCLUDED.retention_days,
+                run_interval_days = EXCLUDED.run_interval_days,
+                s3_bucket_name = EXCLUDED.s3_bucket_name,
+                s3_region = EXCLUDED.s3_region,
+                disk_mount_path = EXCLUDED.disk_mount_path,
+                updated_at = CURRENT_TIMESTAMP;
+        </sql>
+    </changeSet>
+
+    <changeSet id="add-archival-config-actions" author="UIDAM Team" dbms="postgresql" runAlways="true">
+        <comment>Refresh archival actions from deployment configuration</comment>
+        <sql splitStatements="false">
+            UPDATE ${schema}.archival_config
+            SET action = CASE job_type
+                    WHEN 'TOKEN_CONFIG' THEN '${token.action}'
+                    WHEN 'AUDIT_ARCHIVAL' THEN '${audit.action}'
+                    WHEN 'SOFT_DELETE_DATA_ARCHIVAL' THEN '${soft_delete_data.action}'
+                END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE job_type IN ('TOKEN_CONFIG', 'AUDIT_ARCHIVAL', 'SOFT_DELETE_DATA_ARCHIVAL');
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

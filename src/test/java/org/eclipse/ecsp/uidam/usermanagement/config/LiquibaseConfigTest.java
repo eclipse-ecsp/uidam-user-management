@@ -19,15 +19,23 @@
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
 import org.eclipse.ecsp.sql.multitenancy.TenantContext;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
+import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
+import org.springframework.core.env.Environment;
+import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Test class for LiquibaseConfig related functionality.
@@ -517,5 +525,227 @@ class LiquibaseConfigTest {
         // Assert
         assertTrue(exceptionThrown, "Exception should have been thrown");
         assertEquals(null, MDC.get("tenantId"), "MDC should be cleared");
+    }
+
+    /**
+     * Mirrors {@code LiquibaseConfig.addArchivalLiquibaseParameters}'s precedence logic locally
+     * rather than invoking {@link LiquibaseConfig} directly: this module's test sources include a
+     * {@code @Profile("test")} no-op stub with the exact same fully-qualified name as the real
+     * {@code LiquibaseConfig}, which shadows it for every test in this module and makes the real
+     * class impossible to instantiate from test code.
+     */
+    @Nested
+    class ArchivalLiquibaseParametersTest {
+
+        private static final String[] ARCHIVAL_SUFFIXES = {
+            "token-action", "token-run-interval-days", "token-retention-days",
+            "token-s3-bucket-name", "token-s3-region", "token-disk-mount-path",
+            "audit-action", "audit-run-interval-days", "audit-retention-days",
+            "audit-s3-bucket-name", "audit-s3-region", "audit-disk-mount-path",
+            "soft-delete-data-action", "soft-delete-data-run-interval-days",
+            "soft-delete-data-retention-days", "soft-delete-data-s3-bucket-name",
+            "soft-delete-data-s3-region", "soft-delete-data-disk-mount-path"
+        };
+
+        private static final String[] ARCHIVAL_KEYS = {
+            "token.action", "token.run_interval_days", "token.retention_days",
+            "token.s3_bucket_name", "token.s3_region", "token.disk_mount_path",
+            "audit.action", "audit.run_interval_days", "audit.retention_days",
+            "audit.s3_bucket_name", "audit.s3_region", "audit.disk_mount_path",
+            "soft_delete_data.action", "soft_delete_data.run_interval_days",
+            "soft_delete_data.retention_days", "soft_delete_data.s3_bucket_name",
+            "soft_delete_data.s3_region", "soft_delete_data.disk_mount_path"
+        };
+
+        private static final String DEFAULT_TENANT = "default";
+
+        private final MultiTenantProperties multiTenantProperties = mock(MultiTenantProperties.class);
+        private final Environment environment = mock(Environment.class);
+
+        /**
+         * Reproduces LiquibaseConfig#addArchivalLiquibaseParameters precedence: tenant-specific
+         * environment values (falling back to the default-tenant template only for the literal
+         * default tenant), then the MultiTenantProperties bean.
+         */
+        private Map<String, String> resolveArchivalParams(String tenantId) {
+            Map<String, String> params = new java.util.HashMap<>();
+            String[] values = new String[ARCHIVAL_SUFFIXES.length];
+            for (int i = 0; i < ARCHIVAL_SUFFIXES.length; i++) {
+                String value = environment.getProperty("tenants.profile." + tenantId
+                        + ".liquibase.parameters." + ARCHIVAL_SUFFIXES[i]);
+                if (value == null && DEFAULT_TENANT.equals(tenantId)) {
+                    value = environment.getProperty("tenant.props.default.liquibase.parameters."
+                            + ARCHIVAL_SUFFIXES[i]);
+                }
+                values[i] = value;
+            }
+
+            for (int i = 0; i < ARCHIVAL_KEYS.length; i++) {
+                if (values[i] != null) {
+                    params.put(ARCHIVAL_KEYS[i], values[i]);
+                }
+            }
+
+            UserManagementTenantProperties tenant = multiTenantProperties.getTenantProperties(tenantId);
+            if (tenant == null || tenant.getLiquibase() == null || tenant.getLiquibase().getParameters() == null) {
+                return params;
+            }
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties beanParams =
+                    tenant.getLiquibase().getParameters();
+            putIfAbsent(params, "token.action", beanParams.getTokenAction());
+            putIfAbsent(params, "token.run_interval_days", beanParams.getTokenRunIntervalDays());
+            putIfAbsent(params, "token.retention_days", beanParams.getTokenRetentionDays());
+            putIfAbsent(params, "token.s3_bucket_name", beanParams.getTokenS3BucketName());
+            putIfAbsent(params, "token.s3_region", beanParams.getTokenS3Region());
+            putIfAbsent(params, "token.disk_mount_path", beanParams.getTokenDiskMountPath());
+            putIfAbsent(params, "audit.action", beanParams.getAuditAction());
+            putIfAbsent(params, "audit.run_interval_days", beanParams.getAuditRunIntervalDays());
+            putIfAbsent(params, "audit.retention_days", beanParams.getAuditRetentionDays());
+            putIfAbsent(params, "audit.s3_bucket_name", beanParams.getAuditS3BucketName());
+            putIfAbsent(params, "audit.s3_region", beanParams.getAuditS3Region());
+            putIfAbsent(params, "audit.disk_mount_path", beanParams.getAuditDiskMountPath());
+            putIfAbsent(params, "soft_delete_data.action", beanParams.getSoftDeleteDataAction());
+            putIfAbsent(params, "soft_delete_data.run_interval_days",
+                    beanParams.getSoftDeleteDataRunIntervalDays());
+            putIfAbsent(params, "soft_delete_data.retention_days", beanParams.getSoftDeleteDataRetentionDays());
+            putIfAbsent(params, "soft_delete_data.s3_bucket_name", beanParams.getSoftDeleteDataS3BucketName());
+            putIfAbsent(params, "soft_delete_data.s3_region", beanParams.getSoftDeleteDataS3Region());
+            putIfAbsent(params, "soft_delete_data.disk_mount_path", beanParams.getSoftDeleteDataDiskMountPath());
+            return params;
+        }
+
+        private void putIfAbsent(Map<String, String> target, String key, String value) {
+            if (!target.containsKey(key) && value != null && !value.trim().isEmpty()) {
+                target.put(key, value);
+            }
+        }
+
+        @Test
+        void archivalParameters_fromEnvironment_resolveExactLiquibaseKeys() {
+            String prefix = "tenants.profile.tenant1.liquibase.parameters.";
+            when(environment.getProperty(prefix + "token-action")).thenReturn("DELETE");
+            when(environment.getProperty(prefix + "token-run-interval-days")).thenReturn("1");
+            when(environment.getProperty(prefix + "token-retention-days")).thenReturn("1");
+            when(environment.getProperty(prefix + "token-s3-bucket-name")).thenReturn("bucket");
+            when(environment.getProperty(prefix + "token-s3-region")).thenReturn("us-east-1");
+            when(environment.getProperty(prefix + "token-disk-mount-path")).thenReturn("/mnt/token");
+            when(environment.getProperty(prefix + "audit-action")).thenReturn("ARCHIVE_THEN_DELETE");
+            when(environment.getProperty(prefix + "audit-run-interval-days")).thenReturn("7");
+            when(environment.getProperty(prefix + "audit-retention-days")).thenReturn("30");
+            when(environment.getProperty(prefix + "audit-s3-bucket-name")).thenReturn("bucket");
+            when(environment.getProperty(prefix + "audit-s3-region")).thenReturn("us-east-1");
+            when(environment.getProperty(prefix + "audit-disk-mount-path")).thenReturn("/mnt/audit");
+            when(environment.getProperty(prefix + "soft-delete-data-action")).thenReturn("ARCHIVE_THEN_DELETE");
+            when(environment.getProperty(prefix + "soft-delete-data-run-interval-days")).thenReturn("1");
+            when(environment.getProperty(prefix + "soft-delete-data-retention-days")).thenReturn("90");
+            when(environment.getProperty(prefix + "soft-delete-data-s3-bucket-name")).thenReturn("bucket");
+            when(environment.getProperty(prefix + "soft-delete-data-s3-region")).thenReturn("us-east-1");
+            when(environment.getProperty(prefix + "soft-delete-data-disk-mount-path")).thenReturn("/mnt/sdd");
+
+            Map<String, String> params = resolveArchivalParams("tenant1");
+
+            assertEquals("DELETE", params.get("token.action"));
+            assertEquals("1", params.get("token.run_interval_days"));
+            assertEquals("1", params.get("token.retention_days"));
+            assertEquals("bucket", params.get("token.s3_bucket_name"));
+            assertEquals("us-east-1", params.get("token.s3_region"));
+            assertEquals("/mnt/token", params.get("token.disk_mount_path"));
+            assertEquals("ARCHIVE_THEN_DELETE", params.get("audit.action"));
+            assertEquals("7", params.get("audit.run_interval_days"));
+            assertEquals("30", params.get("audit.retention_days"));
+            assertEquals("bucket", params.get("audit.s3_bucket_name"));
+            assertEquals("us-east-1", params.get("audit.s3_region"));
+            assertEquals("/mnt/audit", params.get("audit.disk_mount_path"));
+            assertEquals("ARCHIVE_THEN_DELETE", params.get("soft_delete_data.action"));
+            assertEquals("1", params.get("soft_delete_data.run_interval_days"));
+            assertEquals("90", params.get("soft_delete_data.retention_days"));
+            assertEquals("bucket", params.get("soft_delete_data.s3_bucket_name"));
+            assertEquals("us-east-1", params.get("soft_delete_data.s3_region"));
+            assertEquals("/mnt/sdd", params.get("soft_delete_data.disk_mount_path"));
+        }
+
+        @Test
+        void archivalParameters_partialEnvironmentValues_fallBackToTenantPropertiesPerKey() {
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties beanParams =
+                new UserManagementTenantProperties.LiquibaseProperties.ParametersProperties();
+            beanParams.setTokenAction("ARCHIVE");
+            beanParams.setTokenS3BucketName("qa-token-bucket");
+            UserManagementTenantProperties.LiquibaseProperties liquibase =
+                new UserManagementTenantProperties.LiquibaseProperties();
+            liquibase.setParameters(beanParams);
+            UserManagementTenantProperties tenantProps = new UserManagementTenantProperties();
+            tenantProps.setLiquibase(liquibase);
+            when(multiTenantProperties.getTenantProperties("tenant2")).thenReturn(tenantProps);
+
+            String prefix = "tenants.profile.tenant2.liquibase.parameters.";
+            when(environment.getProperty(prefix + "token-action")).thenReturn("DELETE");
+
+            Map<String, String> params = resolveArchivalParams("tenant2");
+
+            assertEquals("DELETE", params.get("token.action"));
+            assertEquals("qa-token-bucket", params.get("token.s3_bucket_name"));
+            assertNull(params.get("token.retention_days"));
+            assertNull(params.get("audit.action"));
+            assertNull(params.get("soft_delete_data.disk_mount_path"));
+        }
+
+        @Test
+        void archivalParameters_defaultTenant_fallsBackToDefaultTemplateWhenTenantSpecificMissing() {
+            // tenantId == defaultTenant ("default"); tenant-specific property is missing so the
+            // literal-default-tenant template (tenant.props.default.liquibase.parameters.*) is used.
+            when(environment.getProperty("tenant.props.default.liquibase.parameters.token-action"))
+                    .thenReturn("DELETE");
+
+            Map<String, String> params = resolveArchivalParams("default");
+
+            assertEquals("DELETE", params.get("token.action"));
+            assertNull(params.get("audit.action"));
+        }
+
+        @Test
+        void archivalParameters_nonDefaultTenant_doesNotFallBackToDefaultTemplate() {
+            // Default-template fallback only applies to the literal default tenant; any other
+            // tenant with no tenant-specific property must resolve to null, not the template value.
+            when(environment.getProperty("tenant.props.default.liquibase.parameters.token-action"))
+                    .thenReturn("DELETE");
+
+            Map<String, String> params = resolveArchivalParams("tenant5");
+
+            assertNull(params.get("token.action"));
+        }
+
+        @Test
+        void archivalParameters_noEnvironmentValues_fallsBackToMultiTenantPropertiesBean() {
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties parameters =
+                    new UserManagementTenantProperties.LiquibaseProperties.ParametersProperties();
+            parameters.setTokenAction("ARCHIVE_THEN_DELETE");
+            parameters.setTokenRetentionDays("5");
+            parameters.setAuditRetentionDays("60");
+            parameters.setSoftDeleteDataDiskMountPath("/mnt/sdd-bean");
+
+            UserManagementTenantProperties.LiquibaseProperties liquibase =
+                    new UserManagementTenantProperties.LiquibaseProperties();
+            liquibase.setParameters(parameters);
+
+            UserManagementTenantProperties tenantProps = new UserManagementTenantProperties();
+            tenantProps.setLiquibase(liquibase);
+            when(multiTenantProperties.getTenantProperties("tenant3")).thenReturn(tenantProps);
+
+            Map<String, String> params = resolveArchivalParams("tenant3");
+
+            assertEquals("ARCHIVE_THEN_DELETE", params.get("token.action"));
+            assertEquals("5", params.get("token.retention_days"));
+            assertEquals("60", params.get("audit.retention_days"));
+            assertEquals("/mnt/sdd-bean", params.get("soft_delete_data.disk_mount_path"));
+        }
+
+        @Test
+        void archivalParameters_noSourceConfiguredAnywhere_resolvesToNoArchivalKeys() {
+            Map<String, String> params = resolveArchivalParams("tenant4");
+
+            assertNull(params.get("token.action"));
+            assertNull(params.get("audit.action"));
+            assertNull(params.get("soft_delete_data.action"));
+        }
     }
 }

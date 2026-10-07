@@ -32,7 +32,14 @@
 
     <include file="changesets/2_1_release/uidam-portal-client.xml" relativeToChangelogFile="true"/>
 
-    <!-- Release 2.2 - signupSourceClientId attribute and attribute_label column -->
-    <include file="changesets/2_2_release/user_attributes_data.xml" relativeToChangelogFile="true"/>
+    <!-- Release 1.6 - signupSourceClientId attribute and attribute_label column -->
+    <include file="changesets/1_6_release/user_attributes_data.xml" relativeToChangelogFile="true"/>
+
+    <!-- Release 1.6 - UIDAM portal client -->
+    <include file="changesets/1_6_release/uidam-portal-client.xml" relativeToChangelogFile="true"/>
+
+    <!-- Release 1.6 - Data Archival & Retention Framework -->
+    <include file="changesets/1_6_release/add-archival-retention-config.xml" relativeToChangelogFile="true" />
+    <include file="changesets/1_6_release/add-archival-stored-procedures.xml" relativeToChangelogFile="true" />
 
 </databaseChangeLog>
