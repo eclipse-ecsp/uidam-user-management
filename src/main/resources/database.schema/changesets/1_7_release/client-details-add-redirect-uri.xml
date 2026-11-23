@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!-- runAlways/runOnChange: the URI is deployment-supplied, so it must still be applied when it is
+         configured (or changed) after the first deployment. The WHERE clause keeps the update idempotent. -->
+    <changeSet id="client-details-append-uidam-portal-redirect-uri-1-7" author="System" runAlways="true" runOnChange="true">
+        <!-- Skip when the URI is not configured, otherwise the unresolved ${...} placeholder would be appended -->
+        <preConditions onFail="MARK_RAN">
+            <changeLogPropertyDefined property="uidam.portal.redirect.uri"/>
+        </preConditions>
+        <comment>Append the deployment-configured redirect URI to the uidam-portal client</comment>
+
+        <update tableName="client_details" schemaName="${schema}">
+            <column name="REDIRECT_URI"
+                    valueComputed="CASE WHEN COALESCE(REDIRECT_URI, '') = '' THEN '${uidam.portal.redirect.uri}' ELSE REDIRECT_URI || ',' || '${uidam.portal.redirect.uri}' END"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+            <!-- Substring search (not LIKE) avoids %/_ wildcard false matches -->
+            <where>CLIENT_ID = 'uidam-portal' AND POSITION('${uidam.portal.redirect.uri}' IN COALESCE(REDIRECT_URI, '')) = 0</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>
