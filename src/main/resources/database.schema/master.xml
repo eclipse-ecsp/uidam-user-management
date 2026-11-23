@@ -42,4 +42,7 @@
     <include file="changesets/1_6_release/add-archival-retention-config.xml" relativeToChangelogFile="true" />
     <include file="changesets/1_6_release/add-archival-stored-procedures.xml" relativeToChangelogFile="true" />
 
+    <!-- Release 1.7 - Append configurable uidam-portal OAuth2 redirect URI to client_details -->
+    <include file="changesets/1_7_release/client-details-add-redirect-uri.xml" relativeToChangelogFile="true" />
+
 </databaseChangeLog>

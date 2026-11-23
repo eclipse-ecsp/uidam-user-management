@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.core.env.Environment;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -746,6 +748,110 @@ class LiquibaseConfigTest {
             assertNull(params.get("token.action"));
             assertNull(params.get("audit.action"));
             assertNull(params.get("soft_delete_data.action"));
+        }
+    }
+
+    /**
+     * Mirrors {@code LiquibaseConfig.addUidamPortalRedirectUriParameter} locally for the same reason
+     * as {@link ArchivalLiquibaseParametersTest}: the real {@link LiquibaseConfig} is shadowed by a
+     * test-only {@code @Profile("test")} stub and cannot be instantiated here.
+     */
+    @Nested
+    class UidamPortalRedirectUriParameterTest {
+
+        private static final String REDIRECT_URI_KEY = "uidam.portal.redirect.uri";
+
+        private final MultiTenantProperties multiTenantProperties = mock(MultiTenantProperties.class);
+        private final Environment environment = mock(Environment.class);
+
+        /**
+         * Reproduces LiquibaseConfig#addUidamPortalRedirectUriParameter: the tenant-specific environment
+         * value wins, otherwise the MultiTenantProperties bean; "ChangeMe" is treated as unset in both.
+         */
+        private Map<String, String> resolveRedirectUriParams(String tenantId) {
+            Map<String, String> params = new java.util.HashMap<>();
+            String redirectUri = resolveEnvValue(
+                    "tenants.profile." + tenantId + ".liquibase.parameters.uidam-portal-redirect-uri");
+            if (redirectUri == null) {
+                UserManagementTenantProperties tenant = multiTenantProperties.getTenantProperties(tenantId);
+                if (tenant != null && tenant.getLiquibase() != null && tenant.getLiquibase().getParameters() != null) {
+                    String beanValue = tenant.getLiquibase().getParameters().getUidamPortalRedirectUri();
+                    redirectUri = "ChangeMe".equals(beanValue) ? null : beanValue;
+                }
+            }
+            if (redirectUri != null && !redirectUri.trim().isEmpty()) {
+                params.put(REDIRECT_URI_KEY, redirectUri);
+            }
+            return params;
+        }
+
+        /** Mirrors LiquibaseConfig#getPropertyFromEnvironment: null/blank/"ChangeMe" all resolve to null. */
+        private String resolveEnvValue(String propertyKey) {
+            String value = environment.getProperty(propertyKey);
+            if (value == null || value.trim().isEmpty() || "ChangeMe".equals(value)) {
+                return null;
+            }
+            return value;
+        }
+
+        private void givenEnvRedirectUri(String tenantId, String value) {
+            when(environment.getProperty("tenants.profile." + tenantId
+                    + ".liquibase.parameters.uidam-portal-redirect-uri")).thenReturn(value);
+        }
+
+        private void givenBeanRedirectUri(String tenantId, String value) {
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties beanParams =
+                    new UserManagementTenantProperties.LiquibaseProperties.ParametersProperties();
+            beanParams.setUidamPortalRedirectUri(value);
+            UserManagementTenantProperties.LiquibaseProperties liquibase =
+                    new UserManagementTenantProperties.LiquibaseProperties();
+            liquibase.setParameters(beanParams);
+            UserManagementTenantProperties tenantProps = new UserManagementTenantProperties();
+            tenantProps.setLiquibase(liquibase);
+            when(multiTenantProperties.getTenantProperties(tenantId)).thenReturn(tenantProps);
+        }
+
+        @Test
+        void environmentValue_winsOverBean() {
+            givenEnvRedirectUri("tenant1", "https://env.example.com/auth/callback");
+            givenBeanRedirectUri("tenant1", "https://bean.example.com/auth/callback");
+
+            assertEquals("https://env.example.com/auth/callback",
+                    resolveRedirectUriParams("tenant1").get(REDIRECT_URI_KEY));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"   ", "ChangeMe"})
+        void blankOrChangeMeEnvironmentValue_fallsBackToBean(String envValue) {
+            givenEnvRedirectUri("tenant2", envValue);
+            givenBeanRedirectUri("tenant2", "https://bean.example.com/auth/callback");
+
+            assertEquals("https://bean.example.com/auth/callback",
+                    resolveRedirectUriParams("tenant2").get(REDIRECT_URI_KEY));
+        }
+
+        @Test
+        void changeMeInBean_isNotPassedToLiquibase() {
+            givenBeanRedirectUri("tenant3", "ChangeMe");
+
+            assertNull(resolveRedirectUriParams("tenant3").get(REDIRECT_URI_KEY));
+        }
+
+        @Test
+        void noSourceConfigured_leavesParameterUndefined() {
+            assertTrue(resolveRedirectUriParams("tenant4").isEmpty());
+        }
+
+        @Test
+        void propertyKey_bindsToTenantPropertiesField() {
+            Binder binder = new Binder(new MapConfigurationPropertySource(
+                    Map.of("params.uidam-portal-redirect-uri", "https://portal.example.com/auth/callback")));
+
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties bound = binder
+                    .bind("params", UserManagementTenantProperties.LiquibaseProperties.ParametersProperties.class)
+                    .get();
+
+            assertEquals("https://portal.example.com/auth/callback", bound.getUidamPortalRedirectUri());
         }
     }
 }
