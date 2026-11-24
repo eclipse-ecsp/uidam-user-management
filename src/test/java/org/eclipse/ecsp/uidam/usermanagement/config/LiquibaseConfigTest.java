@@ -18,6 +18,12 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import liquibase.Contexts;
+import liquibase.LabelExpression;
+import liquibase.Liquibase;
+import liquibase.database.core.H2Database;
+import liquibase.database.jvm.JdbcConnection;
+import liquibase.resource.ClassLoaderResourceAccessor;
 import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
@@ -25,12 +31,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.core.env.Environment;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.Map;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -48,6 +61,57 @@ import static org.mockito.Mockito.when;
  * since multitenancy requires full Spring context initialization.
  */
 class LiquibaseConfigTest {
+
+    private static final int SCOPES_PARAMETER_INDEX = 2;
+
+    @ParameterizedTest
+    @CsvSource(value = {
+        "NULL|OAuth2ClientMgmt",
+        "''|OAuth2ClientMgmt",
+        "ViewUsers|ViewUsers,OAuth2ClientMgmt",
+        "ViewUsers,OAuth2ClientMgmt|ViewUsers,OAuth2ClientMgmt",
+        "'ViewUsers, OAuth2ClientMgmt '| 'ViewUsers, OAuth2ClientMgmt '",
+        "OAuth2ClientMgmtExtra|OAuth2ClientMgmtExtra,OAuth2ClientMgmt"
+    }, delimiter = '|', nullValues = "NULL", ignoreLeadingAndTrailingWhitespace = true)
+    void portalScopeMigration_preservesScopesAndAvoidsDuplicates(String initialScopes, String expectedScopes)
+            throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL");
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA uidam");
+            statement.execute("CREATE TABLE uidam.client_details (CLIENT_ID VARCHAR PRIMARY KEY,"
+                    + " SCOPES VARCHAR, UPDATED_BY VARCHAR, UPDATE_DATE TIMESTAMP)");
+            try (PreparedStatement insert = connection.prepareStatement(
+                    "INSERT INTO uidam.client_details (CLIENT_ID, SCOPES) VALUES (?, ?)")) {
+                insert.setString(1, "uidam-portal");
+                insert.setString(SCOPES_PARAMETER_INDEX, initialScopes);
+                insert.executeUpdate();
+                insert.setString(1, "other-client");
+                insert.setString(SCOPES_PARAMETER_INDEX, "ViewUsers");
+                insert.executeUpdate();
+            }
+            H2Database database = new H2Database();
+            database.setConnection(new JdbcConnection(connection));
+            try (Liquibase liquibase = new Liquibase("database.schema/changesets/1_7_release/"
+                    + "client-details-add-oauth2-client-mgmt-scope.xml",
+                    new ClassLoaderResourceAccessor(), database)) {
+                liquibase.setChangeLogParameter("schema", "uidam");
+                liquibase.setChangeLogParameter("now", "2026-11-23 00:00:00");
+                liquibase.update(new Contexts(), new LabelExpression());
+                liquibase.update(new Contexts(), new LabelExpression());
+                try (ResultSet rows = statement.executeQuery(
+                        "SELECT CLIENT_ID, SCOPES FROM uidam.client_details ORDER BY CLIENT_ID")) {
+                    assertTrue(rows.next());
+                    assertEquals("other-client", rows.getString("CLIENT_ID"));
+                    assertEquals("ViewUsers", rows.getString("SCOPES"));
+                    assertTrue(rows.next());
+                    assertEquals("uidam-portal", rows.getString("CLIENT_ID"));
+                    assertEquals(expectedScopes, rows.getString("SCOPES"));
+                    assertFalse(rows.next());
+                }
+            }
+        }
+    }
 
     @AfterEach
     void tearDown() {
