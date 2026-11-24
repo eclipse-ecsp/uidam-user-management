@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="client-details-add-uidam-portal-oauth2-client-mgmt-scope-1-7" author="System">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM ${schema}.client_details WHERE CLIENT_ID = 'uidam-portal'
+            </sqlCheck>
+        </preConditions>
+        <comment>Add OAuth2ClientMgmt to uidam-portal without replacing existing scopes or adding duplicates</comment>
+        <update tableName="client_details" schemaName="${schema}">
+            <column name="SCOPES"
+                    valueComputed="CASE WHEN TRIM(COALESCE(SCOPES, '')) = '' THEN 'OAuth2ClientMgmt' ELSE SCOPES || ',OAuth2ClientMgmt' END"/>
+            <column name="UPDATED_BY" value="system"/>
+            <column name="UPDATE_DATE" value="${now}"/>
+            <where>CLIENT_ID = 'uidam-portal' AND POSITION(',OAuth2ClientMgmt,' IN ',' || REPLACE(COALESCE(SCOPES, ''), ' ', '') || ',') = 0</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

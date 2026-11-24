@@ -45,4 +45,7 @@
     <!-- Release 1.7 - Append configurable uidam-portal OAuth2 redirect URI to client_details -->
     <include file="changesets/1_7_release/client-details-add-redirect-uri.xml" relativeToChangelogFile="true" />
 
+    <!-- Release 1.7 - Grant OAuth2 client management to the UIDAM portal -->
+    <include file="changesets/1_7_release/client-details-add-oauth2-client-mgmt-scope.xml" relativeToChangelogFile="true" />
+
 </databaseChangeLog>
