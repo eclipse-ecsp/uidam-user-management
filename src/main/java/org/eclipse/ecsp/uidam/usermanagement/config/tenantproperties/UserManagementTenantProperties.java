@@ -117,6 +117,7 @@ public class UserManagementTenantProperties {
             private String initialDataClientSecret;
             private String initialDataUserSalt;
             private String initialDataUserPwd;
+            private String uidamPortalRedirectUri;
             private String tokenAction;
             private String tokenRunIntervalDays;
             private String tokenRetentionDays;

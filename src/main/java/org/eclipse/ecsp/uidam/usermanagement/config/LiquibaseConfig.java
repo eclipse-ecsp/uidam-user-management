@@ -344,6 +344,7 @@ public class LiquibaseConfig {
         liquibaseParams.put("schema", schemaName);
 
         addInitialDataLiquibaseParameters(tenantId, liquibaseParams);
+        addUidamPortalRedirectUriParameter(tenantId, liquibaseParams);
 
         // Data Archival & Retention Framework parameters (token / audit / soft-delete-data jobs)
         addArchivalLiquibaseParameters(tenantId, liquibaseParams);
@@ -396,6 +397,28 @@ public class LiquibaseConfig {
         putAndLog(liquibaseParams, tenantId, "initial.data.user.salt", params.getInitialDataUserSalt());
         putAndLog(liquibaseParams, tenantId, "initial.data.user.pwd", params.getInitialDataUserPwd());
         LOGGER.info("Loaded Liquibase parameters from MultiTenantProperties bean for tenant {}", tenantId);
+    }
+
+    /**
+     * Adds the uidam-portal redirect URI parameter, resolved independently of the initial-data
+     * secrets so that configuring it never changes how those secrets are sourced. Prefers the
+     * tenant-specific environment value, then the MultiTenantProperties bean; the "ChangeMe"
+     * sentinel is treated as unset in both, so the 1.7 changeset is skipped instead of appending it.
+     *
+     * @param tenantId the tenant identifier
+     * @param liquibaseParams the Liquibase parameter map to update
+     */
+    private void addUidamPortalRedirectUriParameter(String tenantId, Map<String, String> liquibaseParams) {
+        String redirectUri = getPropertyFromEnvironment(
+                "tenants.profile." + tenantId + ".liquibase.parameters.uidam-portal-redirect-uri");
+        if (redirectUri == null) {
+            UserManagementTenantProperties tenant = multiTenantProperties.getTenantProperties(tenantId);
+            if (tenant != null && tenant.getLiquibase() != null && tenant.getLiquibase().getParameters() != null) {
+                String beanValue = tenant.getLiquibase().getParameters().getUidamPortalRedirectUri();
+                redirectUri = "ChangeMe".equals(beanValue) ? null : beanValue;
+            }
+        }
+        putAndLog(liquibaseParams, tenantId, "uidam.portal.redirect.uri", redirectUri);
     }
 
     /**

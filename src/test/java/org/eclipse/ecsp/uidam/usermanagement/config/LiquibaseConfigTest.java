@@ -18,6 +18,12 @@
 
 package org.eclipse.ecsp.uidam.usermanagement.config;
 
+import liquibase.Contexts;
+import liquibase.LabelExpression;
+import liquibase.Liquibase;
+import liquibase.database.core.H2Database;
+import liquibase.database.jvm.JdbcConnection;
+import liquibase.resource.ClassLoaderResourceAccessor;
 import org.eclipse.ecsp.sql.multitenancy.TenantContext;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.MultiTenantProperties;
 import org.eclipse.ecsp.uidam.usermanagement.config.tenantproperties.UserManagementTenantProperties;
@@ -25,10 +31,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.core.env.Environment;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.Map;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -46,6 +61,57 @@ import static org.mockito.Mockito.when;
  * since multitenancy requires full Spring context initialization.
  */
 class LiquibaseConfigTest {
+
+    private static final int SCOPES_PARAMETER_INDEX = 2;
+
+    @ParameterizedTest
+    @CsvSource(value = {
+        "NULL|OAuth2ClientMgmt",
+        "''|OAuth2ClientMgmt",
+        "ViewUsers|ViewUsers,OAuth2ClientMgmt",
+        "ViewUsers,OAuth2ClientMgmt|ViewUsers,OAuth2ClientMgmt",
+        "'ViewUsers, OAuth2ClientMgmt '| 'ViewUsers, OAuth2ClientMgmt '",
+        "OAuth2ClientMgmtExtra|OAuth2ClientMgmtExtra,OAuth2ClientMgmt"
+    }, delimiter = '|', nullValues = "NULL", ignoreLeadingAndTrailingWhitespace = true)
+    void portalScopeMigration_preservesScopesAndAvoidsDuplicates(String initialScopes, String expectedScopes)
+            throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL");
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA uidam");
+            statement.execute("CREATE TABLE uidam.client_details (CLIENT_ID VARCHAR PRIMARY KEY,"
+                    + " SCOPES VARCHAR, UPDATED_BY VARCHAR, UPDATE_DATE TIMESTAMP)");
+            try (PreparedStatement insert = connection.prepareStatement(
+                    "INSERT INTO uidam.client_details (CLIENT_ID, SCOPES) VALUES (?, ?)")) {
+                insert.setString(1, "uidam-portal");
+                insert.setString(SCOPES_PARAMETER_INDEX, initialScopes);
+                insert.executeUpdate();
+                insert.setString(1, "other-client");
+                insert.setString(SCOPES_PARAMETER_INDEX, "ViewUsers");
+                insert.executeUpdate();
+            }
+            H2Database database = new H2Database();
+            database.setConnection(new JdbcConnection(connection));
+            try (Liquibase liquibase = new Liquibase("database.schema/changesets/1_7_release/"
+                    + "client-details-add-oauth2-client-mgmt-scope.xml",
+                    new ClassLoaderResourceAccessor(), database)) {
+                liquibase.setChangeLogParameter("schema", "uidam");
+                liquibase.setChangeLogParameter("now", "2026-11-23 00:00:00");
+                liquibase.update(new Contexts(), new LabelExpression());
+                liquibase.update(new Contexts(), new LabelExpression());
+                try (ResultSet rows = statement.executeQuery(
+                        "SELECT CLIENT_ID, SCOPES FROM uidam.client_details ORDER BY CLIENT_ID")) {
+                    assertTrue(rows.next());
+                    assertEquals("other-client", rows.getString("CLIENT_ID"));
+                    assertEquals("ViewUsers", rows.getString("SCOPES"));
+                    assertTrue(rows.next());
+                    assertEquals("uidam-portal", rows.getString("CLIENT_ID"));
+                    assertEquals(expectedScopes, rows.getString("SCOPES"));
+                    assertFalse(rows.next());
+                }
+            }
+        }
+    }
 
     @AfterEach
     void tearDown() {
@@ -746,6 +812,110 @@ class LiquibaseConfigTest {
             assertNull(params.get("token.action"));
             assertNull(params.get("audit.action"));
             assertNull(params.get("soft_delete_data.action"));
+        }
+    }
+
+    /**
+     * Mirrors {@code LiquibaseConfig.addUidamPortalRedirectUriParameter} locally for the same reason
+     * as {@link ArchivalLiquibaseParametersTest}: the real {@link LiquibaseConfig} is shadowed by a
+     * test-only {@code @Profile("test")} stub and cannot be instantiated here.
+     */
+    @Nested
+    class UidamPortalRedirectUriParameterTest {
+
+        private static final String REDIRECT_URI_KEY = "uidam.portal.redirect.uri";
+
+        private final MultiTenantProperties multiTenantProperties = mock(MultiTenantProperties.class);
+        private final Environment environment = mock(Environment.class);
+
+        /**
+         * Reproduces LiquibaseConfig#addUidamPortalRedirectUriParameter: the tenant-specific environment
+         * value wins, otherwise the MultiTenantProperties bean; "ChangeMe" is treated as unset in both.
+         */
+        private Map<String, String> resolveRedirectUriParams(String tenantId) {
+            Map<String, String> params = new java.util.HashMap<>();
+            String redirectUri = resolveEnvValue(
+                    "tenants.profile." + tenantId + ".liquibase.parameters.uidam-portal-redirect-uri");
+            if (redirectUri == null) {
+                UserManagementTenantProperties tenant = multiTenantProperties.getTenantProperties(tenantId);
+                if (tenant != null && tenant.getLiquibase() != null && tenant.getLiquibase().getParameters() != null) {
+                    String beanValue = tenant.getLiquibase().getParameters().getUidamPortalRedirectUri();
+                    redirectUri = "ChangeMe".equals(beanValue) ? null : beanValue;
+                }
+            }
+            if (redirectUri != null && !redirectUri.trim().isEmpty()) {
+                params.put(REDIRECT_URI_KEY, redirectUri);
+            }
+            return params;
+        }
+
+        /** Mirrors LiquibaseConfig#getPropertyFromEnvironment: null/blank/"ChangeMe" all resolve to null. */
+        private String resolveEnvValue(String propertyKey) {
+            String value = environment.getProperty(propertyKey);
+            if (value == null || value.trim().isEmpty() || "ChangeMe".equals(value)) {
+                return null;
+            }
+            return value;
+        }
+
+        private void givenEnvRedirectUri(String tenantId, String value) {
+            when(environment.getProperty("tenants.profile." + tenantId
+                    + ".liquibase.parameters.uidam-portal-redirect-uri")).thenReturn(value);
+        }
+
+        private void givenBeanRedirectUri(String tenantId, String value) {
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties beanParams =
+                    new UserManagementTenantProperties.LiquibaseProperties.ParametersProperties();
+            beanParams.setUidamPortalRedirectUri(value);
+            UserManagementTenantProperties.LiquibaseProperties liquibase =
+                    new UserManagementTenantProperties.LiquibaseProperties();
+            liquibase.setParameters(beanParams);
+            UserManagementTenantProperties tenantProps = new UserManagementTenantProperties();
+            tenantProps.setLiquibase(liquibase);
+            when(multiTenantProperties.getTenantProperties(tenantId)).thenReturn(tenantProps);
+        }
+
+        @Test
+        void environmentValue_winsOverBean() {
+            givenEnvRedirectUri("tenant1", "https://env.example.com/auth/callback");
+            givenBeanRedirectUri("tenant1", "https://bean.example.com/auth/callback");
+
+            assertEquals("https://env.example.com/auth/callback",
+                    resolveRedirectUriParams("tenant1").get(REDIRECT_URI_KEY));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"   ", "ChangeMe"})
+        void blankOrChangeMeEnvironmentValue_fallsBackToBean(String envValue) {
+            givenEnvRedirectUri("tenant2", envValue);
+            givenBeanRedirectUri("tenant2", "https://bean.example.com/auth/callback");
+
+            assertEquals("https://bean.example.com/auth/callback",
+                    resolveRedirectUriParams("tenant2").get(REDIRECT_URI_KEY));
+        }
+
+        @Test
+        void changeMeInBean_isNotPassedToLiquibase() {
+            givenBeanRedirectUri("tenant3", "ChangeMe");
+
+            assertNull(resolveRedirectUriParams("tenant3").get(REDIRECT_URI_KEY));
+        }
+
+        @Test
+        void noSourceConfigured_leavesParameterUndefined() {
+            assertTrue(resolveRedirectUriParams("tenant4").isEmpty());
+        }
+
+        @Test
+        void propertyKey_bindsToTenantPropertiesField() {
+            Binder binder = new Binder(new MapConfigurationPropertySource(
+                    Map.of("params.uidam-portal-redirect-uri", "https://portal.example.com/auth/callback")));
+
+            UserManagementTenantProperties.LiquibaseProperties.ParametersProperties bound = binder
+                    .bind("params", UserManagementTenantProperties.LiquibaseProperties.ParametersProperties.class)
+                    .get();
+
+            assertEquals("https://portal.example.com/auth/callback", bound.getUidamPortalRedirectUri());
         }
     }
 }
